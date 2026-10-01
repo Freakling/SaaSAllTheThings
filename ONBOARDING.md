@@ -7,6 +7,7 @@ The human makes every product, stack and ownership decision; you gather, propose
 `$SATT` below is the SaaSAllTheThings folder:
 - With the Claude Code plugin, it's `${CLAUDE_PLUGIN_ROOT}`.
 - With a manual install, it's the folder this file is in, usually `SaaSAllTheThings/` inside the app.
+- With the skill installed by `npx skills add`, it's the temporary clone the skill made, outside the app.
 
 ## 1. Preconditions and mode
 1. **Git.** The project must be a git repository. If it isn't, ask to run `git init`.
@@ -116,7 +117,7 @@ If the capabilities aren't decided yet, leave the placeholders, and add an agent
    - If the check passes, run `bash tools/setup-clone.sh`, which installs it.
    - If the check fails or can't run, leave the hook off and add an item: "Install the pre-commit hook once the check passes (`bash tools/setup-clone.sh`)".
    - If setup-clone exits 4, tell the human what it printed (an existing hook or `core.hooksPath` needs a manual line).
-7. **Manual install:** offer to delete the SaaSAllTheThings folder from the app. Deleting it is recommended, since upgrades come from a fresh download or the plugin. If the human keeps it, leave it in `.git/info/exclude`.
+7. **A temporary clone from the skill:** delete it. **Manual install:** offer to delete the SaaSAllTheThings folder from the app. Deleting it is recommended, since upgrades come from a fresh download or the plugin. If the human keeps it, leave it in `.git/info/exclude`.
 8. **Offer a "Development" section for the app's README:** clone, then `bash tools/setup-clone.sh`, then the commands.
 9. **Tell the human:**
    - what needs their confirmation (inferred PRD text, open questions, `Decide:` items, human items);

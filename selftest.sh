@@ -47,6 +47,25 @@ echo "framework"
 plugin_version="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$src/.claude-plugin/plugin.json")"
 [ "$plugin_version" = "$(tr -d '\r\n' < "$src/VERSION")" ] && ok "plugin.json version matches VERSION" \
   || bad "plugin.json version ($plugin_version) matches VERSION ($(cat "$src/VERSION"))"
+version="$(tr -d '\r\n' < "$src/VERSION")"
+for skill in "$src"/skills/*/SKILL.md; do
+  folder="${skill%/SKILL.md}"; folder="${folder##*/}"
+  name=""; description=""; skill_version=""; branch=""; angle=0; dashes=0
+  while IFS= read -r line; do
+    [ "$line" = "---" ] && { dashes=$((dashes + 1)); continue; }
+    if [ "$dashes" -eq 1 ]; then
+      case "$line" in *'<'*|*'>'*) angle=1 ;; esac
+      case "$line" in name:\ *) name="${line#name: }" ;; description:\ *) description="${line#description: }" ;; *version:\ *) skill_version="${line##*version: }" ;; esac
+    fi
+    [[ $line =~ --branch[[:space:]]+v([0-9.]+) ]] && branch="${BASH_REMATCH[1]}"
+  done < "$skill"
+  [[ $name =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] && [ "$name" = "$folder" ] && [[ ! $name =~ claude|anthropic ]] \
+    && ok "the public skill $folder is named after its folder, in lowercase with hyphens" || bad "skill $folder is named '$name'"
+  [ "$angle" -eq 0 ] && [ -n "$description" ] && [ "${#description}" -lt 1024 ] \
+    && ok "its frontmatter has a description under 1024 characters and no < or >" || bad "skill $folder's frontmatter (description ${#description} characters, angle brackets: $angle)"
+  [ "$skill_version" = "$version" ] && [ "$branch" = "$version" ] \
+    && ok "its metadata.version and the release it clones match VERSION" || bad "skill $folder: version '$skill_version', clones v$branch, VERSION is $version"
+done
 cmp -s "$src/LICENSE" "$src/framework/.satt/LICENSE" && ok "the installed LICENSE copy matches LICENSE" \
   || bad "framework/.satt/LICENSE differs from LICENSE"
 missing=""

@@ -1,10 +1,10 @@
-![alt text](image.png)
+!["All the things" meme: an excited cartoon figure raises a fist against a yellow burst, captioned "SaaS ALL THE THINGS"](image.png)
 
 # SaaSAllTheThings
 
 **Turn your app into a multi-tenant SaaS on Azure: the AI does the building, the framework holds the architecture, and you own the product.**
 
-In your app it's `.satt/` for short (SaaS All The Things), and the setup command is `/saasallthethings:setup`.
+In your app it's `.satt/` for short (SaaS All The Things), and the setup command is `/saasallthethings:saas-all-the-things`.
 
 A workflow for new apps and apps already in production. You decide the product, the priorities and which customers and integrations come first. The framework decides the architecture: an event-driven Azure Functions backend, separate Windows and mobile clients, OIDC sign-in with federated identity, pooled multi-tenancy that can move a tenant to its own deployment later, and enterprise integrations starting with Navision (Dynamics NAV / Business Central). The AI builds within that architecture, tests and keeps the records. Built for Claude Code, and usable with any AI coding assistant that reads `AGENTS.md`. Everything lives in your app's own git repository.
 
@@ -38,11 +38,19 @@ Your app needs git (`git init` if it has none) and no uncommitted changes. You a
 /plugin install saasallthethings@saasallthethings
 ```
 
-Then open a new Claude Code session in your app's folder (or run `/reload-plugins`), and run `/saasallthethings:setup`.
+Then open a new Claude Code session in your app's folder (or run `/reload-plugins`), and run `/saasallthethings:saas-all-the-things`.
 
 **Option 2: manual install.** Put this repository in your app's root folder as a folder named `SaaSAllTheThings`: run `git clone https://github.com/Freakling/SaaSAllTheThings.git SaaSAllTheThings` there, or download the zip and rename the extracted folder. Then ask your assistant:
 
 > Read SaaSAllTheThings/ONBOARDING.md and follow it to install SaaSAllTheThings into this project.
+
+**Option 3: the skills CLI** (any assistant that reads skills):
+
+```
+npx skills add Freakling/SaaSAllTheThings
+```
+
+Then ask your assistant to "SaaS all the things" in your app's folder. The skill clones this repository's matching release into a temporary folder outside your app, and follows ONBOARDING.md from there.
 
 Either way, onboarding works out whether this is a new app, an existing app or an upgrade. It then:
 1. installs the files;
@@ -56,8 +64,9 @@ Afterwards, restart Claude Code so the new commands load. Each new clone of the 
 **With another AI assistant:** tell onboarding, and it installs the tool-neutral core only (`--tools none`). Your assistant reads `AGENTS.md`, which points it to `.satt/rules.md` and the procedures. The check and the git hook work the same for every tool, and for you.
 
 ### Upgrade
-- **Plugin:** run `/plugin marketplace update saasallthethings` and then `/plugin update saasallthethings@saasallthethings`. Start a new session in the app and run `/saasallthethings:setup` again.
+- **Plugin:** run `/plugin marketplace update saasallthethings` and then `/plugin update saasallthethings@saasallthethings`. Start a new session in the app and run `/saasallthethings:saas-all-the-things` again.
 - **Manual:** put the new SaaSAllTheThings folder in the app, and ask for ONBOARDING.md again.
+- **Skills CLI:** run `npx skills add Freakling/SaaSAllTheThings` again, then ask for the upgrade.
 
 Only the framework's own files are replaced, and your edits to them are kept. When a new version also changes a file you edited, the new version is written next to it as `<file>.satt-new` for you to merge.
 
@@ -180,7 +189,7 @@ The full rules are in `.satt/rules.md`, and the assistant reads them every sessi
 | `install.sh` | copies the files deterministically, keeps your edits, writes a manifest (`--tools claude\|none`) |
 | `framework/` | installed into each app: the tool-neutral core, plus `.claude/` for Claude Code |
 | `project/` | seeds for the app's own files, copied only when missing |
-| `.claude-plugin/`, `skills/setup/` | the Claude Code plugin (`/saasallthethings:setup`) |
+| `.claude-plugin/`, `skills/saas-all-the-things/` | the Claude Code plugin (`/saasallthethings:saas-all-the-things`), and the same skill for the skills CLI (`npx skills add`) |
 | `examples/order-desk/` | a small app that uses the workflow: a worked example, and the self-test's fixture |
 | `examples/scenarios.md` | prompts to try after changing the framework, to check that behaviour still holds |
 | `selftest.sh` | tests the installer, the architecture check and the hooks (`bash selftest.sh`) |
