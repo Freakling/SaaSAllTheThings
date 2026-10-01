@@ -21,7 +21,7 @@ Every SaaSAllTheThings project goes through the same stages, so any session know
 Stages 4–6 can overlap once stage 3 is done. The human may reorder them; file order in the table is their priority.
 
 ## Plan
-1. **Read** TASKS.md › Milestones and the queue, PRD › Capabilities, Clients and Integrations, `AGENTS.md` › Layout and Architecture, and the ADRs' titles and statuses.
+1. **Read** TASKS.md › Milestones and the queue, PRD › Capabilities, Clients and Integrations, `AGENTS.md` › Layout and Architecture, and the ADRs' titles and statuses. If `assessment/` has an assessment report, read its Roadmap and Target sections: they're the starting point, corrected by everything decided since.
 2. **Where are we?** The current stage is the first one not `✅`. Say which, and what's left in it.
 3. **Write items for the current stage and the next one only.** Later stages stay as table rows; they'll be planned with what the earlier ones teach.
    - Follow `.satt/tasks.md`: each item with a Size, `Depends on`, `Touches`, tagged `Done when`, and `PRD:`.

@@ -2,9 +2,17 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## 0.2.0 (2026-10-02)
+
+### Assessment and workshops
+- **`procedures/assess.md`**, with the public skill `saas-assessment` (works before installing: it clones this release) and the in-project skill `/assess`. It analyses an existing app without changing it, asks the human's stack preference, and writes `assessment/YYYY-MM-DD-assessment.md` from `templates/assessment.md`: readiness scored 0–3 with evidence, the target picture (each component's layer: keep, extract, rebuild or retire), the decisions needed as options, the roadmap by stage with rough effort ranges and their confidence, risks, and the workshops to hold.
+- **The workshop playbook** in `.satt/workshops/`, one file per workshop: vision, capabilities, domain and events (event storming), tenancy and identity, integration (one per system, Navision first), clients, architecture, operations and planning. Each has its purpose, participants by role, preparation, a timed agenda, methods, the decisions to reach and where they're recorded. `workshops/README.md` covers the sequence, sizing for small and large apps, how to run a session, and the notes format.
+- **Workshop notes become records:** `assess.md` › Process workshop notes records their decisions in the PRD, ADRs, integration contracts and TASKS.md. Onboarding reuses an assessment and workshop notes instead of asking again; `roadmap.md` starts from the assessment's roadmap; `align.md` reports unprocessed notes.
+- The skills' clone no longer prints git's detached-HEAD advice.
+
 ## 0.1.0 (2026-10-01)
 
-The first version: Claude4Godot 2.0's workflow (records, procedures, the check, hooks, the installer) rebuilt for multi-tenant SaaS on Azure, with an architecture the framework owns.
+The first version: a workflow for building a B2B SaaS from scratch, or turning a proof of concept or an existing app into a mature multi-tenant SaaS on Azure, with an architecture the framework owns and enforces.
 
 ### Authority
 - **The human owns the product; the framework owns the architecture; the AI builds.** The reference architecture is `.satt/reference/`, one topic per file: layers, tenancy, identity, messaging, data, API, clients, integrations, infrastructure, cost, observability, stacks.

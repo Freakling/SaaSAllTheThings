@@ -93,13 +93,15 @@ while IFS="$(printf '\t')" read -r doc ref; do
     rules.md|tasks.md) [ -f "$src/framework/.satt/$ref" ] || missing="$missing ${doc##*/}→$ref" ;;
     *) [ -f "$src/framework/.satt/procedures/$ref" ] && continue
        [ -f "$src/framework/.satt/reference/$ref" ] && continue
+       [ -f "$src/framework/.satt/workshops/$ref" ] && continue
+       [ -f "$src/framework/.satt/templates/$ref" ] && continue
        case "$other" in *" $ref "*) ;; *) missing="$missing ${doc##*/}→$ref" ;; esac ;;
   esac
 done < <(awk '{ s = " " $0
     while (match(s, /[^A-Za-z0-9_.*-](reference\/)?[a-z-]+\.md/)) {
       r = substr(s, RSTART + 1, RLENGTH - 1); if (!seen[FILENAME, r]++) print FILENAME "\t" r; s = substr(s, RSTART + RLENGTH)
     } }' \
-  "$src"/framework/.satt/rules.md "$src"/framework/.satt/procedures/*.md "$src"/framework/.satt/reference/*.md \
+  "$src"/framework/.satt/rules.md "$src"/framework/.satt/procedures/*.md "$src"/framework/.satt/reference/*.md "$src"/framework/.satt/workshops/*.md \
   "$src"/project/TASKS.md "$src/ONBOARDING.md")
 [ -z "$missing" ] && ok "rules, procedures and reference topics only point to files that exist" || bad "dangling references:$missing"
 missing=""

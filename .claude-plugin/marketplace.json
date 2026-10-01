@@ -1,12 +1,12 @@
 {
   "name": "saasallthethings",
-  "description": "The SaaSAllTheThings workflow: make any app a multi-tenant SaaS on Azure.",
+  "description": "Build a B2B SaaS from scratch, or turn a proof of concept or existing app into a mature, multi-tenant SaaS on Azure.",
   "owner": { "name": "Freakling" },
   "plugins": [
     {
       "name": "saasallthethings",
       "source": "./",
-      "description": "Installs and upgrades the SaaSAllTheThings workflow in an app."
+      "description": "Assesses an app for the move to SaaS, and installs and upgrades the SaaSAllTheThings workflow."
     }
   ]
 }

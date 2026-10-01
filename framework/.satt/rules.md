@@ -5,6 +5,7 @@ only through an accepted ADR (see Who decides). -->
 
 These rules apply to any AI assistant working in this project. For each of these requests, follow the procedure in `.satt/procedures/`:
 - **next-task.md:** do the next task(s), or a named item (T12, B3). The build itself is `build.md`.
+- **assess.md:** assess the app for the move to SaaS (readiness, roadmap, the workshops and how to run them), or process workshop notes.
 - **roadmap.md:** plan the next stage of the roadmap to SaaS, or replan.
 - **product.md:** a product session: capabilities, plans, clients, open questions.
 - **architect.md:** an architecture choice the reference leaves open, or a deviation from it.
@@ -39,6 +40,7 @@ In Claude Code these are also slash commands, and builds and reviews run as the 
 | Which systems, functions and messages exist, and who owns what | `AGENTS.md` › Architecture |
 | How an external system is integrated | `integrations/<system>/contract.md` |
 | Work, bugs, milestones | `TASKS.md` (format: `.satt/tasks.md`; done items: `TASKS-archive.md`) |
+| Assessments and workshop notes | `assessment/`: snapshots. What they decide is recorded in the PRD, ADRs, contracts and TASKS.md (`assess.md` › Process workshop notes). |
 | Settings per environment | `infra/env/<env>.bicepparam` (never secrets) |
 | Settings per tenant | the tenant registry: data, never code or repository files |
 | Secrets | Key Vault, and ideally none (`reference/identity.md` › No secrets) |

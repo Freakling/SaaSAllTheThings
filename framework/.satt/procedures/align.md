@@ -22,7 +22,7 @@ A consistency pass across the PRD, decisions, ADRs, integration contracts, TASKS
    - AGENTS.md › Layout matches `tools/check.cfg` › `[layers]`.
    - `bash tools/check.sh --architecture` passes, and its notes list no stale ADR exceptions and no proposed ADR waiting for longer than a week. Report the count of source files outside any layer; for an existing app each area of them has an Extract item.
    - Every accepted ADR with a temporary deviation has its removal item.
-6. **Decisions.** Spot-check that recent lines in `product/decisions.md` are reflected in the PRD and the integration contracts, and that no older text contradicts them.
+6. **Decisions.** Spot-check that recent lines in `product/decisions.md` are reflected in the PRD and the integration contracts, and that no older text contradicts them. Report workshop notes in `assessment/workshops/` that have no `Processed:` line.
 7. **Undecided values.** Count them with `git grep -n "PLACEHOLDER" -- src infra clients`, and report the number with the files.
 8. **Setup.**
    - `bash tools/check.sh` passes and prints no `note:` about the hook or the toolchain.

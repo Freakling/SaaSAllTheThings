@@ -2,13 +2,16 @@
 
 # SaaSAllTheThings
 
-**Turn your app into a multi-tenant SaaS on Azure: the AI does the building, the framework holds the architecture, and you own the product.**
+**Build a B2B SaaS from scratch, or turn a working proof of concept or an existing app into a mature, modern SaaS, with an AI assistant doing the building.**
+
+Two starting points, one destination: a multi-tenant product that business customers sign in to with their own identity provider, on plans you define, connected to the systems they already run, on an event-driven Azure backend that stays cheap while it's small and grows with use.
+
+- **From scratch:** a short product interview, then the platform is built in small, proven steps, starting with tenancy and sign-in rather than bolting them on later.
+- **From a proof of concept or an existing app:** an assessment first (readiness, roadmap, the workshops to hold), then the app is moved over area by area, behind tests, while it keeps working.
+
+You own the product: what it does, for whom, and in what order. The framework owns the architecture and enforces it: an event-driven Azure Functions backend, separate Windows and mobile clients, OIDC sign-in with federated identity, pooled multi-tenancy that can move a customer to its own deployment later, and enterprise integrations starting with Navision (Dynamics NAV / Business Central). The AI builds within that architecture, tests and keeps the records. Built for Claude Code, and usable with any AI coding assistant that reads `AGENTS.md`. Everything lives in your app's own git repository.
 
 In your app it's `.satt/` for short (SaaS All The Things), and the setup command is `/saasallthethings:saas-all-the-things`.
-
-A workflow for new apps and apps already in production. You decide the product, the priorities and which customers and integrations come first. The framework decides the architecture: an event-driven Azure Functions backend, separate Windows and mobile clients, OIDC sign-in with federated identity, pooled multi-tenancy that can move a tenant to its own deployment later, and enterprise integrations starting with Navision (Dynamics NAV / Business Central). The AI builds within that architecture, tests and keeps the records. Built for Claude Code, and usable with any AI coding assistant that reads `AGENTS.md`. Everything lives in your app's own git repository.
-
-SaaSAllTheThings is [Claude4Godot](https://github.com/Freakling/Claude4Godot)'s workflow applied to SaaS: the same records, procedures, check and hooks, plus an architecture the framework owns.
 
 ## Why
 
@@ -26,6 +29,10 @@ AI writes backend code fast. Without structure, that speed goes wrong in familia
 - **Many files.** One type per file, one function per file, one handler per use case, one Bicep module per resource, one reference topic per file. The check fails source files over the size limits.
 
 ## How to use it
+
+### Assess first (optional)
+
+Not sure yet what it would take? The `saas-assessment` skill analyses an existing app without changing it, and writes a report: how ready the app is (scored, with evidence), the development roadmap by stage with rough effort, the decisions to make, and the workshops to hold, each with participants, preparation, a timed agenda and methods. It asks your stack preference first. Install the skill as below (it comes with the plugin, or `npx skills add Freakling/SaaSAllTheThings`), then ask "what does it take to make this app a SaaS?". The workshops' notes, and the report, feed onboarding later, so nothing is asked twice.
 
 ### Install
 
@@ -76,6 +83,7 @@ Only the framework's own files are replaced, and your edits to them are kept. Wh
 |---|---|
 | "Do the next task" (`/next-task`) | Builds the next ready item (high-severity bugs first), proves it with the check, updates the records, and asks you to approve the commit. |
 | "Do the next 3 tasks", "Work through the queue" | The same, item after item, until one needs you. |
+| "Assess the app", "Which workshops do we need?" (`/assess`) | A read-only assessment report: readiness, the roadmap by stage with rough effort, and the workshops with their agendas. "Process the workshop notes" turns a session's decisions into records. |
 | "Plan the next stage" (`/roadmap`) | Writes the next stage of the roadmap to SaaS as small items. |
 | "Which open questions block development?" (`/product questions`) | Ranks the open product questions by what they unblock, with options and a recommendation for each. |
 | "Let's work out {capability}" (`/product {topic}`) | A product session. Your decisions become PRD text, decision-log lines and task items. |
@@ -126,16 +134,18 @@ your-app/
 ├── product/decisions.md        why: one line per product decision
 ├── adr/                        architecture decision records: choices and accepted deviations
 ├── integrations/<system>/      one contract per external system (written by /integrate)
+├── assessment/                 assessment reports and workshop notes (written by /assess)
 ├── validation/TEMPLATE.md      the feedback template, one section per capability
 ├── tools/check.cfg             the stack, the layers' folders, size limits
 │
 │  the framework's, tool-neutral: updated on upgrade
-├── .satt/rules.md           the workflow rules, loaded through AGENTS.md
-├── .satt/reference/         the reference architecture, one topic per file (the authority)
-├── .satt/procedures/        next-task · build · roadmap · product · architect · integrate · tenant ·
-│                               acceptance · feedback · release · align · prune · review
-├── .satt/templates/         ADR and integration contract templates
-├── .satt/tasks.md           the TASKS.md item format
+├── .satt/rules.md              the workflow rules, loaded through AGENTS.md
+├── .satt/reference/            the reference architecture, one topic per file (the authority)
+├── .satt/procedures/           next-task · build · assess · roadmap · product · architect · integrate ·
+│                               tenant · acceptance · feedback · release · align · prune · review
+├── .satt/templates/            ADR, integration contract and assessment templates
+├── .satt/workshops/            the workshop playbook: one file per workshop, agendas and methods
+├── .satt/tasks.md              the TASKS.md item format
 ├── tools/check.sh, archcheck.awk, cfg.sh, stacks/   the check, and one profile per backend stack
 ├── tools/setup-clone.sh        per clone: toolchain, dependencies, the pre-commit hook
 ├── .githooks/pre-commit        runs the check before commits that touch more than docs
@@ -189,7 +199,7 @@ The full rules are in `.satt/rules.md`, and the assistant reads them every sessi
 | `install.sh` | copies the files deterministically, keeps your edits, writes a manifest (`--tools claude\|none`) |
 | `framework/` | installed into each app: the tool-neutral core, plus `.claude/` for Claude Code |
 | `project/` | seeds for the app's own files, copied only when missing |
-| `.claude-plugin/`, `skills/saas-all-the-things/` | the Claude Code plugin (`/saasallthethings:saas-all-the-things`), and the same skill for the skills CLI (`npx skills add`) |
+| `.claude-plugin/`, `skills/` | the Claude Code plugin, and the same skills for the skills CLI (`npx skills add`): `saas-all-the-things` installs, `saas-assessment` assesses an app before installing |
 | `examples/order-desk/` | a small app that uses the workflow: a worked example, and the self-test's fixture |
 | `examples/scenarios.md` | prompts to try after changing the framework, to check that behaviour still holds |
 | `selftest.sh` | tests the installer, the architecture check and the hooks (`bash selftest.sh`) |

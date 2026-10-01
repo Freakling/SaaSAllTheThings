@@ -1,8 +1,8 @@
 {
   "name": "saasallthethings",
   "displayName": "SaaSAllTheThings",
-  "version": "0.1.0",
-  "description": "Installs and upgrades the SaaSAllTheThings workflow in an app: you own the product, the framework owns the architecture (multi-tenant, event-driven Azure Functions, OIDC), the AI builds, and a project check proves it.",
+  "version": "0.2.0",
+  "description": "Build a B2B SaaS from scratch, or turn a working proof of concept or existing app into a mature, multi-tenant SaaS on Azure. You own the product; the framework owns and enforces the architecture (event-driven Azure Functions, OIDC with federated identity, enterprise integrations); the AI builds, and a project check proves it.",
   "author": {
     "name": "Freakling"
   },

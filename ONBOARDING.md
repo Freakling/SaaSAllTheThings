@@ -1,6 +1,6 @@
 # SaaSAllTheThings onboarding (for the AI assistant)
 
-Follow these steps to install SaaSAllTheThings into an app, new or existing, or to upgrade it. Work from a session opened in the app's repository root. You need to be able to run bash; on Windows, Git Bash.
+SaaSAllTheThings builds a B2B SaaS from scratch, or turns a working proof of concept or an existing app into a mature, multi-tenant SaaS. Follow these steps to install it into the app's repository, or to upgrade it. Work from a session opened in the app's repository root. You need to be able to run bash; on Windows, Git Bash.
 
 The human makes every product, stack and ownership decision; you gather, propose and write. Ask choices as multiple-choice questions when your tool supports them, with your recommendation first.
 
@@ -15,8 +15,8 @@ The human makes every product, stack and ownership decision; you gather, propose
 3. **Clean tree.** A new repository with files in it: commit them as they are first, so the install is one reviewable diff. Otherwise there must be no uncommitted changes (apart from the SaaSAllTheThings folder itself); ask the human to commit or stash them first.
 4. **Mode.** Tell the human which mode you detected, and let them confirm:
    - **upgrade:** `.satt/manifest` exists.
-   - **existing app:** source code, without SaaSAllTheThings.
-   - **fresh start:** no source code yet (documents are fine).
+   - **existing app:** source code without SaaSAllTheThings: a proof of concept, or an app in use. It becomes a mature SaaS area by area; an assessment (`.satt/procedures/assess.md`) often comes first.
+   - **fresh start:** no source code yet (documents are fine). The SaaS is built from scratch.
 5. **Assistant adapters.** For a first install, ask which assistants will work on the app. The answer is `claude`, the default, or `none` for other assistants only; the core works through `AGENTS.md`, which most assistants read. An upgrade keeps the earlier choice.
 
 ## 2. Install the files
@@ -55,7 +55,7 @@ Run `bash tools/setup-clone.sh --skip-hook`. It checks the stack's toolchain and
 Then run `bash tools/check.sh` once and keep the result. An existing app often fails at first; that's information, not a blocker. The pre-commit hook is installed at the very end (step 10), so the install commit isn't blocked.
 
 ## 5. Scan the project (read only)
-For an existing app:
+If `assessment/` holds an assessment report (`.satt/procedures/assess.md`), start from it: check that its findings still hold, and scan only what it doesn't cover. Otherwise, for an existing app:
 - **Shape:** projects and folders with file counts; entry points (UIs, APIs, services, scheduled jobs); what talks to what.
 - **Data:** stores and how the code reaches them; whether anything identifies a customer (a tenant column, a database per customer, nothing).
 - **Single-tenant habits:** customer names or ids in code or config, per-customer branches or builds, global state or singletons holding customer data, one connection string for everyone.
@@ -66,6 +66,8 @@ For an existing app:
 - **Tests, docs and TODOs:** existing test suites; README, requirements and design documents; `TODO`, `FIXME` and `HACK` comments, with file and line.
 
 ## 6. Content, by mode
+
+**Workshop notes first.** If `assessment/workshops/` holds notes (`.satt/workshops/README.md` › Notes), their decisions are the human's answers: record them as the interview below would, confirm your reading with the human instead of asking again, and ask only what they leave open. Then mark each file `**Processed:**` as `.satt/procedures/assess.md` › Process workshop notes says.
 
 ### Fresh start
 1. **A short product interview,** in short rounds. For each question, give options with a recommendation and let the human pick:
