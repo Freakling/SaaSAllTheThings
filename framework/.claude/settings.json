@@ -1,0 +1,86 @@
+{
+  "env": {
+    "BASH_DEFAULT_TIMEOUT_MS": "900000",
+    "BASH_MAX_TIMEOUT_MS": "1800000"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(bash tools/check.sh)",
+      "Bash(bash tools/check.sh *)",
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git grep *)",
+      "Bash(git rev-parse *)",
+      "Bash(git add *)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)",
+      "Bash(bicep build *)"
+    ],
+    "ask": [
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git rebase *)",
+      "Bash(git restore *)",
+      "Bash(git checkout -- *)",
+      "Bash(git -c *)",
+      "Bash(git config *)",
+      "Bash(az deployment *)",
+      "Bash(az functionapp *)",
+      "Bash(az ad *)",
+      "Bash(az role *)",
+      "Bash(az keyvault *)",
+      "Bash(az cosmosdb *)",
+      "Bash(az servicebus *)",
+      "Bash(az storage *)",
+      "Bash(azd *)",
+      "Bash(func azure *)"
+    ],
+    "deny": [
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git reset --hard *)",
+      "Bash(git commit --no-verify *)",
+      "Bash(git commit -n *)",
+      "Bash(azd down *)",
+      "Bash(az group delete *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-commands.sh\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-authority.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-check.sh\"",
+            "timeout": 3600
+          }
+        ]
+      }
+    ]
+  }
+}

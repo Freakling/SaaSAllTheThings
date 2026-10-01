@@ -1,0 +1,22 @@
+> **Installing SaaSAllTheThings into an app?** Ignore this file and follow `ONBOARDING.md`. This file is
+> only for working on SaaSAllTheThings itself.
+
+# SaaSAllTheThings (the framework itself)
+
+This repository is SaaSAllTheThings, the workflow that gets installed into apps to make them multi-tenant SaaS on Azure. It is not an app.
+
+- **Templates, not instructions.** `framework/` and `project/` are templates. The rules, reference architecture, procedures, skills, agents and settings in them are the product being edited here: they're instructions for apps, not for this repository, so don't follow them while working on the framework. Claude Code shows `framework/.claude/skills` as nested skills; ignore them here.
+- **What's where.**
+  - `framework/` holds files installed into apps and replaced on upgrade. That's the tool-neutral core (`.satt/`, `tools/`, `.githooks/`, `validation/README.md`) plus one folder per assistant adapter (`.claude/`).
+  - `project/` holds seeds, copied once and then owned by the app.
+  - `.claude-plugin/` and `skills/setup/` make this repository a Claude Code plugin whose only job is running `ONBOARDING.md`.
+  - `examples/order-desk` is a small app that uses the workflow; the self-test runs against it.
+- **One place per rule.** Workflow rules live in `framework/.satt/rules.md`, and architecture rules in `framework/.satt/reference/` (one topic per file). Each procedure lives in `framework/.satt/procedures/`, and the adapters only point at it. Install and upgrade are in `ONBOARDING.md`. If you find a rule copied into a second file, delete the copy and link to the original.
+- **The architecture's rule IDs** (`layers`, `domain-purity`, …) appear in three places that must agree: `reference/README.md` › What the check enforces, `tools/archcheck.awk` (the `rules` list) and `selftest.sh`. A new rule needs all three, and a fault in the self-test that proves it fails.
+- **Tool-neutral core.** Nothing in `.satt/`, `tools/` or `.githooks/` may depend on one assistant. Tool-specific behaviour belongs in that tool's adapter folder.
+- **After any change:**
+  1. Run `bash selftest.sh`. It must pass. Its .NET part runs only where the .NET SDK is installed.
+  2. Add the change to `CHANGELOG.md`, with "Upgrade steps" if apps' own files need changing.
+  3. For a release, bump `VERSION` and `.claude-plugin/plugin.json` together; the self-test checks that they match.
+  4. If the change affects what an app's files look like, update `examples/order-desk` too.
+- **Scripts** must run in Git Bash on Windows, in macOS bash 3.2 with BSD tools, and on Linux. Use `/usr/bin/find`, `/usr/bin/sort` and `/usr/bin/tar` instead of the Windows programs with the same names. Avoid GNU-only flags, `declare -A` and gawk-only awk (no `match()` with an array, no `{n}` intervals in awk regexes, no `ENDFILE`). Keep process starts few, because they're slow on Windows. Keep files LF (see `.gitattributes`).

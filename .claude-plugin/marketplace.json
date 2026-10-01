@@ -1,0 +1,12 @@
+{
+  "name": "saasallthethings",
+  "description": "The SaaSAllTheThings workflow: make any app a multi-tenant SaaS on Azure.",
+  "owner": { "name": "Freakling" },
+  "plugins": [
+    {
+      "name": "saasallthethings",
+      "source": "./",
+      "description": "Installs and upgrades the SaaSAllTheThings workflow in an app."
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OrderDesk.Contracts/OrderDesk.Contracts.csproj" />
+    <Project Path="src/OrderDesk.Domain/OrderDesk.Domain.csproj" />
+    <Project Path="src/OrderDesk.Application/OrderDesk.Application.csproj" />
+    <Project Path="src/OrderDesk.Functions/OrderDesk.Functions.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OrderDesk.Domain.Tests/OrderDesk.Domain.Tests.csproj" />
+    <Project Path="tests/OrderDesk.Application.Tests/OrderDesk.Application.Tests.csproj" />
+  </Folder>
+</Solution>

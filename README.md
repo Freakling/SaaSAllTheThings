@@ -1,0 +1,191 @@
+![alt text](image.png)
+
+# SaaSAllTheThings
+
+**Turn your app into a multi-tenant SaaS on Azure: the AI does the building, the framework holds the architecture, and you own the product.**
+
+In your app it's `.satt/` for short (SaaS All The Things), and the setup command is `/saasallthethings:setup`.
+
+A workflow for new apps and apps already in production. You decide the product, the priorities and which customers and integrations come first. The framework decides the architecture: an event-driven Azure Functions backend, separate Windows and mobile clients, OIDC sign-in with federated identity, pooled multi-tenancy that can move a tenant to its own deployment later, and enterprise integrations starting with Navision (Dynamics NAV / Business Central). The AI builds within that architecture, tests and keeps the records. Built for Claude Code, and usable with any AI coding assistant that reads `AGENTS.md`. Everything lives in your app's own git repository.
+
+SaaSAllTheThings is [Claude4Godot](https://github.com/Freakling/Claude4Godot)'s workflow applied to SaaS: the same records, procedures, check and hooks, plus an architecture the framework owns.
+
+## Why
+
+AI writes backend code fast. Without structure, that speed goes wrong in familiar ways:
+
+- **The architecture erodes.** One handler reads the tenant from a header, another calls the database from a client, a third stores a connection string. With SaaSAllTheThings the reference architecture is framework-owned and machine-checked. The only way to deviate is an ADR that you accept, and the check accepts an exception only when an accepted ADR names it.
+- **The product drifts.** The AI quietly decides a business rule you never agreed to. Product calls come to you as 2–4 options with a recommendation. Only your choice is written down, and anything undecided goes on an open-questions list instead of being guessed.
+- **"Done" means "it compiled".** One check defines "works": the architecture rules hold, the build passes and the tests pass. It runs before every commit that touches code, and in Claude Code also before the AI ends its turn.
+- **Single-tenant habits stay.** Tenant-specific `if`s, a tenant id taken from the request, a cloud bill that grows with every customer. The check fails on the first two, and cost defaults (serverless, consumption) cover the third.
+- **Context gets lost between sessions.** A few plain files hold everything: the product document, a decision log, ADRs, integration contracts, the task queue and an architecture table. Each fact has one home, so any session picks up where the last one stopped.
+
+## Three tenets
+- **Low cost.** In tokens: a small always-loaded core, procedures and reference topics loaded only when used, builds in a fresh context. In Azure: Flex Consumption Functions, serverless Cosmos DB, one Service Bus namespace, log caps and budgets. Anything bigger needs an ADR.
+- **Small iterations.** One item, one commit. Items are sized S, M or L, and L items are split. Vertical slices that work end to end beat layers built one at a time. Plans go at most one stage ahead.
+- **Many files.** One type per file, one function per file, one handler per use case, one Bicep module per resource, one reference topic per file. The check fails source files over the size limits.
+
+## How to use it
+
+### Install
+
+Your app needs git (`git init` if it has none) and no uncommitted changes. You also need bash (on Windows it comes with Git for Windows), and the toolchain of your backend stack: the .NET SDK 8+ for the default.
+
+**Option 1: the Claude Code plugin.** In Claude Code:
+
+```
+/plugin marketplace add Freakling/SaaSAllTheThings
+/plugin install saasallthethings@saasallthethings
+```
+
+Then open a new Claude Code session in your app's folder (or run `/reload-plugins`), and run `/saasallthethings:setup`.
+
+**Option 2: manual install.** Put this repository in your app's root folder as a folder named `SaaSAllTheThings`: run `git clone https://github.com/Freakling/SaaSAllTheThings.git SaaSAllTheThings` there, or download the zip and rename the extracted folder. Then ask your assistant:
+
+> Read SaaSAllTheThings/ONBOARDING.md and follow it to install SaaSAllTheThings into this project.
+
+Either way, onboarding works out whether this is a new app, an existing app or an upgrade. It then:
+1. installs the files;
+2. settles the backend stack with you: for an existing app it asks your preference, keeps your stack if it's compatible, and otherwise lists the compatible ones;
+3. interviews you (new app) or reads the existing app, including its single-tenant habits and secrets;
+4. writes the first stages of the roadmap to SaaS into `TASKS.md`;
+5. ends with one commit for you to approve.
+
+Afterwards, restart Claude Code so the new commands load. Each new clone of the app later needs one command: `bash tools/setup-clone.sh`.
+
+**With another AI assistant:** tell onboarding, and it installs the tool-neutral core only (`--tools none`). Your assistant reads `AGENTS.md`, which points it to `.satt/rules.md` and the procedures. The check and the git hook work the same for every tool, and for you.
+
+### Upgrade
+- **Plugin:** run `/plugin marketplace update saasallthethings` and then `/plugin update saasallthethings@saasallthethings`. Start a new session in the app and run `/saasallthethings:setup` again.
+- **Manual:** put the new SaaSAllTheThings folder in the app, and ask for ONBOARDING.md again.
+
+Only the framework's own files are replaced, and your edits to them are kept. When a new version also changes a file you edited, the new version is written next to it as `<file>.satt-new` for you to merge.
+
+### Day to day
+
+| Say | What happens |
+|---|---|
+| "Do the next task" (`/next-task`) | Builds the next ready item (high-severity bugs first), proves it with the check, updates the records, and asks you to approve the commit. |
+| "Do the next 3 tasks", "Work through the queue" | The same, item after item, until one needs you. |
+| "Plan the next stage" (`/roadmap`) | Writes the next stage of the roadmap to SaaS as small items. |
+| "Which open questions block development?" (`/product questions`) | Ranks the open product questions by what they unblock, with options and a recommendation for each. |
+| "Let's work out {capability}" (`/product {topic}`) | A product session. Your decisions become PRD text, decision-log lines and task items. |
+| "Which UI tech for the Windows client?", "Can we use SQL instead?" (`/architect`) | An architecture session: options with "comply" first, then an ADR that you accept. |
+| "Add the Navision integration" (`/integrate navision`) | Works out the integration contract with you (direction, system of record, conflicts), then plans it in stages. |
+| "Onboard tenant {customer}" (`/tenant`) | A readiness check and the human steps for a new customer: consent, plan, connections. |
+| "Prepare an acceptance check", "Process it" (`/acceptance`) | A checklist of what's been built that needs a human eye in a running app; you tick Works or Broken. |
+| "New feedback report", "Process this feedback" (`/feedback`) | Turns a customer or pilot session into bugs, score trends and product proposals. |
+| "Release to dev" (`/release dev`) | Check, what-if, deploy and smoke test, each step with your approval. Production is yours to run. |
+| "Check the docs are aligned" (`/align`) | A consistency pass. Drift gets fixed; gaps and conflicts come to you. |
+| "Prune the task list" (`/prune`) | Moves done items to `TASKS-archive.md`. |
+
+```
+you, a customer or a pilot has an idea
+        │
+        ▼
+product session ── options + a recommendation ── you decide ──► PRD + decisions.md + TASKS.md items
+        │                                       architecture call? ──► /architect ──► ADR you accept
+        ▼
+next task ── builds the next ready item ── tests ── bash tools/check.sh ──► commit (you approve)
+        │
+        ▼
+acceptance check (does each built rule work?)  ·  feedback (does it help the customer?)
+        │
+        ▼
+bugs and product proposals ── you decide ── repeat
+```
+
+---
+
+## What this is
+
+### Who does what
+| | Responsible for |
+|---|---|
+| **You** | The product: capabilities, UX, plans and pricing, priorities, customers, which system owns which data; accepting ADRs; approving commits and deploys. |
+| **The framework** | The architecture: `.satt/reference/`, enforced by the check. It changes upstream in SaaSAllTheThings, or for one project through an ADR you accept. |
+| **The AI assistant** | Code, tests, infrastructure as code, contracts, the records; proposing options and ADRs. |
+
+### What gets installed in your app
+```
+your-app/
+│  yours: never overwritten
+├── AGENTS.md                   for every assistant: project facts, layout, architecture table, project rules
+├── CLAUDE.md                   "@AGENTS.md", for Claude Code
+├── TASKS.md                    milestones (the SaaSAllTheThings stages) and the queue (tasks and bugs)
+├── product/prd.md              the product's current requirements, and Open Questions
+├── product/decisions.md        why: one line per product decision
+├── adr/                        architecture decision records: choices and accepted deviations
+├── integrations/<system>/      one contract per external system (written by /integrate)
+├── validation/TEMPLATE.md      the feedback template, one section per capability
+├── tools/check.cfg             the stack, the layers' folders, size limits
+│
+│  the framework's, tool-neutral: updated on upgrade
+├── .satt/rules.md           the workflow rules, loaded through AGENTS.md
+├── .satt/reference/         the reference architecture, one topic per file (the authority)
+├── .satt/procedures/        next-task · build · roadmap · product · architect · integrate · tenant ·
+│                               acceptance · feedback · release · align · prune · review
+├── .satt/templates/         ADR and integration contract templates
+├── .satt/tasks.md           the TASKS.md item format
+├── tools/check.sh, archcheck.awk, cfg.sh, stacks/   the check, and one profile per backend stack
+├── tools/setup-clone.sh        per clone: toolchain, dependencies, the pre-commit hook
+├── .githooks/pre-commit        runs the check before commits that touch more than docs
+├── validation/README.md        how acceptance checks and feedback reports work
+│
+│  the framework's, Claude Code adapter: updated on upgrade
+├── .claude/skills/             /next-task and the rest: each points to its procedure
+├── .claude/agents/             builder (builds each item in a fresh context) · reviewer (read-only)
+├── .claude/hooks/              runs the check before a turn ends; blocks risky git and Azure commands;
+│                               asks you before framework files change or an ADR is accepted
+└── .claude/settings.json       permissions, hooks, timeouts
+```
+Machine-local and gitignored: `.satt/state/` (check logs and caches) and `.claude/settings.local.json`.
+
+### The architecture, briefly
+The full reference is in `.satt/reference/`, one topic per file; the assistant reads the topics an item touches.
+- **Layers:** contracts, domain, application, infrastructure, integration, host, platform, client. Each may depend only on the ones `layers.md` lists. The domain is pure; hosts (the Azure Functions) are thin.
+- **Event-driven:** commands on queues, events on topics (Service Bus), state and its events saved together through an outbox, idempotent consumers, versioned contracts.
+- **Tenancy:** pooled. The tenant comes from the validated token, never from the request; every record and message carries it; tenants differ by registry data, never by code. A tenant can move to its own deployment later.
+- **Identity:** OIDC with Entra ID (multi-tenant, so customers sign in with their own directory; External ID for those without one). Clients use auth code with PKCE. Managed identities and federated credentials everywhere: no secrets in code, config or apps.
+- **Clients:** a Windows app and a mobile app, separate and thin. They depend on the contracts only; each one's UI tech is an ADR.
+- **Integrations:** one anti-corruption layer and function app per external system, a contract you decide (direction, system of record, conflicts), no network calls in tests.
+- **Cost:** serverless and consumption SKUs, log caps, a budget per environment.
+
+### The rules, briefly
+The full rules are in `.satt/rules.md`, and the assistant reads them every session.
+- **You decide the product.** The assistant offers options and a recommendation, never answers an open question itself, and marks undecided values `PLACEHOLDER`.
+- **The framework decides the architecture.** A build that can't comply stops and asks; deviations are ADRs you accept.
+- **Each fact lives in one place,** and is updated in the same change that makes it untrue.
+- **Done means the check passes,** and the work is committed only with your approval.
+- **Guarded commands:** in Claude Code, force-push, `reset --hard`, `--no-verify`, deleting Azure resources, reading Key Vault secrets and creating client secrets are blocked by a hook. Deploys and cloud changes ask you first.
+
+### The check
+`bash tools/check.sh` runs four steps:
+1. the architecture rules (`tools/archcheck.awk`): layers, a pure domain, the tenant from the token only, no tenant-specific code, no secrets, versioned events and commands, file sizes, cost SKUs in Bicep;
+2. the backend stack's build and tests (`tools/stacks/<stack>.sh`: dotnet, typescript, python, or none);
+3. the Bicep files in `infra/`, when the Bicep CLI is installed;
+4. `tools/check.local.sh`, if the app has one (client builds, emulator tests).
+
+`bash tools/check.sh --architecture` runs step 1 alone in seconds, with no toolchain. The check exits 0 on pass, 1 on fail, and 3 when it can't run. It never calls Azure, the network or an external system, and remembers the last passing state so hooks don't rerun it when nothing changed.
+
+### Customising
+- **Workflow rules** that differ for one app go in AGENTS.md › Project rules, where they win over the defaults.
+- **Architecture** that differs for one app goes in an ADR (`/architect`). Its `Exception:` lines are the only thing that excuses a check failure.
+- **The framework itself:** edit `framework/` (installed files) or `project/` (seeds for new apps), add the change to `CHANGELOG.md`, and run `bash selftest.sh`. Then upgrade your apps.
+
+### This repository
+| Path | |
+|---|---|
+| `ONBOARDING.md` | what the assistant follows to install or upgrade |
+| `install.sh` | copies the files deterministically, keeps your edits, writes a manifest (`--tools claude\|none`) |
+| `framework/` | installed into each app: the tool-neutral core, plus `.claude/` for Claude Code |
+| `project/` | seeds for the app's own files, copied only when missing |
+| `.claude-plugin/`, `skills/setup/` | the Claude Code plugin (`/saasallthethings:setup`) |
+| `examples/order-desk/` | a small app that uses the workflow: a worked example, and the self-test's fixture |
+| `examples/scenarios.md` | prompts to try after changing the framework, to check that behaviour still holds |
+| `selftest.sh` | tests the installer, the architecture check and the hooks (`bash selftest.sh`) |
+| `CHANGELOG.md` | what changed, and the upgrade steps for apps |
+| `CLAUDE.md` | instructions for an assistant working on SaaSAllTheThings itself |
+
+## License
+MIT © 2026 Vikingur Saemundsson: see [LICENSE](LICENSE). Installed apps carry a copy in `.satt/LICENSE`.

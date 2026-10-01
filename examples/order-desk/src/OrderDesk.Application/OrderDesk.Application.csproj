@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\OrderDesk.Contracts\OrderDesk.Contracts.csproj" />
+    <ProjectReference Include="..\OrderDesk.Domain\OrderDesk.Domain.csproj" />
+  </ItemGroup>
+</Project>

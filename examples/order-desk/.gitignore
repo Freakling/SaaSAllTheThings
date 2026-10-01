@@ -1,0 +1,10 @@
+# SaaSAllTheThings
+/.satt/state/
+/.claude/settings.local.json
+*.satt-new
+local.settings.json
+node_modules/
+.venv/
+__pycache__/
+bin/
+obj/
