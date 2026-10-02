@@ -2,6 +2,10 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## Unreleased
+
+- The README has a Ko-fi support button, at the top of "How to use it".
+
 ## 0.3.0 (2026-10-02)
 
 ### Design sessions anywhere

@@ -30,6 +30,10 @@ AI writes backend code fast. Without structure, that speed goes wrong in familia
 
 ## How to use it
 
+> You've read this far, so SaaSAllTheThings may be what you're looking for. It's free and open source, and if it helps you build your SaaS, a tip on Ko-fi helps me keep building it. I greatly appreciate your support.
+>
+> <a href='https://ko-fi.com/Q6J027VJG1' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi5.png?v=6' border='0' alt='Support me on Ko-fi' /></a>
+
 ### Assess first (optional)
 
 Not sure yet what it would take? The `saas-assessment` skill analyses an existing app without changing it, and writes a report: how ready the app is (scored, with evidence), the development roadmap by stage with rough effort, the decisions to make, and the workshops to hold, each with participants, preparation, a timed agenda and methods. It asks your stack preference first. Install the skill as below (it comes with the plugin, or `npx skills add Freakling/SaaSAllTheThings`), then ask "what does it take to make this app a SaaS?". The workshops' notes, and the report, feed onboarding later, so nothing is asked twice.
