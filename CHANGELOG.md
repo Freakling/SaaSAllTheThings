@@ -5,7 +5,7 @@ Each entry lists what changed. An entry that requires changes to an app's own fi
 ## Unreleased
 
 - `PRIVACY.md`: what SaaSAllTheThings reads, writes and sends (nothing), linked from the README.
-- `plugin.json` has a `homepage`.
+- `plugin.json` has a `homepage`, and the directory listing's documentation, support, privacy policy and terms URLs (the terms are the MIT license). Claude Code ignores the last two fields.
 
 ## 0.2.1 (2026-10-02)
 

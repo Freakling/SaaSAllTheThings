@@ -8,6 +8,10 @@
   },
   "repository": "https://github.com/Freakling/SaaSAllTheThings",
   "homepage": "https://github.com/Freakling/SaaSAllTheThings",
+  "documentationUrl": "https://github.com/Freakling/SaaSAllTheThings#readme",
+  "supportUrl": "https://github.com/Freakling/SaaSAllTheThings/issues",
+  "privacyPolicyUrl": "https://github.com/Freakling/SaaSAllTheThings/blob/main/PRIVACY.md",
+  "termsOfServiceUrl": "https://github.com/Freakling/SaaSAllTheThings/blob/main/LICENSE",
   "license": "MIT",
   "keywords": [
     "saas",
