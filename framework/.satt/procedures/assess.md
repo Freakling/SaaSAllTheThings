@@ -17,7 +17,7 @@ Ask the human, as multiple-choice questions where the tool supports them:
 
 ## 2. Scan
 Collect evidence (`file:line`, counts, commands you ran), not impressions. In a large repository, scan the areas in parallel subagents where the tool has them (in Claude Code, `Explore`) and keep only their summaries. Read project files and representative files; count the rest.
-- **Shape:** languages and file counts by extension (`git ls-files`); solutions, projects and packages; size; history from `git log` (age, commits in the last 90 days, the number of contributors, never their names).
+- **Shape:** languages and file counts by extension (`git ls-files`); solutions, projects and packages; size; history from `git log` (age, commits in the last 90 days, the number of contributors, counted without printing a name or email: `git log --format=%ae | sort -u | wc -l`).
 - **Entry points:** desktop, web and mobile UIs; APIs; services; scheduled jobs; scripts.
 - **Business rules:** where they live (UI code-behind, controllers, stored procedures, services, spreadsheets), and the areas with the most of them.
 - **Data:** stores, schemas and how the code reaches them; whether anything identifies a customer (a tenant column, a database per customer, nothing).
