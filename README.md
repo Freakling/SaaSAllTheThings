@@ -30,9 +30,9 @@ AI writes backend code fast. Without structure, that speed goes wrong in familia
 
 ## How to use it
 
-> You've read this far, so SaaSAllTheThings may be what you're looking for. It's free and open source, and if it helps you build your SaaS, a tip on Ko-fi helps me keep building it. I greatly appreciate your support.
+> You've read this far, so SaaSAllTheThings may be what you're looking for. It's free and open source, and if it helps you build your SaaS, a tip on Ko-fi or a sponsorship on GitHub helps me keep building it. I greatly appreciate your support.
 >
-> <a href='https://ko-fi.com/Q6J027VJG1' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi5.png?v=6' border='0' alt='Support me on Ko-fi' /></a>
+> <a href='https://ko-fi.com/Q6J027VJG1' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi5.png?v=6' border='0' alt='Support me on Ko-fi' /></a> <a href='https://github.com/sponsors/Freakling' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://img.shields.io/badge/Sponsor_on_GitHub-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white' border='0' alt='Sponsor me on GitHub' /></a>
 
 ### Assess first (optional)
 

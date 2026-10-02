@@ -4,7 +4,7 @@ Each entry lists what changed. An entry that requires changes to an app's own fi
 
 ## Unreleased
 
-- The README has a Ko-fi support button, at the top of "How to use it".
+- The README has Ko-fi and GitHub Sponsors buttons, at the top of "How to use it", and `.github/FUNDING.yml` turns on GitHub's Sponsor button for the repository.
 
 ## 0.3.0 (2026-10-02)
 
