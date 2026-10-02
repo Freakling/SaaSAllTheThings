@@ -2,6 +2,14 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## 0.2.1 (2026-10-02)
+
+For the Claude plugin directory's review:
+- The plugin ships no images except its listing icon. The README's picture now lives on the `assets` branch.
+- `rules.md` › Git and Azure no longer spells out the Key Vault command it forbids; the command guard still blocks it.
+- This repository's own instructions moved from `CLAUDE.md` to `.claude/CLAUDE.md`, where Claude Code still loads them.
+- The roadmap skill's trigger phrase lost a leftover from the rename.
+
 ## 0.2.0 (2026-10-02)
 
 ### Assessment and workshops

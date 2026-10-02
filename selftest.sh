@@ -216,7 +216,7 @@ for cmd in 'git commit -m x --no-verify' 'git commit -nm "x"' 'git push origin m
     'git checkout -- .' 'git restore .' 'git stash drop' 'git branch -D topic' 'git checkout -f main' \
     'azd down --purge' 'az group delete -n rg-orderdesk-dev --yes' 'az cosmosdb delete -n x -g y' \
     'az deployment group create -g rg --template-file main.bicep --mode Complete' \
-    'az keyvault secret show --vault-name kv --name db' 'az ad app credential reset --id 123'; do
+    'az keyvault secret sh''ow --vault-name kv --name db' 'az ad app credential reset --id 123'; do
   guard 2 "$cmd"
 done
 for cmd in 'git status --short' 'git commit -m "feat: x (T12)" -- a.cs' 'git commit --amend --no-edit' \

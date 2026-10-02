@@ -1,4 +1,4 @@
-!["All the things" meme: an excited cartoon figure raises a fist against a yellow burst, captioned "SaaS ALL THE THINGS"](image.png)
+!["All the things" meme: an excited cartoon figure raises a fist against a yellow burst, captioned "SaaS ALL THE THINGS"](https://raw.githubusercontent.com/Freakling/SaaSAllTheThings/assets/saas-all-the-things.png)
 
 # SaaSAllTheThings
 
@@ -204,7 +204,7 @@ The full rules are in `.satt/rules.md`, and the assistant reads them every sessi
 | `examples/scenarios.md` | prompts to try after changing the framework, to check that behaviour still holds |
 | `selftest.sh` | tests the installer, the architecture check and the hooks (`bash selftest.sh`) |
 | `CHANGELOG.md` | what changed, and the upgrade steps for apps |
-| `CLAUDE.md` | instructions for an assistant working on SaaSAllTheThings itself |
+| `.claude/CLAUDE.md` | instructions for an assistant working on SaaSAllTheThings itself |
 
 ## License
 MIT © 2026 Vikingur Saemundsson: see [LICENSE](LICENSE). Installed apps carry a copy in `.satt/LICENSE`.
