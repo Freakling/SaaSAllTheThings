@@ -206,5 +206,7 @@ The full rules are in `.satt/rules.md`, and the assistant reads them every sessi
 | `CHANGELOG.md` | what changed, and the upgrade steps for apps |
 | `.claude/CLAUDE.md` | instructions for an assistant working on SaaSAllTheThings itself |
 
+Privacy: SaaSAllTheThings runs on your machine and sends nothing anywhere; see [PRIVACY.md](PRIVACY.md).
+
 ## License
 MIT © 2026 Vikingur Saemundsson: see [LICENSE](LICENSE). Installed apps carry a copy in `.satt/LICENSE`.

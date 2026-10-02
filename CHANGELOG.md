@@ -2,6 +2,11 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## Unreleased
+
+- `PRIVACY.md`: what SaaSAllTheThings reads, writes and sends (nothing), linked from the README.
+- `plugin.json` has a `homepage`.
+
 ## 0.2.1 (2026-10-02)
 
 For the Claude plugin directory's review:
