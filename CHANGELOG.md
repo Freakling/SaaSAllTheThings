@@ -2,6 +2,14 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## 0.3.0 (2026-10-02)
+
+### Design sessions anywhere
+- **The public skill `saas-design-session`** runs architecture and product sessions, integration contract sessions, and workshops (preparing them, keeping time and scribing live) in Claude Code, Cowork or the Claude apps, with or without the app's repository. In an app with SaaSAllTheThings installed it follows the app's own procedures and writes the records; anywhere else it ends each session with notes in the playbook's format, which "process the workshop notes" (or onboarding) turns into records later.
+- **It carries what it argues from:** the rules, the reference architecture, the workshop playbook, the ADR and integration contract templates, and the architect, product and integrate procedures, in its `references/` folder. `bash bundle.sh` writes that copy from `framework/.satt/`, the only source, and the self-test fails when it drifts.
+- **Workshop notes can carry ADR drafts** (`workshops/README.md` › Notes), as `ADR-?` with their headings two levels down. Processing the notes numbers each draft and turns it into an ADR, proposed until the human accepts it; onboarding does the same. The notes format also says how a one-to-one session fills in participants and dates, and records a declined deviation as "comply with the reference".
+- `architect.md` gives effort on a scale (S, M, L, or person-days for anything bigger), and `reference/cost.md` prices a web front end (Static Web Apps Free), so every client option in `clients.md` has a cost.
+
 ## 0.2.2 (2026-10-02)
 
 For the Claude plugin directory's submission:

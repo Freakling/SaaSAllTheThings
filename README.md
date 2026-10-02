@@ -34,6 +34,12 @@ AI writes backend code fast. Without structure, that speed goes wrong in familia
 
 Not sure yet what it would take? The `saas-assessment` skill analyses an existing app without changing it, and writes a report: how ready the app is (scored, with evidence), the development roadmap by stage with rough effort, the decisions to make, and the workshops to hold, each with participants, preparation, a timed agenda and methods. It asks your stack preference first. Install the skill as below (it comes with the plugin, or `npx skills add Freakling/SaaSAllTheThings`), then ask "what does it take to make this app a SaaS?". The workshops' notes, and the report, feed onboarding later, so nothing is asked twice.
 
+### Design sessions, anywhere
+
+Architecture and product decisions, integration contracts and workshops don't need a terminal. The `saas-design-session` skill runs them in Claude Code, Cowork or the Claude apps (web, desktop, mobile), with or without your app's repository. It carries the reference architecture and the workshop playbook with it, so it argues from the same rules as everything else: options with a recommendation, complying with the reference first, you deciding.
+
+Ask it things like "which data store should we use?", "what should Navision own?", "prepare the integration workshop" or "scribe this workshop". It prepares agendas and pre-reads, keeps time and records decisions during a workshop, and ends each session with notes, including ADR drafts for architecture decisions. Outside your repository you download the notes. Put them in your app's `assessment/workshops/`, and "process the workshop notes" in Claude Code turns them into records (or onboarding does, if SaaSAllTheThings isn't installed yet). In an app with SaaSAllTheThings installed, the skill writes the records itself, through the app's own procedures.
+
 ### Install
 
 Your app needs git (`git init` if it has none) and no uncommitted changes. You also need bash (on Windows it comes with Git for Windows), and the toolchain of your backend stack: the .NET SDK 8+ for the default.
@@ -199,9 +205,10 @@ The full rules are in `.satt/rules.md`, and the assistant reads them every sessi
 | `install.sh` | copies the files deterministically, keeps your edits, writes a manifest (`--tools claude\|none`) |
 | `framework/` | installed into each app: the tool-neutral core, plus `.claude/` for Claude Code |
 | `project/` | seeds for the app's own files, copied only when missing |
-| `.claude-plugin/`, `skills/` | the Claude Code plugin, and the same skills for the skills CLI (`npx skills add`): `saas-all-the-things` installs, `saas-assessment` assesses an app before installing |
+| `.claude-plugin/`, `skills/` | the Claude Code plugin, and the same skills for the skills CLI (`npx skills add`): `saas-all-the-things` installs, `saas-assessment` assesses an app before installing, `saas-design-session` runs design sessions and workshops anywhere |
 | `examples/order-desk/` | a small app that uses the workflow: a worked example, and the self-test's fixture |
 | `examples/scenarios.md` | prompts to try after changing the framework, to check that behaviour still holds |
+| `bundle.sh` | copies the reference, playbook and session procedures into `skills/saas-design-session/references/` (`bash bundle.sh`; the self-test fails if the copy drifts) |
 | `selftest.sh` | tests the installer, the architecture check and the hooks (`bash selftest.sh`) |
 | `CHANGELOG.md` | what changed, and the upgrade steps for apps |
 | `.claude/CLAUDE.md` | instructions for an assistant working on SaaSAllTheThings itself |

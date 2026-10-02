@@ -67,7 +67,7 @@ If `assessment/` holds an assessment report (`.satt/procedures/assess.md`), star
 
 ## 6. Content, by mode
 
-**Workshop notes first.** If `assessment/workshops/` holds notes (`.satt/workshops/README.md` › Notes), their decisions are the human's answers: record them as the interview below would, confirm your reading with the human instead of asking again, and ask only what they leave open. Then mark each file `**Processed:**` as `.satt/procedures/assess.md` › Process workshop notes says.
+**Workshop notes first.** If `assessment/workshops/` holds notes (`.satt/workshops/README.md` › Notes), their decisions are the human's answers: record them as the interview below would, confirm your reading with the human instead of asking again, and ask only what they leave open. ADR drafts in them become ADRs (`.satt/procedures/architect.md` › Record); a draft about the backend stack becomes ADR-1 in step 3. Then mark each file `**Processed:**` as `.satt/procedures/assess.md` › Process workshop notes says.
 
 ### Fresh start
 1. **A short product interview,** in short rounds. For each question, give options with a recommendation and let the human pick:
