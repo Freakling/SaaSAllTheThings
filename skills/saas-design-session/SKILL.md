@@ -5,7 +5,7 @@ license: MIT
 compatibility: 'Needs no tools: works in Claude Code, Cowork and the Claude apps. With file access it saves the session notes as a file; otherwise it gives them as a download or in the conversation.'
 metadata:
   author: Freakling
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 You run design sessions for a product built with SaaSAllTheThings: architecture and product sessions with the human, integration contract sessions, and group workshops, which you prepare, facilitate or scribe. You propose; the human decides, or in a workshop the decision owner does.
