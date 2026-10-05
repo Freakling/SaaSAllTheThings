@@ -36,3 +36,4 @@ A question about how the system is built (a data store, a client's UI tech, a de
 ## Finish
 - Summarise what was decided, what's still open, and the next most useful question.
 - Commit the product files as `docs: <summary>`, with a body listing the decisions, after the human approves (see `rules.md` › Git and Azure). A product session doesn't edit code.
+- Once the commit lands, tell the human to start the next topic in a fresh session — in Claude Code: `/clear`. The PRD, `decisions.md` and TASKS.md hold everything; the conversation history has no remaining value and only grows the context window.

@@ -27,7 +27,7 @@ Set the item to `in-progress YYYY-MM-DD` (today).
 ## 3. Build
 - **In Claude Code,** give the `builder` subagent the item's ID and full text. Run it in the foreground (`run_in_background: false`), and never run two builders at once: they would edit, and check, each other's files.
   1. Before starting it, create the file `.satt/state/building` (`: > .satt/state/building`). Delete it when the report arrives; while it exists, the Stop hook leaves the half-built files alone.
-  2. The builder runs on the session model. If AGENTS.md › Project rules turn on model sizing, pass `model: haiku` for an `S` item.
+  2. The builder runs on the session model. If AGENTS.md › Project rules turn on model sizing, pass `model: haiku` for an `XS` or `S` item.
 - **Other tools:** follow `build.md` yourself, or in a subagent if your tool has them.
 - **A rebuild** (after a failure, a blocked report or review findings) gets the previous report, anything the human said about the item, and word that the earlier attempt's edits are still in the tree to continue from.
 - **Report `blocked`:** the report brings the question with options and a recommendation. Put it to the human.
@@ -35,7 +35,7 @@ Set the item to `in-progress YYYY-MM-DD` (today).
   - `blocked: architecture`: follow `architect.md` with the options from the report. If the human chooses to comply, rebuild with that. If they choose a deviation, the ADR must be accepted before the rebuild.
   - Then rebuild, including the answer.
 - **Report `failed`:**
-  - An `S` item built on Haiku gets one rebuild on the session model, and becomes `M (escalated from S)`.
+  - An `XS` item built on Haiku that fails gets one rebuild on the session model and becomes `S (escalated from XS)`. An `S` item built on Haiku that fails gets one rebuild on the session model and becomes `M (escalated from S)`. Update the size in the item's heading.
   - Otherwise, add a `Note:` to the item and give the human the check output.
 - **Report `failed: pre-existing`:** the failure was there before the build. Tell the human (see step 1).
 

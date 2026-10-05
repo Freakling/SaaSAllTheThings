@@ -188,6 +188,64 @@ The full rules are in `.satt/rules.md`, and the assistant reads them every sessi
 - **Done means the check passes,** and the work is committed only with your approval.
 - **Guarded commands:** in Claude Code, force-push, `reset --hard`, `--no-verify`, deleting Azure resources, reading Key Vault secrets and creating client secrets are blocked by a hook. Deploys and cloud changes ask you first.
 
+### Context and token use
+
+The designer (main session) and the developer (builder subagent) are deliberately separate contexts. Each optimises differently.
+
+**The main session — designer and orchestrator**
+- **Small at the start.** A session starts with `AGENTS.md` and `.satt/rules.md` (~10 KB). Each procedure and each reference topic loads only when an item touches it.
+- **Stays small across items.** The main session picks items, records decisions, updates TASKS.md, and approves commits. It never reads the files being changed. After it hands an item to the builder and the report comes back, its context holds only that ~20-line report — not the source files, test output or check logs.
+- **Nothing to hand off between sessions.** TASKS.md, the commits, AGENTS.md, the PRD and the ADRs hold everything. Once an item is committed, a new session (or `/clear` in Claude Code) loses nothing. An item interrupted mid-build gets a one-line `Note:` in TASKS.md; the next session reads it and resumes.
+- **Design sessions: clear after each commit.** Once a product or architecture session's commit lands, the conversation has no value left — every decision is in the PRD, `decisions.md` and ADRs. `/clear` before the next topic. The procedures remind you at the end of each session.
+
+**The builder subagent — developer with a fresh context**
+- **Fresh context per item.** In Claude Code, each build runs as a separate `builder` subagent that starts with an empty context. It reads only what the item needs: the files in `Touches`, the relevant AGENTS.md rows, the PRD sections named in the item, and the reference architecture topics the work touches. It builds, runs the check, and returns a structured ~20-line report.
+- **Isolation prevents accumulation.** Because the builder is isolated, the main session never carries the file contents, check logs or edit history. A session that works through ten items stays about as lean as one that worked through one.
+- **The report is the only channel.** The builder's report fields (`Files`, `Systems`, `Contracts`, `Found`, `For the human`) give the main session exactly what it needs to update the records and decide what's next — no more.
+
+**The reviewer subagent — read-only, also isolated**
+- For `L` or `XL` items, and `M` items touching contracts, tenant isolation, identity or a stored schema, a separate `reviewer` subagent checks the diff in its own fresh context before the commit. Findings go back to the main session as a ranked list; code findings are rebuilt, out-of-scope findings become new TASKS.md items.
+
+**Parallel sessions (design + coding)**
+- Two sessions can run at once against separate git worktrees — one designing, one building. Each reads from the same project files, and the `in-progress` claim in TASKS.md prevents them from touching the same item.
+
+```mermaid
+sequenceDiagram
+    participant H as You
+    participant M as Main session (designer/orchestrator)
+    participant B as Builder subagent (fresh context)
+    participant Rev as Reviewer subagent (fresh context)
+    participant R as Git records (TASKS.md, commits, PRD, ADRs)
+
+    Note over M: starts with AGENTS.md + rules (~10 KB), loads procedures lazily
+
+    H->>M: /next-task
+    M->>R: grep candidates, read item
+    M->>R: claim item as in-progress
+    M->>+B: item ID and full text
+    Note over B: reads Touches, Architecture rows, PRD sections, reference topics
+    B->>B: build, then run check.sh
+    B-->>-M: ~20-line report
+    Note over M: keeps only the report — not source files, test output or check logs
+
+    opt L/XL item, or M item touching contracts/isolation/identity/schema
+        M->>R: git diff to review.diff
+        M->>+Rev: item ID, report, check result
+        Rev-->>-M: ranked findings
+        M->>+B: rebuild with findings
+        B-->>-M: updated report
+    end
+
+    M->>R: mark done, update TASKS.md and AGENTS.md
+    M->>H: approve commit?
+    H->>M: approved
+    M->>R: commit
+
+    Note over R: records are the handoff — /clear or a new session loses nothing
+```
+
+**Model sizing** (recommended on): `XS` and `S` items run the builder on the smallest capable model (Haiku in Claude Code); `M` through `XL` use the session model. Onboarding asks you to choose; record it in AGENTS.md › Project rules.
+
 ### The check
 `bash tools/check.sh` runs four steps:
 1. the architecture rules (`tools/archcheck.awk`): layers, a pure domain, the tenant from the token only, no tenant-specific code, no secrets, versioned events and commands, file sizes, cost SKUs in Bicep;

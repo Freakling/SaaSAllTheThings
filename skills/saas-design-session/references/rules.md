@@ -90,5 +90,10 @@ The check enforces what can be checked mechanically; `reference/README.md` › W
 - **The records are the hand-off.** TASKS.md (what's done and what's next), commit messages (why), AGENTS.md, the PRD and the ADRs carry everything between sessions. Once an item is committed, a fresh session, or `/clear` in Claude Code, loses nothing.
 
 ## Reviews and model size
-- An `L` item, or an `M` item that changes a contract (an API route, event or command), tenant isolation, identity or a stored schema, gets an independent review (`review.md`) before its commit. Fix the findings that are in scope.
-- The session model is the human's choice. Project rules may turn on model sizing for builds (see `next-task.md`).
+- An `L` or `XL` item, or an `M` item that changes a contract (an API route, event or command), tenant isolation, identity or a stored schema, gets an independent review (`review.md`) before its commit. Fix the findings that are in scope.
+- **Model sizing** (recommended on): when enabled, `XS` and `S` items build on the smallest capable model rather than the session model, cutting token cost without sacrificing quality on well-defined work. The tier mapping is tool-neutral so any assistant can apply it:
+  | Sizes | Build model |
+  |---|---|
+  | `XS`, `S` | smallest capable model (in Claude Code: Haiku) |
+  | `M`, `L`, `XL` | session model |
+  An `XS` that fails escalates to `S` on the session model. An `S` that fails escalates to `M`. Project rules enable this with `Model sizing: on`.

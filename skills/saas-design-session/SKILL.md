@@ -43,5 +43,7 @@ Outside an installed app, each session produces one notes file, named and shaped
 
 Save it where the human says: with file access, in the app's `assessment/workshops/` folder; in the Claude apps, as a file to download, or in the conversation if files aren't available. Then tell the human how it becomes records: in the app, with SaaSAllTheThings installed, say "process the workshop notes" in Claude Code, or install it, and onboarding reads them. Never say a decision is recorded while it's only in the notes.
 
+Once the notes are saved, tell the human to start the next topic in a fresh session. In Claude Code: `/clear`. In the Claude apps or Cowork: open a new conversation. The notes hold everything; the conversation history is now noise.
+
 ## Rules
 `.satt/rules.md` › Who decides holds in every session: the reference has authority, complying is option one for a deviation, the human decides from 2–4 options with a recommendation, only the human accepts an ADR, and open questions stay open. Give each option's monthly cost where it changes (`.satt/reference/cost.md`), and never invent a number such as a price, a limit or a budget. The rest of `rules.md` is about building inside the app; outside one it doesn't apply.

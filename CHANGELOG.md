@@ -5,6 +5,18 @@ Each entry lists what changed. An entry that requires changes to an app's own fi
 ## Unreleased
 
 - The README has Ko-fi and GitHub Sponsors buttons, at the top of "How to use it", and `.github/FUNDING.yml` turns on GitHub's Sponsor button for the repository.
+- **README: agent handoff and context strategies** are now explained in a "How builds stay small" section: the builder/reviewer fresh-context model, the ~20-line structured report, the records-as-handoff pattern, and the per-item and per-session context strategies (read by heading, load topics on demand, parallel subagents for large-repo scans).
+- **`architect.md`: industry best practices and requirements documents.** The Prepare step now reads product requirements from `product/requirements/` and security/compliance requirements from `compliance/` before proposing options, and flags any conflict between a requirement and the architecture. The Propose step now evaluates every option against a standing set of industry best practices (OWASP Top 10, least privilege, defence in depth, zero trust, data minimisation, and any standard named in the compliance requirements) and prefers the option with the stronger security and compliance posture.
+- **`XS` and `XL` sizes** added to the task size ladder (`tasks.md`): `XS` for a single value, label, config line, copy change or comment (no logic, no tests); `XL` for a cross-cutting refactor, full subsystem redesign or migration touching 4+ layers. Split `XL` before building.
+- **Model sizing recommended on** (was: off by default). The rule is now tool-neutral (`rules.md` › Reviews and model size): `XS` and `S` build on the smallest capable model, `M` through `XL` on the session model. An `XS` that fails escalates to `S`; an `S` escalates to `M`. Onboarding now asks every project whether to enable model sizing and recommends yes.
+- **Upgrade path fast/full choice** (`ONBOARDING.md` step 2): onboarding now summarises the changelog changes to the human before an upgrade, then asks Fast (carry out upgrade steps — recommended) or Full (re-run all content steps as a thorough re-install). The contract for all future CHANGELOG entries: every "Upgrade steps" block must bring existing projects to the same capability level as a fresh install.
+
+- **`rules.md` review trigger updated** to include `XL` items (was: `L` only).
+- **README "Context and token use"** replaces the earlier "How builds stay small" section with the full breakdown: designer/orchestrator, builder, reviewer and parallel-session roles; a sequenceDiagram showing the handoff; and the model sizing summary — all matching the detail in `rules.md` and the procedures.
+- **Fresh-session prompt after design commits** (`product.md`, `architect.md`, `saas-design-session` skill): after each commit the Finish step now tells the human to start the next topic in a fresh session (`/clear` in Claude Code, new conversation elsewhere). The PRD, decisions.md, ADRs and TASKS.md hold everything; accumulated conversation history is noise.
+
+**Upgrade steps:**
+- In AGENTS.md › Project rules, confirm or set `Model sizing: on` (recommended) or `Model sizing: off`. Ask the human if it isn't already there.
 
 ## 0.3.0 (2026-10-02)
 

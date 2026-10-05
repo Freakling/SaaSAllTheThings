@@ -30,11 +30,11 @@ Run `bash "$SATT/install.sh" --tools <claude|none> .` for a first install. For a
   - `CLAUDE.md` must contain the line `@AGENTS.md`, at the top. Move instructions meant for every assistant into AGENTS.md.
   - `AGENTS.md` keeps its content, gains the missing sections, and gets the line that points to `.satt/rules.md`.
   - `TASKS.md` and a requirements document convert to the seeds' formats (`TASKS.md`, `product/prd.md`), keeping their content.
-- **Upgrade mode:**
-  1. Read the entries in `$SATT/CHANGELOG.md` that are newer than the old version (the install report names it), and carry out their "Upgrade steps".
-  2. Run step 4 only if `bash tools/check.sh` exits 3.
-  3. Summarise what changed, using the CHANGELOG and `git diff --stat`.
-  4. Go to step 10.
+- **Upgrade mode:** Read the CHANGELOG entries newer than the old version (the install report names it). Summarise them for the human: what changed in the framework, and what the "Upgrade steps" will do to the project's own files (AGENTS.md, TASKS.md, etc.). Then ask which mode to use — recommend Fast for routine upgrades:
+  - **Fast (recommended):** carry out the CHANGELOG "Upgrade steps" only; run step 4 if `bash tools/check.sh` exits 3; then go to step 10.
+  - **Full:** carry out the CHANGELOG "Upgrade steps", then re-run steps 3–9 as if a fresh install — reading existing files rather than creating them, confirming inferred content with the human, and asking all the questions a fresh install asks. Use this after many accumulated versions, when onboarding a new contributor, or when the human wants a thorough review.
+
+  Every CHANGELOG entry must include "Upgrade steps" that bring existing projects to the same capability level as a fresh install of that version. Fast mode carries them out; Full mode also re-verifies everything else.
 
 ## 3. The backend stack
 Read `.satt/reference/stacks.md`. The framework is biased to .NET, but the human decides.
@@ -98,7 +98,7 @@ Walk the human through the defaults, and record only the workflow differences in
 - The agent owns code, tests, infrastructure as code and the records.
 - Commits: the agent proposes and the human approves. Pushes happen when the human asks, or never if there's no remote.
 - Deploys: dev with the human's approval each time, prod by the human (`release.md`). Ask whether dev deploys may run without asking each time.
-- Model sizing (Claude Code only): off by default. When it's on, the `builder` subagent builds `S` items on Haiku.
+- **Model sizing** (recommended on): when enabled, `XS` and `S` items build on the smallest capable model (in Claude Code: Haiku), cutting token cost on well-defined work. The tier table in `rules.md` › Reviews and model size is tool-neutral, so any assistant can map its own model names. Ask whether to enable it and recommend yes. Record the answer in AGENTS.md › Project rules as `Model sizing: on` or `Model sizing: off`.
 - Reviews: by default after `L` items, and after `M` items that change contracts, tenant isolation, identity or a stored schema.
 
 ## 9. Feedback template

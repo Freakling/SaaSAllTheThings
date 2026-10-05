@@ -7,15 +7,21 @@ Comes from: a build reporting `blocked: architecture`, a review finding, a "Deci
 
 ## Prepare
 1. Read the reference topic and heading in question, and every ADR whose title is related (`grep -n "^# ADR" adr/*.md`). Don't re-propose something an ADR rejected without saying what has changed since.
-2. Classify it:
+2. Read any requirements documents that bear on this decision:
+   - **Product requirements** (user stories, feature specs): files in `product/requirements/` if present.
+   - **Security and compliance requirements**: files in `compliance/` if present; also the PRD › Data and Compliance section.
+   Note any constraint or acceptance criterion an option must satisfy, and flag any conflict between a requirement and the reference architecture.
+3. Classify it:
    - **An open choice:** the reference lists it in `reference/README.md` › Choices left open. Every option is within the architecture.
    - **A deviation:** an option would break a reference rule. Option 1 is then always "comply", with what that would take.
    - **A framework gap:** the reference is wrong or missing something for every project, not just this one. Say so; the human can take it to SaaSAllTheThings upstream. Until then it's handled here as a deviation.
+   - **A requirements conflict:** the architecture-compliant option violates a stated requirement, or a requirement forces a deviation. Surface the conflict; the human resolves it.
 
 ## Propose
-1. Offer 2–4 options. For each: what it means for the code and the layers, effort (S, M or L as in `tasks.md` › Size, or a range of person-days for anything bigger), monthly Azure cost (`reference/cost.md`), risk, and how hard it is to undo.
-2. Recommend one, with a one-line reason. Prefer complying; prefer the reversible option.
-3. Wait for the human.
+1. Offer 2–4 options. For each: what it means for the code and the layers, effort (S, M or L as in `tasks.md` › Size, or a range of person-days for anything bigger), monthly Azure cost (`reference/cost.md`), risk, security and compliance impact, and how hard it is to undo.
+2. Apply industry best practices as a standing check on every option — not just the reference architecture, but: OWASP Top 10, principle of least privilege, defence in depth, zero trust (verify explicitly, use least privilege, assume breach), data minimisation, and any standard named in the compliance requirements (ISO 27001, SOC 2, GDPR, …). Flag any option that conflicts with a relevant practice; note which option strengthens the security or compliance posture.
+3. Recommend one, with a one-line reason. Prefer complying; prefer the reversible option; prefer the option with the stronger security posture when effort is similar.
+4. Wait for the human.
 
 ## Record
 1. **Write the ADR** from `.satt/templates/adr.md` as `adr/ADR-<n>-<slug>.md`, where `n` is one more than the highest existing number. `Status: proposed` until the human has said in this conversation that they accept it; then set `Status: accepted` (in Claude Code a hook asks them to confirm).
@@ -28,3 +34,5 @@ Comes from: a build reporting `blocked: architecture`, a review finding, a "Deci
 
 ## Finish
 Run `bash tools/check.sh --architecture` to confirm the exceptions match what they should. Commit the ADR and the records as `docs: ADR-<n> <title>` after the human approves.
+
+Once the commit lands, tell the human to start the next topic in a fresh session — in Claude Code: `/clear`. The ADR, AGENTS.md and TASKS.md hold everything the next session needs; the conversation history is noise.
