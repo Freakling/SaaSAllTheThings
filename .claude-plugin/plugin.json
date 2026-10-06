@@ -13,6 +13,7 @@
   "privacyPolicyUrl": "https://github.com/Freakling/SaaSAllTheThings/blob/main/PRIVACY.md",
   "termsOfServiceUrl": "https://github.com/Freakling/SaaSAllTheThings/blob/main/LICENSE",
   "license": "MIT",
+  "icon": "./.claude-plugin/icon.png",
   "keywords": [
     "saas",
     "azure-functions",
