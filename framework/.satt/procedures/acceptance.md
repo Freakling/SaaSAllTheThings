@@ -31,6 +31,6 @@ The request is `prepare` (the default), `process`, or `all` (a full regression r
 2. **Broken:** make a `B` item.
    - Take the repro from the notes, and set `Found in:` to the file.
    - Judge the severity from the notes: `high` if it loses data, shows another tenant's data, fails sign-in or blocks work; `low` if it's cosmetic; `med` otherwise.
-   - If the notes say the rule itself should change, it's a product question instead: offer options (`product.md`), or add an Open Question.
+   - If the notes say the rule itself should change, it's a product question instead: offer options (`design.md`), or add an Open Question.
 3. **Not ticked:** leave it. It comes back in the next round.
 4. **Finish:** under the header, add `**Processed:** YYYY-MM-DD → B7, Q9`. Commit the file and the new items as `docs: process acceptance check YYYY-MM-DD` after the human approves.

@@ -19,7 +19,7 @@ cd "$src"
 # What the skill needs: the rules, the reference, the playbook, and the session procedures.
 list() {
   (cd "$from" && for f in rules.md tasks.md reference/*.md workshops/*.md templates/adr.md \
-      templates/integration-contract.md procedures/architect.md procedures/assess.md procedures/product.md procedures/integrate.md; do
+      templates/integration-contract.md procedures/architect.md procedures/assess.md procedures/design.md procedures/integrate.md; do
     [ -f "$f" ] && printf '%s\n' "$f"
   done) | LC_ALL=C "$SORT"
 }

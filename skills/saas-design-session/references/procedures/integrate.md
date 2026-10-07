@@ -6,11 +6,11 @@ Add an enterprise integration, or change one: work out its contract with the hum
 The request names the system ("navision"). Its folder is `integrations/<system>/`, lowercase.
 
 ## 1. Prepare
-- Read PRD › Integrations › <System> (add the subsection through `product.md` first if it's missing), the existing `integrations/<system>/contract.md` if any, and the open questions tagged with the system.
+- Read PRD › Integrations › <System> (add the subsection through `design.md` first if it's missing), the existing `integrations/<system>/contract.md` if any, and the open questions tagged with the system.
 - If the integration exists, say what's built (TASKS.md, AGENTS.md › Architecture) before proposing changes.
 
 ## 2. Work out the contract
-Copy `.satt/templates/integration-contract.md` to `integrations/<system>/contract.md` if it doesn't exist. Then go through it with the human in short rounds, each answer as options with a recommendation. Business answers are product decisions (`product.md` › Record each decision); how the system is reached and authenticated may be an ADR (`architect.md`).
+Copy `.satt/templates/integration-contract.md` to `integrations/<system>/contract.md` if it doesn't exist. Then go through it with the human in short rounds, each answer as options with a recommendation. Business answers are product decisions (`design.md` › Record each decision); how the system is reached and authenticated may be an ADR (`architect.md`).
 1. **The system:** product and version, per tenant if they differ. For Navision: Business Central online, Business Central on-premises, or which NAV version.
 2. **Entities in scope** and, for each, the direction: in, out or both. Start with the fewest that deliver the PRD's purpose.
 3. **Ownership:** the system of record per entity, and per field where it splits. This is the decision that matters most for a bidirectional sync; never assume it.

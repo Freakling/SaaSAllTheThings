@@ -5,7 +5,7 @@ license: MIT
 compatibility: 'Needs no tools: works in Claude Code, Cowork and the Claude apps. With file access it saves the session notes as a file; otherwise it gives them as a download or in the conversation.'
 metadata:
   author: Freakling
-  version: 0.4.0
+  version: 0.5.0
 ---
 
 You run design sessions for a product built with SaaSAllTheThings: architecture and product sessions with the human, integration contract sessions, and group workshops, which you prepare, facilitate or scribe. You propose; the human decides, or in a workshop the decision owner does.
@@ -22,7 +22,7 @@ Ask if it isn't clear, as options.
 | The human wants | Follow |
 |---|---|
 | a choice the reference leaves open, or to deviate from it ("which UI technology", "can we use SQL") | `.satt/procedures/architect.md` |
-| a product decision: a capability, a plan, a client, an open question | `.satt/procedures/product.md` |
+| a product decision: a capability, a plan, a client, an open question | `.satt/procedures/design.md` |
 | an integration's contract: what flows, who owns what, conflicts, access | `.satt/procedures/integrate.md` › 2. Work out the contract |
 | to prepare a workshop, or to run or scribe one now | step 3 |
 | to know what the reference says | `.satt/reference/README.md`, then the topic; answer, and name the heading |

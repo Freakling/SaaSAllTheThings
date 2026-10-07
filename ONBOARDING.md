@@ -94,7 +94,7 @@ Run `.satt/procedures/roadmap.md`. It fills TASKS.md › Milestones with the sta
 
 ## 8. Ownership and project rules
 Walk the human through the defaults, and record only the workflow differences in AGENTS.md › Project rules. Say clearly that the architecture isn't a project rule: it changes only through an ADR.
-- The human owns the product, priorities, customers and integrations' business rules, and accepts ADRs.
+- The director owns the product, priorities, customers and integrations' business rules, and accepts ADRs.
 - The agent owns code, tests, infrastructure as code and the records.
 - Commits: the agent proposes and the human approves. Pushes happen when the human asks, or never if there's no remote.
 - Deploys: dev with the human's approval each time, prod by the human (`release.md`). Ask whether dev deploys may run without asking each time.
@@ -132,6 +132,6 @@ If the capabilities aren't decided yet, leave the placeholders, and add an agent
 8. **Offer a "Development" section for the app's README:** clone, then `bash tools/setup-clone.sh`, then the commands.
 9. **Tell the human:**
    - what needs their confirmation (inferred PRD text, open questions, `Decide:` items, human items);
-   - how to use it: "do the next task", "plan the next stage", "let's work out <capability>", "add the Navision integration", "which UI tech for the Windows client?", "prepare an acceptance check", "process this feedback", "release to dev", "check the docs are aligned" (in Claude Code also `/next-task`, `/roadmap`, `/product`, `/integrate`, `/architect`, `/acceptance`, `/feedback`, `/release`, `/align`, `/tenant`, `/prune`);
+   - how to use it: "do the next task", "plan the next stage", "let's work out <capability>", "add the Navision integration", "which UI tech for the Windows client?", "prepare an acceptance check", "process this feedback", "release to dev", "check the docs are aligned" (in Claude Code also `/next-task`, `/roadmap`, `/design`, `/integrate`, `/architect`, `/acceptance`, `/feedback`, `/release`, `/align`, `/tenant`, `/prune`);
    - with the Claude adapter: to restart Claude Code, because skills, hooks and permissions load when a session starts;
    - that every new clone needs `bash tools/setup-clone.sh`.

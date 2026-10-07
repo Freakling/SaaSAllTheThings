@@ -95,8 +95,8 @@ Only the framework's own files are replaced, and your edits to them are kept. Wh
 | "Do the next 3 tasks", "Work through the queue" | The same, item after item, until one needs you. |
 | "Assess the app", "Which workshops do we need?" (`/assess`) | A read-only assessment report: readiness, the roadmap by stage with rough effort, and the workshops with their agendas. "Process the workshop notes" turns a session's decisions into records. |
 | "Plan the next stage" (`/roadmap`) | Writes the next stage of the roadmap to SaaS as small items. |
-| "Which open questions block development?" (`/product questions`) | Ranks the open product questions by what they unblock, with options and a recommendation for each. |
-| "Let's work out {capability}" (`/product {topic}`) | A product session. Your decisions become PRD text, decision-log lines and task items. |
+| "Which open questions block development?" (`/design questions`) | Ranks the open product questions by what they unblock, with options and a recommendation for each. |
+| "Let's work out {capability}" (`/design {topic}`) | A design session. Your decisions become PRD text, decision-log lines and task items. |
 | "Which UI tech for the Windows client?", "Can we use SQL instead?" (`/architect`) | An architecture session: options with "comply" first, then an ADR that you accept. |
 | "Add the Navision integration" (`/integrate navision`) | Works out the integration contract with you (direction, system of record, conflicts), then plans it in stages. |
 | "Onboard tenant {customer}" (`/tenant`) | A readiness check and the human steps for a new customer: consent, plan, connections. |
@@ -190,15 +190,15 @@ The full rules are in `.satt/rules.md`, and the assistant reads them every sessi
 
 ### Context and token use
 
-The designer (main session) and the developer (builder subagent) are deliberately separate contexts. Each optimises differently.
+The orchestrator (main session) and the builder (builder subagent) are deliberately separate contexts. Each optimises differently.
 
-**The main session — designer and orchestrator**
+**The main session — orchestrator**
 - **Small at the start.** A session starts with `AGENTS.md` and `.satt/rules.md` (~10 KB). Each procedure and each reference topic loads only when an item touches it.
 - **Stays small across items.** The main session picks items, records decisions, updates TASKS.md, and approves commits. It never reads the files being changed. After it hands an item to the builder and the report comes back, its context holds only that ~20-line report — not the source files, test output or check logs.
 - **Nothing to hand off between sessions.** TASKS.md, the commits, AGENTS.md, the PRD and the ADRs hold everything. Once an item is committed, a new session (or `/clear` in Claude Code) loses nothing. An item interrupted mid-build gets a one-line `Note:` in TASKS.md; the next session reads it and resumes.
 - **Design sessions: clear after each commit.** Once a product or architecture session's commit lands, the conversation has no value left — every decision is in the PRD, `decisions.md` and ADRs. `/clear` before the next topic. The procedures remind you at the end of each session.
 
-**The builder subagent — developer with a fresh context**
+**The builder subagent — builder**
 - **Fresh context per item.** In Claude Code, each build runs as a separate `builder` subagent that starts with an empty context. It reads only what the item needs: the files in `Touches`, the relevant AGENTS.md rows, the PRD sections named in the item, and the reference architecture topics the work touches. It builds, runs the check, and returns a structured ~20-line report.
 - **Isolation prevents accumulation.** Because the builder is isolated, the main session never carries the file contents, check logs or edit history. A session that works through ten items stays about as lean as one that worked through one.
 - **The report is the only channel.** The builder's report fields (`Files`, `Systems`, `Contracts`, `Found`, `For the human`) give the main session exactly what it needs to update the records and decide what's next — no more.
@@ -212,7 +212,7 @@ The designer (main session) and the developer (builder subagent) are deliberatel
 ```mermaid
 sequenceDiagram
     participant H as You
-    participant M as Main session (designer/orchestrator)
+    participant M as Main session (orchestrator)
     participant B as Builder subagent (fresh context)
     participant Rev as Reviewer subagent (fresh context)
     participant R as Git records (TASKS.md, commits, PRD, ADRs)

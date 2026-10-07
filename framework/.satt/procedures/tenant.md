@@ -14,7 +14,7 @@ Check, and report each as ready or missing:
 5. **Integrations:** for each system the customer uses, the contract covers their version (`integrations/<system>/contract.md` › The system), and the per-tenant steps are known.
 6. **Stamp:** pooled (the default), or a silo the human has decided on and priced (`reference/tenancy.md` › Silo-ready). A first silo needs the stamp-move work from roadmap stage 7.
 
-Missing pieces become TASKS.md items (`.satt/tasks.md`), or product questions through `product.md`.
+Missing pieces become TASKS.md items (`.satt/tasks.md`), or product questions through `design.md`.
 
 ## 2. The human's steps
 Write them out for the human, in order, with exactly what to send or click. They're not stored in the repository. Typically:

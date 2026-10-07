@@ -7,7 +7,7 @@ These rules apply to any AI assistant working in this project. For each of these
 - **next-task.md:** do the next task(s), or a named item (T12, B3). The build itself is `build.md`.
 - **assess.md:** assess the app for the move to SaaS (readiness, roadmap, the workshops and how to run them), or process workshop notes.
 - **roadmap.md:** plan the next stage of the roadmap to SaaS, or replan.
-- **product.md:** a product session: capabilities, plans, clients, open questions.
+- **design.md:** a product session: capabilities, plans, clients, open questions.
 - **architect.md:** an architecture choice the reference leaves open, or a deviation from it.
 - **integrate.md:** add or change an enterprise integration (Navision / Business Central first).
 - **tenant.md:** prepare onboarding a new tenant (customer).
@@ -21,11 +21,11 @@ These rules apply to any AI assistant working in this project. For each of these
 In Claude Code these are also slash commands, and builds and reviews run as the `builder` and `reviewer` subagents.
 
 ## Who decides
-- **The human owns the product:** capabilities, UX, plans and pricing, priorities, which tenants and integrations come first, and business rules such as which system owns which data. You build, keep the records, and propose.
+- **The director owns the product:** capabilities, UX, plans and pricing, priorities, which tenants and integrations come first, and business rules such as which system owns which data. You build, keep the records, and propose.
 - **The framework owns the architecture:** `.satt/reference/`. It holds unless an accepted ADR in `adr/` says otherwise for this project. Project rules can't change it, and neither can you.
-- **A product call** is anything a user or customer would notice that the PRD doesn't settle. Give 2–4 options with one recommendation and a one-line reason, then wait. Write down only what was chosen, following `product.md` › Record each decision. If you had to interpret the answer, say how you read it.
+- **A product call** is anything a user or customer would notice that the PRD doesn't settle. Give 2–4 options with one recommendation and a one-line reason, then wait. Write down only what was chosen, following `design.md` › Record each decision. If you had to interpret the answer, say how you read it.
 - **An architecture call** is a choice the reference leaves open (a client's UI tech, a data store alternative) or anything that would break a reference rule. Never settle one inside a build, and never work around a rule to make the check pass: stop and follow `architect.md`. Its first option is always to comply.
-- **Only the human accepts an ADR.** You write ADRs with `Status: proposed`, and set `accepted` only when the human has said so in this conversation. In Claude Code a hook asks the human to confirm that edit.
+- **Only the director accepts an ADR.** You write ADRs with `Status: proposed`, and set `accepted` only when the human has said so in this conversation. In Claude Code a hook asks the human to confirm that edit.
 - Never answer an item in PRD › Open Questions yourself. Work that depends on one gets a placeholder that names the question.
 - Something that seems to contradict a Product Pillar is flagged, never reinterpreted.
 

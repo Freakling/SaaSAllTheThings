@@ -77,7 +77,12 @@ cmp -s "$src/LICENSE" "$src/framework/.satt/LICENSE" && ok "the installed LICENS
 missing=""
 for skill in "$src"/framework/.claude/skills/*/SKILL.md; do
   name="${skill%/SKILL.md}"; name="${name##*/}"
-  [ -f "$src/framework/.satt/procedures/$name.md" ] || missing="$missing $name"
+  if [ ! -f "$src/framework/.satt/procedures/$name.md" ]; then
+    # Allow deprecated aliases that redirect to an existing procedure under a different name
+    alt_proc=""
+    while IFS= read -r line; do [[ $line =~ procedures/([a-z-]+)\.md ]] && alt_proc="${BASH_REMATCH[1]}" && break; done < "$skill"
+    { [ -n "$alt_proc" ] && [ -f "$src/framework/.satt/procedures/$alt_proc.md" ]; } || missing="$missing $name"
+  fi
   named=0
   while IFS= read -r line; do [ "$line" = "name: $name" ] && { named=1; break; }; done < "$skill"
   [ "$named" -eq 1 ] || missing="$missing $name(name)"

@@ -11,6 +11,16 @@ Each entry lists what changed. An entry that requires changes to an app's own fi
 **Upgrade steps:**
 - Replace the `Model sizing: on` / `Model sizing: off` line in AGENTS.md › Project rules with the five-entry block. Run `/refresh-model-sizing` to do this — it will check capability and propose the defaults.
 
+## 0.5.0 (2026-10-07)
+
+- **Role terminology aligned.** The main session is now called the **orchestrator** throughout (was "designer", "designer and orchestrator", "designer/orchestrator"). The builder subagent is now called the **builder** (was "developer with a fresh context"). The human role is now called the **director** in role descriptions and Who-decides sections (was "the human"). Design as an activity — design sessions, design calls, design documents, `/design` — is unchanged.
+- **`/product` renamed to `/design`.** The procedure `procedures/product.md` is renamed to `procedures/design.md`, and the skill folder `framework/.claude/skills/product/` is renamed to `framework/.claude/skills/design/`. All cross-procedure references updated. `/product` remains as a deprecated alias skill for one minor version; it redirects to `design.md`.
+
+**Upgrade steps:**
+- Run `/refresh-model-sizing` if not done (from 0.4.0).
+- `project/` seeds updated — existing `AGENTS.md` files may keep the old role terms ("the human", "designer", "developer"); updating them is optional.
+- `/product` is deprecated; use `/design` instead.
+
 ## 0.4.0 (2026-10-05)
 
 - The README has Ko-fi and GitHub Sponsors buttons, at the top of "How to use it", and `.github/FUNDING.yml` turns on GitHub's Sponsor button for the repository.
