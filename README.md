@@ -244,7 +244,7 @@ sequenceDiagram
     Note over R: records are the handoff — /clear or a new session loses nothing
 ```
 
-**Model sizing** (recommended on): `XS` and `S` items run the builder on the smallest capable model (Haiku in Claude Code); `M` through `XL` use the session model. Onboarding asks you to choose; record it in AGENTS.md › Project rules.
+**Model sizing** (recommended on): each size maps independently to a build model — `XS` and `S` to Haiku (fast/cheap), `M` to Sonnet (balanced), `L` and `XL` to Opus (most capable). Onboarding writes the five entries to AGENTS.md › Project rules; `/refresh-model-sizing` updates them or checks whether your tool supports the feature.
 
 ### The check
 `bash tools/check.sh` runs four steps:

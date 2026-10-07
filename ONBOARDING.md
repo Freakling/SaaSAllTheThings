@@ -98,7 +98,16 @@ Walk the human through the defaults, and record only the workflow differences in
 - The agent owns code, tests, infrastructure as code and the records.
 - Commits: the agent proposes and the human approves. Pushes happen when the human asks, or never if there's no remote.
 - Deploys: dev with the human's approval each time, prod by the human (`release.md`). Ask whether dev deploys may run without asking each time.
-- **Model sizing** (recommended on): when enabled, `XS` and `S` items build on the smallest capable model (in Claude Code: Haiku), cutting token cost on well-defined work. The tier table in `rules.md` › Reviews and model size is tool-neutral, so any assistant can map its own model names. Ask whether to enable it and recommend yes. Record the answer in AGENTS.md › Project rules as `Model sizing: on` or `Model sizing: off`.
+- **Model sizing** (recommended on): first check that this tool can both spawn a builder subagent and specify its model per call (in Claude Code: yes; tools like Cursor or Copilot that cannot: skip this step). If supported, ask whether to enable it and recommend yes. If yes, write this block to AGENTS.md › Project rules:
+  ```
+  Model sizing: on
+  - XS: claude-haiku-4-5-20251001
+  - S:  claude-haiku-4-5-20251001
+  - M:  claude-sonnet-5-5
+  - L:  claude-opus-5-5
+  - XL: claude-opus-5-5
+  ```
+  For other tools: fast/cheap model for XS and S, balanced for M, most capable for L and XL. If no, write `Model sizing: off`. To update models later, run `/refresh-model-sizing`.
 - Reviews: by default after `L` items, and after `M` items that change contracts, tenant isolation, identity or a stored schema.
 
 ## 9. Feedback template

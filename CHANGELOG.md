@@ -4,6 +4,13 @@ Each entry lists what changed. An entry that requires changes to an app's own fi
 
 ## Unreleased
 
+- **Model sizing corrected to five independent entries.** The two-tier rule (XS/S → smallest, M/L/XL → session model) was wrong: M, L and XL all ran on the same model regardless of complexity. `rules.md` now defines one model ID per size; for Claude Code the defaults are Haiku for XS+S, Sonnet for M, and Opus for L+XL. `next-task.md` reads the per-size entry and falls back to the session model if none exists. Escalation (XS→S, S→M) now uses the model mapped to the new size.
+- **`/refresh-model-sizing` skill and procedure** (`procedures/refresh-model-sizing.md`): checks whether the tool can spawn a subagent with a chosen model (capability check — Claude Code: yes; Cursor/Copilot: no), proposes the five defaults, and writes or updates the block in AGENTS.md › Project rules.
+- **Onboarding step 8** updated: does the capability check inline, writes the full five-entry block for Claude Code (or skips for unsupported tools), mentions `/refresh-model-sizing` for later updates.
+
+**Upgrade steps:**
+- Replace the `Model sizing: on` / `Model sizing: off` line in AGENTS.md › Project rules with the five-entry block. Run `/refresh-model-sizing` to do this — it will check capability and propose the defaults.
+
 ## 0.4.0 (2026-10-05)
 
 - The README has Ko-fi and GitHub Sponsors buttons, at the top of "How to use it", and `.github/FUNDING.yml` turns on GitHub's Sponsor button for the repository.

@@ -91,9 +91,13 @@ The check enforces what can be checked mechanically; `reference/README.md` › W
 
 ## Reviews and model size
 - An `L` or `XL` item, or an `M` item that changes a contract (an API route, event or command), tenant isolation, identity or a stored schema, gets an independent review (`review.md`) before its commit. Fix the findings that are in scope.
-- **Model sizing** (recommended on): when enabled, `XS` and `S` items build on the smallest capable model rather than the session model, cutting token cost without sacrificing quality on well-defined work. The tier mapping is tool-neutral so any assistant can apply it:
-  | Sizes | Build model |
-  |---|---|
-  | `XS`, `S` | smallest capable model (in Claude Code: Haiku) |
-  | `M`, `L`, `XL` | session model |
-  An `XS` that fails escalates to `S` on the session model. An `S` that fails escalates to `M`. Project rules enable this with `Model sizing: on`.
+- **Model sizing** (recommended on): when enabled, each task size builds on a different model — trivial tasks cheap and fast, large tasks on the most capable. AGENTS.md › Project rules stores one model ID per size:
+  ```
+  Model sizing: on
+  - XS: <model-id>
+  - S:  <model-id>
+  - M:  <model-id>
+  - L:  <model-id>
+  - XL: <model-id>
+  ```
+  For Claude Code, the recommended defaults are `claude-haiku-4-5-20251001` for XS and S, `claude-sonnet-5-5` for M, and `claude-opus-5-5` for L and XL. Run `/refresh-model-sizing` to set or update the entries, or to check whether your tool supports the feature. An item that fails escalates one size (XS→S, S→M) and rebuilds on the model mapped to the new size.
