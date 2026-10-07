@@ -78,7 +78,7 @@ Either way, onboarding works out whether this is a new app, an existing app or a
 
 Afterwards, restart Claude Code so the new commands load. Each new clone of the app later needs one command: `bash tools/setup-clone.sh`.
 
-**With another AI assistant:** tell onboarding, and it installs the tool-neutral core only (`--tools none`). Your assistant reads `AGENTS.md`, which points it to `.satt/rules.md` and the procedures. The check and the git hook work the same for every tool, and for you.
+**With another AI assistant:** tell onboarding, and it installs the tool-neutral core only (`--tools none`). Your assistant reads `AGENTS.md`, which points it to `.satt/rules.md` and the procedures. The check and the git hook work the same for every tool, and for you. Note: the workflow is built and tested on Claude Code — other assistants are supported in principle but untested. The core rules and architecture check are tool-neutral; subagent features (fresh-context builds, model sizing, the reviewer) depend on what your tool can do.
 
 ### Upgrade
 - **Plugin:** run `/plugin marketplace update saasallthethings` and then `/plugin update saasallthethings@saasallthethings`. Start a new session in the app and run `/saasallthethings:saas-all-the-things` again.
