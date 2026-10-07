@@ -9,7 +9,7 @@ Two starting points, one destination: a multi-tenant product that business custo
 - **From scratch:** a short product interview, then the platform is built in small, proven steps, starting with tenancy and sign-in rather than bolting them on later.
 - **From a proof of concept or an existing app:** an assessment first (readiness, roadmap, the workshops to hold), then the app is moved over area by area, behind tests, while it keeps working.
 
-You own the product: what it does, for whom, and in what order. The framework owns the architecture and enforces it: an event-driven Azure Functions backend, separate Windows and mobile clients, OIDC sign-in with federated identity, pooled multi-tenancy that can move a customer to its own deployment later, and enterprise integrations starting with Navision (Dynamics NAV / Business Central). The AI builds within that architecture, tests and keeps the records. Built for Claude Code, and usable with any AI coding assistant that reads `AGENTS.md`. Everything lives in your app's own git repository.
+You own the product: what it does, for whom, and in what order. The framework owns the architecture and enforces it: an event-driven Azure Functions backend, separate Windows and mobile clients, OIDC sign-in with federated identity, pooled multi-tenancy that can move a customer to its own deployment later, and enterprise integrations starting with Navision (Dynamics NAV / Business Central). The AI builds within that architecture, tests and keeps the records. Designed to work with any AI coding assistant that reads `AGENTS.md`. Built and tested on Claude Code; other assistants are untested. Everything lives in your app's own git repository.
 
 In your app it's `.satt/` for short (SaaS All The Things), and the setup command is `/saasallthethings:saas-all-the-things`.
 
@@ -61,7 +61,7 @@ Then open a new Claude Code session in your app's folder (or run `/reload-plugin
 
 > Read SaaSAllTheThings/ONBOARDING.md and follow it to install SaaSAllTheThings into this project.
 
-**Option 3: the skills CLI** (any assistant that reads skills):
+**Option 3: the skills CLI** (installs the skill for the assistant you choose; in Claude Code it becomes a slash command):
 
 ```
 npx skills add Freakling/SaaSAllTheThings
@@ -78,7 +78,7 @@ Either way, onboarding works out whether this is a new app, an existing app or a
 
 Afterwards, restart Claude Code so the new commands load. Each new clone of the app later needs one command: `bash tools/setup-clone.sh`.
 
-**With another AI assistant:** tell onboarding, and it installs the tool-neutral core only (`--tools none`). Your assistant reads `AGENTS.md`, which points it to `.satt/rules.md` and the procedures. The check and the git hook work the same for every tool, and for you. Note: the workflow is built and tested on Claude Code — other assistants are supported in principle but untested. The core rules and architecture check are tool-neutral; subagent features (fresh-context builds, model sizing, the reviewer) depend on what your tool can do.
+**With another AI assistant:** tell onboarding, and it installs the tool-neutral core only (`--tools none`). Your assistant reads `AGENTS.md`, which points it to `.satt/rules.md` and the procedures. The core is tool-neutral: rules, procedures, the check and the git pre-commit hook work the same everywhere. Fresh-context builds, the reviewer, model sizing and the hooks that block risky commands depend on your assistant supporting subagents and hooks.
 
 ### Upgrade
 - **Plugin:** run `/plugin marketplace update saasallthethings` and then `/plugin update saasallthethings@saasallthethings`. Start a new session in the app and run `/saasallthethings:saas-all-the-things` again.

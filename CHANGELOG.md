@@ -2,11 +2,12 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
-## Unreleased
+## 0.5.1 (2026-10-07)
 
 - **Model sizing corrected to five independent entries.** The two-tier rule (XS/S → smallest, M/L/XL → session model) was wrong: M, L and XL all ran on the same model regardless of complexity. `rules.md` now defines one model ID per size; for Claude Code the defaults are Haiku for XS+S, Sonnet for M, and Opus for L+XL. `next-task.md` reads the per-size entry and falls back to the session model if none exists. Escalation (XS→S, S→M) now uses the model mapped to the new size.
-- **`/refresh-model-sizing` skill and procedure** (`procedures/refresh-model-sizing.md`): checks whether the tool can spawn a subagent with a chosen model (capability check — Claude Code: yes; Cursor/Copilot: no), proposes the five defaults, and writes or updates the block in AGENTS.md › Project rules.
+- **`/refresh-model-sizing` skill and procedure** (`procedures/refresh-model-sizing.md`): checks whether the tool can spawn a subagent with a chosen model (capability check — Claude Code: yes; if the tool cannot: skip), proposes the five defaults, and writes or updates the block in AGENTS.md › Project rules.
 - **Onboarding step 8** updated: does the capability check inline, writes the full five-entry block for Claude Code (or skips for unsupported tools), mentions `/refresh-model-sizing` for later updates.
+- **AI assistant support statement aligned.** All mentions unified to one position: designed to work with any assistant that reads AGENTS.md, built and tested on Claude Code only. Hedges ("supported in principle", "should work") and competitor names removed from user-facing text. Capability note added to the README "With another AI assistant" section. `CLAUDE.md` release-notes rule updated to include the canonical wording in "How to install".
 
 **Upgrade steps:**
 - Replace the `Model sizing: on` / `Model sizing: off` line in AGENTS.md › Project rules with the five-entry block. Run `/refresh-model-sizing` to do this — it will check capability and propose the defaults.

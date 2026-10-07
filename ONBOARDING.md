@@ -17,7 +17,7 @@ The human makes every product, stack and ownership decision; you gather, propose
    - **upgrade:** `.satt/manifest` exists.
    - **existing app:** source code without SaaSAllTheThings: a proof of concept, or an app in use. It becomes a mature SaaS area by area; an assessment (`.satt/procedures/assess.md`) often comes first.
    - **fresh start:** no source code yet (documents are fine). The SaaS is built from scratch.
-5. **Assistant adapters.** For a first install, ask which assistants will work on the app. The answer is `claude`, the default, or `none` for other assistants only; the core works through `AGENTS.md`, which most assistants read. An upgrade keeps the earlier choice.
+5. **Assistant adapters.** For a first install, ask which assistants will work on the app. The answer is `claude`, the default, or `none`; the core works through `AGENTS.md`. An upgrade keeps the earlier choice.
 
 ## 2. Install the files
 Run `bash "$SATT/install.sh" --tools <claude|none> .` for a first install. For an upgrade, run `bash "$SATT/install.sh" .` without `--tools`. Then read its report.
@@ -98,7 +98,7 @@ Walk the human through the defaults, and record only the workflow differences in
 - The agent owns code, tests, infrastructure as code and the records.
 - Commits: the agent proposes and the human approves. Pushes happen when the human asks, or never if there's no remote.
 - Deploys: dev with the human's approval each time, prod by the human (`release.md`). Ask whether dev deploys may run without asking each time.
-- **Model sizing** (recommended on): first check that this tool can both spawn a builder subagent and specify its model per call (in Claude Code: yes; tools like Cursor or Copilot that cannot: skip this step). If supported, ask whether to enable it and recommend yes. If yes, write this block to AGENTS.md › Project rules:
+- **Model sizing** (recommended on): first check that this tool can both spawn a builder subagent and specify its model per call (in Claude Code: yes; if the tool cannot: skip this step). If supported, ask whether to enable it and recommend yes. If yes, write this block to AGENTS.md › Project rules:
   ```
   Model sizing: on
   - XS: claude-haiku-4-5-20251001
