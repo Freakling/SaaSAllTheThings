@@ -37,7 +37,7 @@ The reference architecture in brief: an event-driven backend on Azure Functions;
 (What the target adds that the app doesn't have yet.)
 
 ## Decisions needed
-(Each with 2–4 options, a recommendation and a one-line reason. The stack comes first.)
+(Each with 2-4 options, a recommendation and a one-line reason. The stack comes first.)
 
 ## Roadmap
 | Stage | What this app needs | Main items (size) | Effort, person-days (confidence) | Depends on | Workshop first |

@@ -3,7 +3,7 @@
 - **Status:** accepted
 - **Date:** 2026-09-28
 - **Decides:** reference/stacks.md › Choosing the stack
-- **Supersedes:** —
+- **Supersedes:** none
 
 ## Context
 A new app. The team writes C# daily, and the first integration is Business Central, whose tooling and samples are mostly .NET.

@@ -23,7 +23,7 @@ In Claude Code these are also slash commands, and builds and reviews run as the 
 ## Who decides
 - **The director owns the product:** capabilities, UX, plans and pricing, priorities, which tenants and integrations come first, and business rules such as which system owns which data. You build, keep the records, and propose.
 - **The framework owns the architecture:** `.satt/reference/`. It holds unless an accepted ADR in `adr/` says otherwise for this project. Project rules can't change it, and neither can you.
-- **A product call** is anything a user or customer would notice that the PRD doesn't settle. Give 2–4 options with one recommendation and a one-line reason, then wait. Write down only what was chosen, following `design.md` › Record each decision. If you had to interpret the answer, say how you read it.
+- **A product call** is anything a user or customer would notice that the PRD doesn't settle. Give 2-4 options with one recommendation and a one-line reason, then wait. Write down only what was chosen, following `design.md` › Record each decision. If you had to interpret the answer, say how you read it.
 - **An architecture call** is a choice the reference leaves open (a client's UI tech, a data store alternative) or anything that would break a reference rule. Never settle one inside a build, and never work around a rule to make the check pass: stop and follow `architect.md`. Its first option is always to comply.
 - **Only the director accepts an ADR.** You write ADRs with `Status: proposed`, and set `accepted` only when the human has said so in this conversation. In Claude Code a hook asks the human to confirm that edit.
 - Never answer an item in PRD › Open Questions yourself. Work that depends on one gets a placeholder that names the question.
@@ -91,7 +91,7 @@ The check enforces what can be checked mechanically; `reference/README.md` › W
 
 ## Reviews and model size
 - An `L` or `XL` item, or an `M` item that changes a contract (an API route, event or command), tenant isolation, identity or a stored schema, gets an independent review (`review.md`) before its commit. Fix the findings that are in scope.
-- **Model sizing** (recommended on): when enabled, each task size builds on a different model — trivial tasks cheap and fast, large tasks on the most capable. AGENTS.md › Project rules stores one model ID per size:
+- **Model sizing** (recommended on): when enabled, each task size builds on a different model: trivial tasks cheap and fast, large tasks on the most capable. AGENTS.md › Project rules stores one model ID per size:
   ```
   Model sizing: on
   - XS: <model-id>
@@ -100,4 +100,4 @@ The check enforces what can be checked mechanically; `reference/README.md` › W
   - L:  <model-id>
   - XL: <model-id>
   ```
-  For Claude Code, the recommended defaults are `claude-haiku-4-5-20251001` for XS and S, `claude-sonnet-5-5` for M, and `claude-opus-5-5` for L and XL. Run `/refresh-model-sizing` to set or update the entries, or to check whether your tool supports the feature. An item that fails escalates one size (XS→S, S→M) and rebuilds on the model mapped to the new size.
+  Map sizes to your tool's models by capability: XS and S → smallest capable model, M → balanced model, L and XL → most capable model. A size with no entry uses the session model. Run `/refresh-model-sizing` to write the entries for your tool, or to check whether your tool supports the feature. A failed build retries once on the next size's model (XS→S, S→M, M→L, L→XL); an XL failure stops and comes to the director.

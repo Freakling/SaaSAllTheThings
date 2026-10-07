@@ -16,7 +16,7 @@ A question about how the system is built (a data store, a client's UI tech, a de
   Give a one-line reason for each position.
 
 ## For each question
-1. Offer 2–4 concrete options. For each: what the user or customer experiences, what it would take to build (which systems in AGENTS.md › Architecture, which clients), what it costs to run, and which pillar it serves or strains.
+1. Offer 2-4 concrete options. For each: what the user or customer experiences, what it would take to build (which systems in AGENTS.md › Architecture, which clients), what it costs to run, and which pillar it serves or strains.
 2. Recommend one, with a one-line reason.
 3. Wait for the human. If they answer only part, record only that part. If you had to interpret the answer, write down your reading and ask them to confirm it.
 
@@ -36,4 +36,4 @@ A question about how the system is built (a data store, a client's UI tech, a de
 ## Finish
 - Summarise what was decided, what's still open, and the next most useful question.
 - Commit the product files as `docs: <summary>`, with a body listing the decisions, after the human approves (see `rules.md` › Git and Azure). A product session doesn't edit code.
-- Once the commit lands, tell the human to start the next topic in a fresh session — in Claude Code: `/clear`. The PRD, `decisions.md` and TASKS.md hold everything; the conversation history has no remaining value and only grows the context window.
+- Once the commit lands, tell the human to start the next topic in a fresh session, in Claude Code: `/clear`. The PRD, `decisions.md` and TASKS.md hold everything; the conversation history has no remaining value and only grows the context window.

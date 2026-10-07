@@ -24,7 +24,7 @@ folders move, together with tools/check.cfg › [layers]. -->
 | `src/{{APP}}.Platform/` | platform | the tenant registry and operator functions |
 | `clients/windows/`, `clients/mobile/` | client | the client apps |
 | `tests/` | tests | tests, fakes, recorded fixtures |
-| `infra/` | — | Bicep: `main.bicep`, `modules/`, `env/` |
+| `infra/` | (none) | Bicep: `main.bicep`, `modules/`, `env/` |
 
 ## Architecture
 One row per system: a project, a function app or an area within one. Clients depend on contracts, hosts on handlers, never the other way round.
@@ -39,5 +39,5 @@ Architecture never goes here: it changes through an ADR in adr/.
 Examples:
 - The agent may deploy to dev without asking each time; production stays with the human.
 - No git remote: never push.
-- Model sizing: on (default off; Claude Code only)
+- Model sizing: on
 -->

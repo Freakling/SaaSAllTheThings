@@ -13,7 +13,7 @@
 | Time | Block | How |
 |---|---|---|
 | 0:00 | Play back | The decisions from each workshop, in two minutes each. Corrections now. |
-| 0:20 | The stages | Walk the roadmap; agree the order (stages 4–6 can overlap once the first slice works) and what's out of scope for now. |
+| 0:20 | The stages | Walk the roadmap; agree the order (stages 4-6 can overlap once the first slice works) and what's out of scope for now. |
 | 0:40 | The first slice | Confirm it, and what "done" looks like for it. |
 | 0:55 | Open questions | Each one: decide now, or confirm owner and date. |
 | 1:10 | Who does what next | Human items (app registrations, consent, sandboxes, subscriptions) with owners; the cadence for acceptance checks and feedback sessions. |

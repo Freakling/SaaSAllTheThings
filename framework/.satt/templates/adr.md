@@ -5,7 +5,7 @@ than the highest existing ADR number) and delete this comment and the guidance i
 - **Status:** proposed
 - **Date:** YYYY-MM-DD
 - **Decides:** <a choice the reference leaves open: reference/<topic>.md › <heading>> | **Deviates from:** <reference/<topic>.md › <heading>>
-- **Supersedes:** <ADR-<n> | —>
+- **Supersedes:** <ADR-<n> | none>
 
 ## Context
 (What forces this decision: the need, the constraint, the evidence. Two to six lines.)

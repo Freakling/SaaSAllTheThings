@@ -30,9 +30,9 @@ Run `bash "$SATT/install.sh" --tools <claude|none> .` for a first install. For a
   - `CLAUDE.md` must contain the line `@AGENTS.md`, at the top. Move instructions meant for every assistant into AGENTS.md.
   - `AGENTS.md` keeps its content, gains the missing sections, and gets the line that points to `.satt/rules.md`.
   - `TASKS.md` and a requirements document convert to the seeds' formats (`TASKS.md`, `product/prd.md`), keeping their content.
-- **Upgrade mode:** Read the CHANGELOG entries newer than the old version (the install report names it). Summarise them for the human: what changed in the framework, and what the "Upgrade steps" will do to the project's own files (AGENTS.md, TASKS.md, etc.). Then ask which mode to use — recommend Fast for routine upgrades:
+- **Upgrade mode:** Read the CHANGELOG entries newer than the old version (the install report names it). Summarise them for the human: what changed in the framework, and what the "Upgrade steps" will do to the project's own files (AGENTS.md, TASKS.md, etc.). Then ask which mode to use: recommend Fast for routine upgrades:
   - **Fast (recommended):** carry out the CHANGELOG "Upgrade steps" only; run step 4 if `bash tools/check.sh` exits 3; then go to step 10.
-  - **Full:** carry out the CHANGELOG "Upgrade steps", then re-run steps 3–9 as if a fresh install — reading existing files rather than creating them, confirming inferred content with the human, and asking all the questions a fresh install asks. Use this after many accumulated versions, when onboarding a new contributor, or when the human wants a thorough review.
+  - **Full:** carry out the CHANGELOG "Upgrade steps", then re-run steps 3-9 as if a fresh install, reading existing files rather than creating them, confirming inferred content with the human, and asking all the questions a fresh install asks. Use this after many accumulated versions, when onboarding a new contributor, or when the human wants a thorough review.
 
   Every CHANGELOG entry must include "Upgrade steps" that bring existing projects to the same capability level as a fresh install of that version. Fast mode carries them out; Full mode also re-verifies everything else.
 
@@ -72,7 +72,7 @@ If `assessment/` holds an assessment report (`.satt/procedures/assess.md`), star
 ### Fresh start
 1. **A short product interview,** in short rounds. For each question, give options with a recommendation and let the human pick:
    1. pitch, the customers (tenants), the first customer, and how they'd pay (plans);
-   2. 3–5 Product Pillars;
+   2. 3-5 Product Pillars;
    3. the first capabilities, in priority order;
    4. the clients: who uses the Windows app and who the mobile app, for what, and whether either must work offline;
    5. the integrations: which systems (Navision first?), their purpose and direction;
@@ -80,7 +80,7 @@ If `assessment/` holds an assessment report (`.satt/procedures/assess.md`), star
 2. **Record it.** Write the answers into the PRD as current requirements, and add a line to `product/decisions.md` for each. Anything undecided becomes a `Q<n>`.
 
 ### Existing app
-1. **PRD:** fill each section from the existing documents and code. Mark anything inferred `(inferred — please confirm)`, and turn anything unknown into a `Q<n>`. Delete a section the product doesn't need only after the human agrees.
+1. **PRD:** fill each section from the existing documents and code. Mark anything inferred `(inferred, please confirm)`, and turn anything unknown into a `Q<n>`. Delete a section the product doesn't need only after the human agrees.
 2. **AGENTS.md › Architecture:** one row per existing area (a screen group, a service, a job, a store), marked `(outside the layers: Extract)`, plus the layered systems as they appear. Take "Owns" from the code, not from guesses.
 3. **TASKS.md:** known bugs and the human's priorities become items, with bugs as `B` items. Secrets found in step 5 are `high` bugs: rotate first, then remove.
 4. **Existing tests** run from the stack's test command if they fit, or from `tools/check.local.sh`.
@@ -98,7 +98,7 @@ Walk the human through the defaults, and record only the workflow differences in
 - The agent owns code, tests, infrastructure as code and the records.
 - Commits: the agent proposes and the human approves. Pushes happen when the human asks, or never if there's no remote.
 - Deploys: dev with the human's approval each time, prod by the human (`release.md`). Ask whether dev deploys may run without asking each time.
-- **Model sizing** (recommended on): first check that this tool can both spawn a builder subagent and specify its model per call (in Claude Code: yes; if the tool cannot: skip this step). If supported, ask whether to enable it and recommend yes. If yes, write this block to AGENTS.md › Project rules:
+- **Model sizing** (recommended on): first check that this tool can both spawn a builder subagent and specify its model per call (in Claude Code: yes; if the tool cannot: skip this step and write `Model sizing: off` in AGENTS.md › Project rules). If supported, read the defaults from `.satt/procedures/refresh-model-sizing.md` › Propose defaults. Present them to the human, ask to confirm or adjust, then write the confirmed block to AGENTS.md › Project rules:
   ```
   Model sizing: on
   - XS: claude-haiku-4-5-20251001
@@ -107,11 +107,11 @@ Walk the human through the defaults, and record only the workflow differences in
   - L:  claude-opus-5-5
   - XL: claude-opus-5-5
   ```
-  For other tools: fast/cheap model for XS and S, balanced for M, most capable for L and XL. If no, write `Model sizing: off`. To update models later, run `/refresh-model-sizing`.
+  To update models later, run `/refresh-model-sizing`.
 - Reviews: by default after `L` items, and after `M` items that change contracts, tenant isolation, identity or a stored schema.
 
 ## 9. Feedback template
-Replace the `{{CAPABILITY…}}` parts of `validation/TEMPLATE.md` with one section per capability in PRD › Capabilities, usually 3–6. Each gets one fixed scored statement and 1–2 open questions. Update the "Capabilities covered" line to match.
+Replace the `{{CAPABILITY…}}` parts of `validation/TEMPLATE.md` with one section per capability in PRD › Capabilities, usually 3-6. Each gets one fixed scored statement and 1-2 open questions. Update the "Capabilities covered" line to match.
 
 If the capabilities aren't decided yet, leave the placeholders, and add an agent item "Fill the feedback template's capability sections" that depends on that question.
 

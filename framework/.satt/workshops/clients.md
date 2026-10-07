@@ -3,7 +3,7 @@
 
 **Purpose:** settle what the Windows and mobile apps are for, where and how they're used, and the information needed to choose each one's UI technology.
 **Length:** 2 hours · **Unblocks:** stage 5 (Clients).
-**Participants:** product owner (decides) · 2–3 key users per client · UX designer · client development lead · solution architect · the customer's device or workplace IT, if devices are managed · facilitator · scribe.
+**Participants:** product owner (decides) · 2-3 key users per client · UX designer · client development lead · solution architect · the customer's device or workplace IT, if devices are managed · facilitator · scribe.
 
 ## Prepare
 - From the assessment: the existing clients, what they show, and whether their screens hold business rules.

@@ -49,7 +49,7 @@ Follow `.satt/reference/stacks.md` › Choosing the stack: tell the human the la
 Read `.satt/workshops/README.md`, then the files of the workshops this app needs: usually all of them, combined into fewer sessions for a small app (README › Sizing). For each one in the report:
 - why this app needs it, from the scan;
 - the participants by role, including the ones the scan points to (a Navision consultant, because the app calls its web services);
-- the decisions and open questions for this app, taken from steps 2–4;
+- the decisions and open questions for this app, taken from steps 2-4;
 - the preparation and pre-reads;
 - the agenda and methods from its workshop file, adapted to the app;
 - the records its outcomes go to, and the stage it unblocks.

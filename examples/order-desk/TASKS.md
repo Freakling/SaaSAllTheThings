@@ -22,10 +22,10 @@ Milestones, the work queue and bugs: the only place work is tracked. Item format
 ## Queue
 
 ### T1 · The check passes on a clean clone · done · S · agent
-- Depends on: —
+- Depends on: none
 - Touches: tools/check.cfg
 - Done when: `bash tools/check.sh` exits 0 after a fresh clone and `bash tools/setup-clone.sh` (check)
-- PRD: —
+- PRD: none
 
 ### T2 · Orders have a customer, lines and a total · done · S · agent
 - Depends on: T1
@@ -60,16 +60,16 @@ Milestones, the work queue and bugs: the only place work is tracked. Item format
 - Depends on: T3
 - Touches: src/OrderDesk.Infrastructure/ (new), tests/OrderDesk.Infrastructure.Tests/ (new), src/OrderDesk.Functions/Program.cs
 - Done when: an order and its events are written in one transactional batch (test) · tenant B can't read tenant A's order (test)
-- PRD: —
+- PRD: none
 
-### T7 · Register the API and client apps in Entra ID · todo · — · human
-- Depends on: —
-- Touches: —
+### T7 · Register the API and client apps in Entra ID · todo · none · human
+- Depends on: none
+- Touches: none
 - Done when: a multi-tenant API registration with the access_as_user scope and the app roles, and a public client registration for the Windows app, exist in the dev directory (check)
 - PRD: Personas and Roles
 
-### T8 · Decide: the Windows client's UI technology (architect.md) · todo · — · human
-- Depends on: —
+### T8 · Decide: the Windows client's UI technology (architect.md) · todo · none · human
+- Depends on: none
 - Touches: adr/ADR-2-windows-client-ui.md
 - Done when: ADR-2 is accepted or rejected (check)
 - PRD: Clients › Windows

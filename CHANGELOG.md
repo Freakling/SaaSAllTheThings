@@ -2,24 +2,45 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## 0.5.3 (2026-10-07)
+
+- **En and em dashes removed throughout.** Every en dash (U+2013) and em dash (U+2014) replaced by its contextual equivalent: a hyphen for ranges (`1-3`, `2-4`), a colon or comma for asides, and parentheses for parentheticals. `selftest.sh` now asserts the count is zero. `.claude/CLAUDE.md` adds the typography rule for future edits.
+- **Project seeds updated.** `AGENTS.md` Layout table, `TASKS.md` field values and human item headings, `product/prd.md` comment, and `validation/TEMPLATE.md` now use hyphens in place of dashes.
+
+**Upgrade steps:**
+- In your `AGENTS.md` Layout table, any empty "Layer" cell written as an em dash becomes `(none)`.
+- In `TASKS.md`, field values written as a single em dash (`Depends on`, `PRD`, `Touches`) become `none`; human item headings with the size written as an em dash become `none`.
+- In `product/prd.md` and `validation/TEMPLATE.md`, replace en dashes in numeric ranges with hyphens (`1-5`, `3-6`, `3-5`).
+- Framework files are replaced on upgrade: no manual changes needed there.
+
+## 0.5.2 (2026-10-07)
+
+- **Model sizing aligned to canonical spec.** `rules.md` is now tool-neutral: the capability-tier description (XS/S → smallest capable, M → balanced, L/XL → most capable) replaces the Claude Code model IDs that were there. The default model IDs now live in exactly one place: `procedures/refresh-model-sizing.md` § Propose defaults. `ONBOARDING.md` step 8 reads the defaults from there instead of duplicating them. `README.md` model sizing paragraph updated to the canonical wording (adds session-model fallback and escalation note).
+- **Escalation extended through L.** A failed build now retries once on the next size's model all the way up (XS→S, S→M, M→L, L→XL); only an XL failure stops and comes to the director. Previously only XS and S escalated.
+- **`refresh-model-sizing` fable note corrected:** `claude-fable-5-1` listed as XL-only alternative (was L and XL).
+- **`selftest.sh`** gains two assertions: default model IDs in `ONBOARDING.md` match `refresh-model-sizing.md`; `README.md` contains the canonical model sizing wording.
+
+**Upgrade steps:**
+- Run `/refresh-model-sizing` to update your AGENTS.md › Project rules block to the current defaults. Framework files (`rules.md`, `next-task.md`, `refresh-model-sizing.md`) are replaced on upgrade: no hand-editing needed.
+
 ## 0.5.1 (2026-10-07)
 
 - **Model sizing corrected to five independent entries.** The two-tier rule (XS/S → smallest, M/L/XL → session model) was wrong: M, L and XL all ran on the same model regardless of complexity. `rules.md` now defines one model ID per size; for Claude Code the defaults are Haiku for XS+S, Sonnet for M, and Opus for L+XL. `next-task.md` reads the per-size entry and falls back to the session model if none exists. Escalation (XS→S, S→M) now uses the model mapped to the new size.
-- **`/refresh-model-sizing` skill and procedure** (`procedures/refresh-model-sizing.md`): checks whether the tool can spawn a subagent with a chosen model (capability check — Claude Code: yes; if the tool cannot: skip), proposes the five defaults, and writes or updates the block in AGENTS.md › Project rules.
+- **`/refresh-model-sizing` skill and procedure** (`procedures/refresh-model-sizing.md`): checks whether the tool can spawn a subagent with a chosen model (capability check: Claude Code: yes; if the tool cannot: skip), proposes the five defaults, and writes or updates the block in AGENTS.md › Project rules.
 - **Onboarding step 8** updated: does the capability check inline, writes the full five-entry block for Claude Code (or skips for unsupported tools), mentions `/refresh-model-sizing` for later updates.
 - **AI assistant support statement aligned.** All mentions unified to one position: designed to work with any assistant that reads AGENTS.md, built and tested on Claude Code only. Hedges ("supported in principle", "should work") and competitor names removed from user-facing text. Capability note added to the README "With another AI assistant" section. `CLAUDE.md` release-notes rule updated to include the canonical wording in "How to install".
 
 **Upgrade steps:**
-- Replace the `Model sizing: on` / `Model sizing: off` line in AGENTS.md › Project rules with the five-entry block. Run `/refresh-model-sizing` to do this — it will check capability and propose the defaults.
+- Replace the `Model sizing: on` / `Model sizing: off` line in AGENTS.md › Project rules with the five-entry block. Run `/refresh-model-sizing` to do this: it will check capability and propose the defaults.
 
 ## 0.5.0 (2026-10-07)
 
-- **Role terminology aligned.** The main session is now called the **orchestrator** throughout (was "designer", "designer and orchestrator", "designer/orchestrator"). The builder subagent is now called the **builder** (was "developer with a fresh context"). The human role is now called the **director** in role descriptions and Who-decides sections (was "the human"). Design as an activity — design sessions, design calls, design documents, `/design` — is unchanged.
+- **Role terminology aligned.** The main session is now called the **orchestrator** throughout (was "designer", "designer and orchestrator", "designer/orchestrator"). The builder subagent is now called the **builder** (was "developer with a fresh context"). The human role is now called the **director** in role descriptions and Who-decides sections (was "the human"). Design as an activity (design sessions, design calls, design documents, `/design`) is unchanged.
 - **`/product` renamed to `/design`.** The procedure `procedures/product.md` is renamed to `procedures/design.md`, and the skill folder `framework/.claude/skills/product/` is renamed to `framework/.claude/skills/design/`. All cross-procedure references updated. `/product` remains as a deprecated alias skill for one minor version; it redirects to `design.md`.
 
 **Upgrade steps:**
 - Run `/refresh-model-sizing` if not done (from 0.4.0).
-- `project/` seeds updated — existing `AGENTS.md` files may keep the old role terms ("the human", "designer", "developer"); updating them is optional.
+- `project/` seeds updated: existing `AGENTS.md` files may keep the old role terms ("the human", "designer", "developer"); updating them is optional.
 - `/product` is deprecated; use `/design` instead.
 
 ## 0.4.0 (2026-10-05)
@@ -30,7 +51,7 @@ Each entry lists what changed. An entry that requires changes to an app's own fi
 - **`XS` and `XL` sizes** added to the task size ladder (`tasks.md`): `XS` for a single value, label, config line, copy change or comment (no logic, no tests); `XL` for a cross-cutting refactor, full subsystem redesign or migration touching 4+ layers. Split `XL` before building.
 - **Model sizing recommended on** (was: off by default). The rule is now tool-neutral (`rules.md` › Reviews and model size): `XS` and `S` build on the smallest capable model, `M` through `XL` on the session model. An `XS` that fails escalates to `S`; an `S` escalates to `M`. Onboarding now asks every project whether to enable model sizing and recommends yes.
 - **`rules.md` review trigger** updated to include `XL` items (was: `L` only).
-- **Upgrade path fast/full choice** (`ONBOARDING.md` step 2): onboarding now summarises the changelog changes to the human before an upgrade, then asks Fast (carry out upgrade steps — recommended) or Full (re-run all content steps as a thorough re-install). The contract for all future CHANGELOG entries: every "Upgrade steps" block must bring existing projects to the same capability level as a fresh install.
+- **Upgrade path fast/full choice** (`ONBOARDING.md` step 2): onboarding now summarises the changelog changes to the human before an upgrade, then asks Fast (carry out upgrade steps, recommended) or Full (re-run all content steps as a thorough re-install). The contract for all future CHANGELOG entries: every "Upgrade steps" block must bring existing projects to the same capability level as a fresh install.
 - **Fresh-session prompt after design commits** (`product.md`, `architect.md`, `saas-design-session` skill): after each commit the Finish step now tells the human to start the next topic in a fresh session (`/clear` in Claude Code, new conversation elsewhere). The PRD, decisions.md, ADRs and TASKS.md hold everything; accumulated conversation history is noise.
 
 **Upgrade steps:**
@@ -63,7 +84,7 @@ For the Claude plugin directory's review:
 ## 0.2.0 (2026-10-02)
 
 ### Assessment and workshops
-- **`procedures/assess.md`**, with the public skill `saas-assessment` (works before installing: it clones this release) and the in-project skill `/assess`. It analyses an existing app without changing it, asks the human's stack preference, and writes `assessment/YYYY-MM-DD-assessment.md` from `templates/assessment.md`: readiness scored 0–3 with evidence, the target picture (each component's layer: keep, extract, rebuild or retire), the decisions needed as options, the roadmap by stage with rough effort ranges and their confidence, risks, and the workshops to hold.
+- **`procedures/assess.md`**, with the public skill `saas-assessment` (works before installing: it clones this release) and the in-project skill `/assess`. It analyses an existing app without changing it, asks the human's stack preference, and writes `assessment/YYYY-MM-DD-assessment.md` from `templates/assessment.md`: readiness scored 0-3 with evidence, the target picture (each component's layer: keep, extract, rebuild or retire), the decisions needed as options, the roadmap by stage with rough effort ranges and their confidence, risks, and the workshops to hold.
 - **The workshop playbook** in `.satt/workshops/`, one file per workshop: vision, capabilities, domain and events (event storming), tenancy and identity, integration (one per system, Navision first), clients, architecture, operations and planning. Each has its purpose, participants by role, preparation, a timed agenda, methods, the decisions to reach and where they're recorded. `workshops/README.md` covers the sequence, sizing for small and large apps, how to run a session, and the notes format.
 - **Workshop notes become records:** `assess.md` › Process workshop notes records their decisions in the PRD, ADRs, integration contracts and TASKS.md. Onboarding reuses an assessment and workshop notes instead of asking again; `roadmap.md` starts from the assessment's roadmap; `align.md` reports unprocessed notes.
 - The skills' clone no longer prints git's detached-HEAD advice.

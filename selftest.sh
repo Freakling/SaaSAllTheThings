@@ -128,6 +128,23 @@ awk_rules="$(sed -n 's/^  rules = "\(.*\)"$/\1/p' "$src/framework/tools/archchec
 doc_rules="$(sed -n 's/^| `\([a-z-]*\)` | .*/\1/p' "$src/framework/.satt/reference/README.md" | LC_ALL=C sort | tr '\n' ' ')"
 [ -n "$awk_rules" ] && [ "$awk_rules" = "$doc_rules" ] && ok "the check's rules match reference/README.md › What the check enforces" \
   || bad "rules differ: archcheck.awk has '$awk_rules', reference/README.md has '$doc_rules'"
+# Extract "SIZE:model-id" pairs from model sizing blocks, sorted, pipe-separated.
+_model_ids() {
+  awk '/^[[:space:]]*-[[:space:]]*(XS|S|M|L|XL):[[:space:]]+[a-z]/{
+    line=$0; sub(/^[[:space:]]*-[[:space:]]*/,"",line); gsub(/:[[:space:]]+/,":",line); gsub(/[[:space:]]/,"",line); print line
+  }' "$1" | LC_ALL=C sort | tr '\n' '|'
+}
+refresh_ids="$(_model_ids "$src/framework/.satt/procedures/refresh-model-sizing.md")"
+onboarding_ids="$(_model_ids "$src/ONBOARDING.md")"
+[ -n "$refresh_ids" ] && [ "$refresh_ids" = "$onboarding_ids" ] \
+  && ok "default model IDs in ONBOARDING.md match the refresh-model-sizing procedure" \
+  || bad "model ID mismatch: ONBOARDING: '$onboarding_ids' refresh-model-sizing: '$refresh_ids'"
+grep -qF "retries once on the next size" "$src/README.md" \
+  && ok "README.md model sizing paragraph matches the canonical wording" \
+  || bad "README.md model sizing paragraph is missing the canonical wording"
+git -C "$src" grep -qrl $'\xe2\x80\x93\|\xe2\x80\x94' -- '*.md' '*.sh' '*.txt' '*.cfg' 2>/dev/null \
+  && bad "en/em dashes found in tracked text files: run the dash removal" \
+  || ok "no en/em dashes in tracked text files"
 
 # --- installer ----------------------------------------------------------------------------------
 echo "installer"

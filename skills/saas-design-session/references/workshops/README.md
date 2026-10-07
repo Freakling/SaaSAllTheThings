@@ -33,7 +33,7 @@ Typically two to three weeks for a mid-size app, with a day or two between sessi
 ## Running a workshop
 - **One decision owner** per decision is in the room: the product owner for product calls, the architect for architecture calls within the reference, the customer's owner for their systems and data. Without them, the topic becomes an open question instead of a guess.
 - **Prepare from the assessment.** The facilitator sends a pre-read two working days before: the purpose, the decisions to reach, and the relevant findings. Participants come with answers, not questions.
-- **Decide with options.** Each decision is put as 2–4 options, with a recommendation and what each costs, then the owner decides. The same shape as the rest of the workflow.
+- **Decide with options.** Each decision is put as 2-4 options, with a recommendation and what each costs, then the owner decides. The same shape as the rest of the workflow.
 - **Timebox and park.** Each agenda block has a time. Anything that runs over, or can't be decided, goes to the parking lot and becomes an open question with an owner and a date.
 - **Write down decisions, not discussion.** Only what was decided becomes a record; how the room got there is a one-line reason.
 - **The AI assistant's role:** it prepares the pre-read and the options from the assessment, scribes live into the notes file, and proposes; it doesn't decide, and records only what the owner said.
@@ -63,7 +63,7 @@ Each session's notes go to `assessment/workshops/YYYY-MM-DD-<name>.md`. For a wo
 <only for architecture decisions: one per decision, in the shape of templates/adr.md with every
 heading two levels down (#### Context, #### Options …), status proposed>
 ```
-- **Who and when.** In a one-to-one session, Participants is the human's role (ask once; if they'd rather not say, `the human`) and the assistant, and the decisions' owner is that role. A date nobody gave is `by: —`, never a guess.
+- **Who and when.** In a one-to-one session, Participants is the human's role (ask once; if they'd rather not say, `the human`) and the assistant, and the decisions' owner is that role. A date nobody gave is `by: none`, never a guess.
 - **A deviation turned down is a decision too:** "comply with reference/<topic>.md › <heading>", with why.
 - **ADR drafts** stay `ADR-?` and proposed in the notes: choosing an option is a decision in the room; accepting the ADR happens when the notes are processed, by the human.
 Then `procedures/assess.md` › Process workshop notes turns them into records: the PRD, ADRs, integration contracts and TASKS.md. Before SaaSAllTheThings is installed, onboarding reads them instead.

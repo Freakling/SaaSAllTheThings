@@ -18,7 +18,7 @@ In your app it's `.satt/` for short (SaaS All The Things), and the setup command
 AI writes backend code fast. Without structure, that speed goes wrong in familiar ways:
 
 - **The architecture erodes.** One handler reads the tenant from a header, another calls the database from a client, a third stores a connection string. With SaaSAllTheThings the reference architecture is framework-owned and machine-checked. The only way to deviate is an ADR that you accept, and the check accepts an exception only when an accepted ADR names it.
-- **The product drifts.** The AI quietly decides a business rule you never agreed to. Product calls come to you as 2–4 options with a recommendation. Only your choice is written down, and anything undecided goes on an open-questions list instead of being guessed.
+- **The product drifts.** The AI quietly decides a business rule you never agreed to. Product calls come to you as 2-4 options with a recommendation. Only your choice is written down, and anything undecided goes on an open-questions list instead of being guessed.
 - **"Done" means "it compiled".** One check defines "works": the architecture rules hold, the build passes and the tests pass. It runs before every commit that touches code, and in Claude Code also before the AI ends its turn.
 - **Single-tenant habits stay.** Tenant-specific `if`s, a tenant id taken from the request, a cloud bill that grows with every customer. The check fails on the first two, and cost defaults (serverless, consumption) cover the third.
 - **Context gets lost between sessions.** A few plain files hold everything: the product document, a decision log, ADRs, integration contracts, the task queue and an architecture table. Each fact has one home, so any session picks up where the last one stopped.
@@ -192,22 +192,22 @@ The full rules are in `.satt/rules.md`, and the assistant reads them every sessi
 
 The orchestrator (main session) and the builder (builder subagent) are deliberately separate contexts. Each optimises differently.
 
-**The main session — orchestrator**
+**The main session (orchestrator)**
 - **Small at the start.** A session starts with `AGENTS.md` and `.satt/rules.md` (~10 KB). Each procedure and each reference topic loads only when an item touches it.
-- **Stays small across items.** The main session picks items, records decisions, updates TASKS.md, and approves commits. It never reads the files being changed. After it hands an item to the builder and the report comes back, its context holds only that ~20-line report — not the source files, test output or check logs.
+- **Stays small across items.** The main session picks items, records decisions, updates TASKS.md, and approves commits. It never reads the files being changed. After it hands an item to the builder and the report comes back, its context holds only that ~20-line report: not the source files, test output or check logs.
 - **Nothing to hand off between sessions.** TASKS.md, the commits, AGENTS.md, the PRD and the ADRs hold everything. Once an item is committed, a new session (or `/clear` in Claude Code) loses nothing. An item interrupted mid-build gets a one-line `Note:` in TASKS.md; the next session reads it and resumes.
-- **Design sessions: clear after each commit.** Once a product or architecture session's commit lands, the conversation has no value left — every decision is in the PRD, `decisions.md` and ADRs. `/clear` before the next topic. The procedures remind you at the end of each session.
+- **Design sessions: clear after each commit.** Once a product or architecture session's commit lands, the conversation has no value left: every decision is in the PRD, `decisions.md` and ADRs. `/clear` before the next topic. The procedures remind you at the end of each session.
 
-**The builder subagent — builder**
+**The builder subagent (builder)**
 - **Fresh context per item.** In Claude Code, each build runs as a separate `builder` subagent that starts with an empty context. It reads only what the item needs: the files in `Touches`, the relevant AGENTS.md rows, the PRD sections named in the item, and the reference architecture topics the work touches. It builds, runs the check, and returns a structured ~20-line report.
 - **Isolation prevents accumulation.** Because the builder is isolated, the main session never carries the file contents, check logs or edit history. A session that works through ten items stays about as lean as one that worked through one.
-- **The report is the only channel.** The builder's report fields (`Files`, `Systems`, `Contracts`, `Found`, `For the human`) give the main session exactly what it needs to update the records and decide what's next — no more.
+- **The report is the only channel.** The builder's report fields (`Files`, `Systems`, `Contracts`, `Found`, `For the human`) give the main session exactly what it needs to update the records and decide what's next: no more.
 
-**The reviewer subagent — read-only, also isolated**
+**The reviewer subagent (read-only, also isolated)**
 - For `L` or `XL` items, and `M` items touching contracts, tenant isolation, identity or a stored schema, a separate `reviewer` subagent checks the diff in its own fresh context before the commit. Findings go back to the main session as a ranked list; code findings are rebuilt, out-of-scope findings become new TASKS.md items.
 
 **Parallel sessions (design + coding)**
-- Two sessions can run at once against separate git worktrees — one designing, one building. Each reads from the same project files, and the `in-progress` claim in TASKS.md prevents them from touching the same item.
+- Two sessions can run at once against separate git worktrees, one designing, one building. Each reads from the same project files, and the `in-progress` claim in TASKS.md prevents them from touching the same item.
 
 ```mermaid
 sequenceDiagram
@@ -226,7 +226,7 @@ sequenceDiagram
     Note over B: reads Touches, Architecture rows, PRD sections, reference topics
     B->>B: build, then run check.sh
     B-->>-M: ~20-line report
-    Note over M: keeps only the report — not source files, test output or check logs
+    Note over M: keeps only the report: not source files, test output or check logs
 
     opt L/XL item, or M item touching contracts/isolation/identity/schema
         M->>R: git diff to review.diff
@@ -241,10 +241,10 @@ sequenceDiagram
     H->>M: approved
     M->>R: commit
 
-    Note over R: records are the handoff — /clear or a new session loses nothing
+    Note over R: records are the handoff: /clear or a new session loses nothing
 ```
 
-**Model sizing** (recommended on): each size maps independently to a build model — `XS` and `S` to Haiku (fast/cheap), `M` to Sonnet (balanced), `L` and `XL` to Opus (most capable). Onboarding writes the five entries to AGENTS.md › Project rules; `/refresh-model-sizing` updates them or checks whether your tool supports the feature.
+**Model sizing** (recommended on): each item size maps to its own build model in AGENTS.md › Project rules. Claude Code defaults: XS and S to Haiku, M to Sonnet, L and XL to Opus. A size without an entry uses the session model, and a failed build retries once on the next size's model. Onboarding writes the mapping; `/refresh-model-sizing` updates it, or tells you if your assistant can't choose a model per subagent.
 
 ### The check
 `bash tools/check.sh` runs four steps:

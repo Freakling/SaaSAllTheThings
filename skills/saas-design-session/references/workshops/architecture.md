@@ -3,7 +3,7 @@
 
 **Purpose:** agree the backend stack, what of the old code is reused or rebuilt, how it's extracted without stopping the business, and the few choices the reference leaves open.
 **Length:** 3 hours · **Unblocks:** stages 0 (Extract) and 1 (Foundation).
-**Participants:** solution architect (decides within the reference) · development lead and 2–3 developers who know the old code · operations lead · product owner, for the trade-offs that affect the product · facilitator · scribe.
+**Participants:** solution architect (decides within the reference) · development lead and 2-3 developers who know the old code · operations lead · product owner, for the trade-offs that affect the product · facilitator · scribe.
 
 ## Prepare
 - From the assessment: the readiness scores, the target picture (each component and the layer it becomes), the stack found and the human's preference, and the risks.

@@ -1,6 +1,6 @@
 ---
 name: product
-description: 'Deprecated alias for /design — use /design instead.'
+description: 'Deprecated alias for /design: use /design instead.'
 argument-hint: "[topic, or 'questions']"
 ---
 <!-- SaaSAllTheThings · framework-owned: replaced on upgrade. -->

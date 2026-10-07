@@ -21,8 +21,8 @@ What each layer may depend on (import, reference or call). Everything else fails
 
 | Layer | May depend on |
 |---|---|
-| `contracts` | — |
-| `domain` | — |
+| `contracts` | (none) |
+| `domain` | (none) |
 | `application` | `domain`, `contracts` |
 | `infrastructure` | `application`, `domain`, `contracts` |
 | `integration` | `application`, `contracts` |

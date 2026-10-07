@@ -2,8 +2,8 @@
 # Workshop: domain and events (event storming)
 
 **Purpose:** map how the business actually works, as the events that happen, the commands that cause them and the rules in between, so the event-driven backend follows the business, and the old code can be extracted area by area.
-**Length:** 3–4 hours · **Unblocks:** stages 0 (Extract) and 3 (First slice).
-**Participants:** 2–4 domain experts (the people who do the work) · product owner · development lead · solution architect · facilitator (experienced with event storming) · scribe.
+**Length:** 3-4 hours · **Unblocks:** stages 0 (Extract) and 3 (First slice).
+**Participants:** 2-4 domain experts (the people who do the work) · product owner · development lead · solution architect · facilitator (experienced with event storming) · scribe.
 
 ## Prepare
 - The capability list from the capabilities workshop.

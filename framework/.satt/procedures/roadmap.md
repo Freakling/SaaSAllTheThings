@@ -18,7 +18,7 @@ Every SaaSAllTheThings project goes through the same stages, so any session know
 | 7 | **Second tenant** | a second tenant onboards with `tenant.md` and sees none of the first one's data; export and deletion work; moving a tenant to its own stamp is a tested procedure |
 | 8 | **Capabilities** | the rest of PRD › Capabilities, one slice at a time |
 
-Stages 4–6 can overlap once stage 3 is done. The human may reorder them; file order in the table is their priority.
+Stages 4-6 can overlap once stage 3 is done. The human may reorder them; file order in the table is their priority.
 
 ## Plan
 1. **Read** TASKS.md › Milestones and the queue, PRD › Capabilities, Clients and Integrations, `AGENTS.md` › Layout and Architecture, and the ADRs' titles and statuses. If `assessment/` has an assessment report, read its Roadmap and Target sections: they're the starting point, corrected by everything decided since.

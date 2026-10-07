@@ -5,7 +5,7 @@ Check whether this tool supports model sizing, then write or update the five per
 
 ## 0. Capability check
 Model sizing requires two capabilities: spawning a builder subagent, and specifying a different model for each subagent call.
-- **Claude Code:** both are available — proceed.
+- **Claude Code:** both are available: proceed.
 - **Any other tool:** if you cannot spawn a subagent, or cannot choose its model per call, tell the human that model sizing is not supported for this tool and stop. Do not write any entries.
 
 ## 1. Read existing entries
@@ -23,7 +23,7 @@ Model sizing: on
 - L:  claude-opus-5-5
 - XL: claude-opus-5-5
 ```
-(`claude-fable-5-1` is an alternative for L and XL when the human has Claude platform usage credits.)
+(`claude-fable-5-1` is an alternative for XL when the account has access.)
 
 For other tools: use a fast/cheap model for XS and S, a balanced model for M, and the most capable model for L and XL. If the tool's model IDs are not known, ask the human.
 

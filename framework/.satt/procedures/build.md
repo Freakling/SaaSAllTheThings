@@ -8,8 +8,8 @@ Build one TASKS.md item that has already been claimed, and report back briefly. 
    - a missing value becomes a default marked `PLACEHOLDER`, with the `Q<n>`;
    - a missing behaviour stays as it is, behind a named constant or feature flag with a comment citing `Q<n>`.
 3. **Stop and report `blocked` instead of guessing** when:
-   - you hit a product call the PRD doesn't settle (give 2–4 options and a recommendation);
-   - a rule in `.satt/reference/` can't be met, or the item needs a choice the reference leaves open and no ADR settles: report `blocked: architecture` with the rule, why, and 2–4 options with "comply" first;
+   - you hit a product call the PRD doesn't settle (give 2-4 options and a recommendation);
+   - a rule in `.satt/reference/` can't be met, or the item needs a choice the reference leaves open and no ADR settles: report `blocked: architecture` with the rule, why, and 2-4 options with "comply" first;
    - the item needs something it doesn't describe;
    - it would touch much more than its `Touches`.
 

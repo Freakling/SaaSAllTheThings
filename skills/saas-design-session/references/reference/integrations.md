@@ -28,7 +28,7 @@ An enterprise integration connects one external system, such as a customer's ERP
 | The tenant runs | API | Detecting changes | Reaching it | Credentials |
 |---|---|---|---|---|
 | Business Central online | the standard API (v2.0), or custom API pages for what it lacks | webhooks (subscriptions expire and are renewed on a timer), with `lastModifiedDateTime` polling as the safety net | public endpoint | multi-tenant integration app with a federated credential; the customer consents, and grants permission sets in Business Central |
-| Business Central on-premises, or NAV 2017–2018 | OData v4 web services (pages, queries), SOAP codeunits for actions | polling on a timestamp or `SystemModifiedAt` | an outbound-only connector in the customer's network (recommended), or a site-to-site VPN with Functions VNet integration (ADR: cost) | Key Vault credential (ADR, `identity.md` › External systems) |
-| NAV 2013–2016 | OData v3 / SOAP web services | polling | as above | as above |
+| Business Central on-premises, or NAV 2017-2018 | OData v4 web services (pages, queries), SOAP codeunits for actions | polling on a timestamp or `SystemModifiedAt` | an outbound-only connector in the customer's network (recommended), or a site-to-site VPN with Functions VNet integration (ADR: cost) | Key Vault credential (ADR, `identity.md` › External systems) |
+| NAV 2013-2016 | OData v3 / SOAP web services | polling | as above | as above |
 
 Prefer the online API when a tenant can use it. A customer still on NAV gets the connector route, and the PRD may add an upgrade path as a product decision.

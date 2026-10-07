@@ -10,26 +10,26 @@
 This is about whether the product helps, not whether features exist. Write what they did, what they expected, and what they said. Write `skipped` for any capability they didn't reach.
 
 ## Place an order
-- **Score 1–5:** I could place an order without asking anyone. →
+- **Score 1-5:** I could place an order without asking anyone. →
 - Walk through the last order you placed.
   -
 - Where did you hesitate or double-check?
   -
 
 ## Pick an order
-- **Score 1–5:** I could see what to pick next without asking anyone. →
+- **Score 1-5:** I could see what to pick next without asking anyone. →
 - What did you still check on paper or in Navision?
   -
 
 ## Fit with their work
-- **Score 1–5:** It fits how we already work, including our other systems. →
+- **Score 1-5:** It fits how we already work, including our other systems. →
 - What did they still do outside the product (spreadsheets, Navision, email)?
   -
 - What would make them use it every day?
   -
 
 ## Trust
-- **Score 1–5:** I trust what the product shows me is right and up to date. →
+- **Score 1-5:** I trust what the product shows me is right and up to date. →
 - Anything that looked wrong, stale or out of sync with other systems?
   -
 

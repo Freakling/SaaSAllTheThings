@@ -15,7 +15,7 @@ A SaaS with one customer should cost close to nothing when idle, and grow with u
 | Identity | Entra ID app registrations (free); External ID only by ADR | |
 | A web front end, if a client is web-based | Static Web Apps **Free** (Standard by ADR, for private endpoints or an SLA) | static hosting at no cost; the API stays in Functions |
 
-The check's `cost-sku` rule fails Bicep that asks for a premium, isolated or dedicated SKU (`Premium*`, `Isolated*`, `EP1`–`EP3`, `P*v*` App Service plans) or provisioned Cosmos DB throughput. Each of those is an ADR that names the need and the expected monthly cost, plus an `Exception: cost-sku <path>` line.
+The check's `cost-sku` rule fails Bicep that asks for a premium, isolated or dedicated SKU (`Premium*`, `Isolated*`, `EP1`-`EP3`, `P*v*` App Service plans) or provisioned Cosmos DB throughput. Each of those is an ADR that names the need and the expected monthly cost, plus an `Exception: cost-sku <path>` line.
 
 ## Guardrails
 - **A budget per environment** in Bicep, alerting the owner at 50%, 80% and 100% of a monthly amount that the human sets (a `PLACEHOLDER` until then).

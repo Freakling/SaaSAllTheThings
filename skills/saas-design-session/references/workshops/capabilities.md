@@ -3,7 +3,7 @@
 
 **Purpose:** turn the existing app into a list of capabilities the SaaS keeps, changes or retires, in priority order, and pick the first slice.
 **Length:** 3 hours · **Unblocks:** stages 0 (Extract), 3 (First slice) and 8 (Capabilities).
-**Participants:** product owner (decides) · 2–4 key users per persona · business analyst · development lead · facilitator · scribe.
+**Participants:** product owner (decides) · 2-4 key users per persona · business analyst · development lead · facilitator · scribe.
 
 ## Prepare
 - From the assessment: the inventory of screens, reports, jobs and integrations, each as a card with what it does and how much it's used, if known.

@@ -14,7 +14,7 @@
 {{ONE_PARAGRAPH_PITCH}}
 
 ## Product Pillars
-<!-- 3–5 short statements every capability is checked against. -->
+<!-- 3-5 short statements every capability is checked against. -->
 
 ## Customers and Tenants
 <!-- Who the customers (tenants) are, the first one, and the plans (tiers) with what each includes.

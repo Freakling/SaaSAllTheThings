@@ -3,7 +3,7 @@
 - **Status:** proposed
 - **Date:** 2026-09-30
 - **Decides:** reference/clients.md › Each client's UI technology
-- **Supersedes:** —
+- **Supersedes:** none
 
 ## Context
 Sales use the Windows client all day at the counter, with a keyboard and a barcode scanner. Fast data entry matters more than looks. The mobile app for the warehouse comes later and may be built differently.

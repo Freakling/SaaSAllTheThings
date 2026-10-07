@@ -22,10 +22,10 @@ Milestones, the work queue and bugs: the only place work is tracked. Item format
 ## Queue
 
 ### T1 · The check passes on a clean clone · todo · S · agent
-- Depends on: —
+- Depends on: none
 - Touches: tools/check.cfg
 - Done when: `bash tools/check.sh` exits 0 after a fresh clone and `bash tools/setup-clone.sh` (check)
-- PRD: —
+- PRD: none
 
 ## Notes
 <!-- Short and current: ordering constraints, items that share files, what's waiting on the human. Delete a note once it stops being true. -->

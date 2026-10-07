@@ -4,7 +4,7 @@
 One per external system. Navision (Dynamics NAV / Business Central) usually comes first.
 
 **Purpose:** agree what flows between the product and the system, which side owns which data, what happens when both change, and how the product reaches the system safely.
-**Length:** 2–3 hours per system · **Unblocks:** stage 6 (Integrations).
+**Length:** 2-3 hours per system · **Unblocks:** stage 6 (Integrations).
 **Participants:** the system's owner on the customer side (decides about their system) · a Navision or Business Central consultant or administrator · a key user from finance or operations · the customer's IT (network and access) · integration developer · solution architect · facilitator · scribe.
 
 ## Prepare

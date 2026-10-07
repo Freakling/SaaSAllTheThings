@@ -23,7 +23,7 @@ Instructions for AI assistants working on this product. The workflow is SaaSAllT
 ## Architecture
 | System | Owns | Where | Talks to |
 |---|---|---|---|
-| `Order` | the order rules: a customer, at least one line, the total | `src/OrderDesk.Domain/Orders/` | — |
+| `Order` | the order rules: a customer, at least one line, the total | `src/OrderDesk.Domain/Orders/` | (none) |
 | `PlaceOrderHandler` | placing an order: builds it, saves it with `OrderPlacedV1` | `src/OrderDesk.Application/Orders/` | `IOrderStore`, `IClock`, `IIdGenerator` |
 | `PlaceOrderFunction` | `POST /api/v1/orders` | `src/OrderDesk.Functions/Orders/` | `PlaceOrderHandler`; the tenant from `FunctionContext` |
 | `TenantContext` | who is calling: tenant, user, roles | `src/OrderDesk.Application/Tenancy/` | built by the token middleware (T4) |
