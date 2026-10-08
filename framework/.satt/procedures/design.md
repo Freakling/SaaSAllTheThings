@@ -16,9 +16,10 @@ A question about how the system is built (a data store, a client's UI tech, a de
   Give a one-line reason for each position.
 
 ## For each question
-1. Offer 2-4 concrete options. For each: what the user or customer experiences, what it would take to build (which systems in AGENTS.md › Architecture, which clients), what it costs to run, and which pillar it serves or strains.
-2. Recommend one, with a one-line reason.
-3. Wait for the human. If they answer only part, record only that part. If you had to interpret the answer, write down your reading and ask them to confirm it.
+1. **Surface the relevant context.** Quote or summarise what's already decided that bears on this question: the applicable Product Pillars, the current PRD rule on this topic (if any), and any related line from `product/decisions.md`. If nothing yet exists, say so in one sentence. This lets the human see the full picture before choosing.
+2. Offer 2-4 concrete options. For each: what the user or customer experiences, what it would take to build (which systems in AGENTS.md › Architecture, which clients), what it costs to run, and which pillar it serves or strains.
+3. Recommend one, with a one-line reason.
+4. Wait for the human. If they answer only part, record only that part. If you had to interpret the answer, write down your reading and ask them to confirm it.
 
 ## Record each decision in one change
 1. **PRD:** write the rule into its section as the current requirement, replacing any text it supersedes. A new capability gets a new `###` under Capabilities.

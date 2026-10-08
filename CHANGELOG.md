@@ -2,6 +2,12 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## 0.5.4 (2026-10-09)
+
+- **Design session context surfaced to the director.** `design.md` › For each question now has a first step that quotes or summarises the applicable Product Pillars, the current PRD rule, and any related line from `decisions.md` before offering options. The director sees the full picture before choosing, not just the options.
+
+**Upgrade steps:** none. Framework files are replaced on upgrade.
+
 ## 0.5.3 (2026-10-07)
 
 - **En and em dashes removed throughout.** Every en dash (U+2013) and em dash (U+2014) replaced by its contextual equivalent: a hyphen for ranges (`1-3`, `2-4`), a colon or comma for asides, and parentheses for parentheticals. `selftest.sh` now asserts the count is zero. `.claude/CLAUDE.md` adds the typography rule for future edits.
