@@ -2,6 +2,12 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## 0.5.6 (2026-10-09)
+
+- **Integration session context surfaced to the director.** `integrate.md` › Work out the contract now instructs the session to quote or summarise the relevant guidance from `integrations.md` (including the Navision table) and the current contract value before offering options on each round.
+
+**Upgrade steps:** none. Framework files are replaced on upgrade.
+
 ## 0.5.5 (2026-10-09)
 
 - **Architecture session context surfaced to the director.** `architect.md` › Propose now has a first step that quotes or summarises the reference rule in question, the classification (open choice, deviation, gap or requirements conflict), and the title and status of any related ADRs before offering options.
