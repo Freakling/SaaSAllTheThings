@@ -18,10 +18,11 @@ Comes from: a build reporting `blocked: architecture`, a review finding, a "Deci
    - **A requirements conflict:** the architecture-compliant option violates a stated requirement, or a requirement forces a deviation. Surface the conflict; the human resolves it.
 
 ## Propose
-1. Offer 2-4 options. For each: what it means for the code and the layers, effort (S, M or L as in `tasks.md` › Size, or a range of person-days for anything bigger), monthly Azure cost (`reference/cost.md`), risk, security and compliance impact, and how hard it is to undo.
-2. Apply industry best practices as a standing check on every option, not just the reference architecture, but: OWASP Top 10, principle of least privilege, defence in depth, zero trust (verify explicitly, use least privilege, assume breach), data minimisation, and any standard named in the compliance requirements (ISO 27001, SOC 2, GDPR, …). Flag any option that conflicts with a relevant practice; note which option strengthens the security or compliance posture.
-3. Recommend one, with a one-line reason. Prefer complying; prefer the reversible option; prefer the option with the stronger security posture when effort is similar.
-4. Wait for the human.
+1. **Surface the relevant context.** Before offering options, quote or summarise: the reference rule or heading in question (the authoritative text), the classification from Prepare (open choice, deviation, gap or requirements conflict), and the title and status of any related ADRs. If a requirement conflicts with the architecture, state it explicitly. This lets the human see what they are deciding against before choosing.
+2. Offer 2-4 options. For each: what it means for the code and the layers, effort (S, M or L as in `tasks.md` › Size, or a range of person-days for anything bigger), monthly Azure cost (`reference/cost.md`), risk, security and compliance impact, and how hard it is to undo.
+3. Apply industry best practices as a standing check on every option, not just the reference architecture, but: OWASP Top 10, principle of least privilege, defence in depth, zero trust (verify explicitly, use least privilege, assume breach), data minimisation, and any standard named in the compliance requirements (ISO 27001, SOC 2, GDPR, …). Flag any option that conflicts with a relevant practice; note which option strengthens the security or compliance posture.
+4. Recommend one, with a one-line reason. Prefer complying; prefer the reversible option; prefer the option with the stronger security posture when effort is similar.
+5. Wait for the human.
 
 ## Record
 1. **Write the ADR** from `.satt/templates/adr.md` as `adr/ADR-<n>-<slug>.md`, where `n` is one more than the highest existing number. `Status: proposed` until the human has said in this conversation that they accept it; then set `Status: accepted` (in Claude Code a hook asks them to confirm).

@@ -1,7 +1,7 @@
 {
   "name": "saasallthethings",
   "displayName": "SaaSAllTheThings",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "Build a B2B SaaS from scratch, or turn a working proof of concept or existing app into a mature, multi-tenant SaaS on Azure. You own the product; the framework owns and enforces the architecture (event-driven Azure Functions, OIDC with federated identity, enterprise integrations); the AI builds, and a project check proves it.",
   "author": {
     "name": "Freakling"
