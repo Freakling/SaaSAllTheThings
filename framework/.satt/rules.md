@@ -15,6 +15,7 @@ These rules apply to any AI assistant working in this project. For each of these
 - **feedback.md:** new feedback report, process a feedback report.
 - **release.md:** deploy to an environment.
 - **align.md:** check the docs and tasks are aligned.
+- **drift-reset.md:** a design drift reset, only when the director asks for one: align often, reset when you have to. `drift-reset postmortem` runs after its rebuild.
 - **prune.md:** prune the task list.
 - **review.md:** review a finished change.
 
@@ -41,6 +42,7 @@ In Claude Code these are also slash commands, and builds and reviews run as the 
 | How an external system is integrated | `integrations/<system>/contract.md` |
 | Work, bugs, milestones | `TASKS.md` (format: `.satt/tasks.md`; done items: `TASKS-archive.md`) |
 | Assessments and workshop notes | `assessment/`: snapshots. What they decide is recorded in the PRD, ADRs, contracts and TASKS.md (`assess.md` › Process workshop notes). |
+| Design drift resets | `resets/YYYY-MM-DD/`: snapshots (as built, interpretations, the design before, postmortem). What they decide is recorded in the PRD, `decisions.md`, ADRs and TASKS.md (`drift-reset.md`). |
 | Settings per environment | `infra/env/<env>.bicepparam` (never secrets) |
 | Settings per tenant | the tenant registry: data, never code or repository files |
 | Secrets | Key Vault, and ideally none (`reference/identity.md` › No secrets) |

@@ -97,7 +97,7 @@ done
 [ -z "$missing" ] && ok "every procedure has a skill (except build and review, which are subagents)" || bad "procedures without skills:$missing"
 # Every .md a rule, procedure or reference topic names: one awk pass prints "doc<TAB>ref" pairs.
 missing=""
-other=" contract.md prd.md decisions.md README.md TEMPLATE.md ONBOARDING.md CHANGELOG.md AGENTS.md CLAUDE.md TASKS.md TASKS-archive.md adr.md integration-contract.md "
+other=" contract.md prd.md decisions.md as-built.md interpretations.md prd-before.md postmortem.md README.md TEMPLATE.md ONBOARDING.md CHANGELOG.md AGENTS.md CLAUDE.md TASKS.md TASKS-archive.md adr.md integration-contract.md "
 while IFS="$(printf '\t')" read -r doc ref; do
   case "$ref" in
     reference/*) [ -f "$src/framework/.satt/$ref" ] || missing="$missing ${doc##*/}→$ref" ;;
@@ -124,6 +124,12 @@ for agent in "$src"/framework/.claude/agents/*.md; do
   [ -n "$procedure" ] && [ -f "$src/framework/.satt/procedures/$procedure" ] || missing="$missing ${agent##*/}"
 done
 [ -z "$missing" ] && ok "every subagent points to an existing procedure" || bad "subagents without procedures:$missing"
+grep -qF "drift-reset.md" "$src/framework/.satt/procedures/align.md" \
+  && ok "align.md recommends a drift reset for recurring or cross-cutting conflicts" \
+  || bad "align.md doesn't point to drift-reset.md"
+grep -qx "disable-model-invocation: true" "$src/framework/.claude/skills/drift-reset/SKILL.md" \
+  && ok "the drift-reset skill runs only when the human starts it" \
+  || bad "the drift-reset skill lacks disable-model-invocation: true"
 awk_rules="$(sed -n 's/^  rules = "\(.*\)"$/\1/p' "$src/framework/tools/archcheck.awk" | tr ' ' '\n' | LC_ALL=C sort | tr '\n' ' ')"
 doc_rules="$(sed -n 's/^| `\([a-z-]*\)` | .*/\1/p' "$src/framework/.satt/reference/README.md" | LC_ALL=C sort | tr '\n' ' ')"
 [ -n "$awk_rules" ] && [ "$awk_rules" = "$doc_rules" ] && ok "the check's rules match reference/README.md › What the check enforces" \

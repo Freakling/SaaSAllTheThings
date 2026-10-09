@@ -132,6 +132,6 @@ If the capabilities aren't decided yet, leave the placeholders, and add an agent
 8. **Offer a "Development" section for the app's README:** clone, then `bash tools/setup-clone.sh`, then the commands.
 9. **Tell the human:**
    - what needs their confirmation (inferred PRD text, open questions, `Decide:` items, human items);
-   - how to use it: "do the next task", "plan the next stage", "let's work out <capability>", "add the Navision integration", "which UI tech for the Windows client?", "prepare an acceptance check", "process this feedback", "release to dev", "check the docs are aligned" (in Claude Code also `/next-task`, `/roadmap`, `/design`, `/integrate`, `/architect`, `/acceptance`, `/feedback`, `/release`, `/align`, `/tenant`, `/prune`);
+   - how to use it: "do the next task", "plan the next stage", "let's work out <capability>", "add the Navision integration", "which UI tech for the Windows client?", "prepare an acceptance check", "process this feedback", "release to dev", "check the docs are aligned" (in Claude Code also `/next-task`, `/roadmap`, `/design`, `/integrate`, `/architect`, `/acceptance`, `/feedback`, `/release`, `/align`, `/tenant`, `/prune`, and `/drift-reset`, which only the human starts, when `/align` keeps finding the same conflict);
    - with the Claude adapter: to restart Claude Code, because skills, hooks and permissions load when a session starts;
    - that every new clone needs `bash tools/setup-clone.sh`.

@@ -104,6 +104,7 @@ Only the framework's own files are replaced, and your edits to them are kept. Wh
 | "New feedback report", "Process this feedback" (`/feedback`) | Turns a customer or pilot session into bugs, score trends and product proposals. |
 | "Release to dev" (`/release dev`) | Check, what-if, deploy and smoke test, each step with your approval. Production is yours to run. |
 | "Check the docs are aligned" (`/align`) | A consistency pass. Drift gets fixed; gaps and conflicts come to you. |
+| "Reset the design" (`/drift-reset`), only when you start it | For when a principle has been built two ways and `/align` keeps finding it: describes the system as built, maps each interpretation, you rewrite the design where it splits, and the rebuild is planned as items. `/drift-reset postmortem` afterwards turns what drifted into checks. Align often, reset when you have to. |
 | "Prune the task list" (`/prune`) | Moves done items to `TASKS-archive.md`. |
 
 ```
@@ -145,14 +146,15 @@ your-app/
 ├── adr/                        architecture decision records: choices and accepted deviations
 ├── integrations/<system>/      one contract per external system (written by /integrate)
 ├── assessment/                 assessment reports and workshop notes (written by /assess)
+├── resets/                     design drift resets: as built, interpretations, postmortem (written by /drift-reset)
 ├── validation/TEMPLATE.md      the feedback template, one section per capability
 ├── tools/check.cfg             the stack, the layers' folders, size limits
 │
 │  the framework's, tool-neutral: updated on upgrade
 ├── .satt/rules.md              the workflow rules, loaded through AGENTS.md
 ├── .satt/reference/            the reference architecture, one topic per file (the authority)
-├── .satt/procedures/           next-task · build · assess · roadmap · product · architect · integrate ·
-│                               tenant · acceptance · feedback · release · align · prune · review
+├── .satt/procedures/           next-task · build · assess · roadmap · design · architect · integrate ·
+│                               tenant · acceptance · feedback · release · align · drift-reset · prune · review
 ├── .satt/templates/            ADR, integration contract and assessment templates
 ├── .satt/workshops/            the workshop playbook: one file per workshop, agendas and methods
 ├── .satt/tasks.md              the TASKS.md item format

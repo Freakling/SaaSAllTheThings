@@ -27,4 +27,4 @@ A consistency pass across the PRD, decisions, ADRs, integration contracts, TASKS
 8. **Setup.**
    - `bash tools/check.sh` passes and prints no `note:` about the hook or the toolchain.
    - The `.gitignore` and `.gitattributes` lines that install.sh adds are still there. If any are missing, rerun the installer.
-9. **Report.** Say what you fixed and what needs the human. Commit the fixes as `docs: align` after the human approves; during onboarding they go into the install commit instead.
+9. **Report.** Say what you fixed and what needs the human. Recommend a drift reset (`drift-reset.md`) when a conflict you report has come up before (an earlier `docs: align` commit, a `product/decisions.md` line or a `resets/` folder about the same rule), or when one conflict involves several pillars or principles. Only recommend it: the director decides whether to start one. Commit the fixes as `docs: align` after the human approves; during onboarding they go into the install commit instead.

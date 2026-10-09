@@ -2,6 +2,21 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## 0.6.0 (2026-10-09)
+
+- **`/drift-reset`, the design drift reset** (`procedures/drift-reset.md`). When a design principle has been built in more than one way, patching makes it worse; the reset guides the director through a structured redo instead. Align often, reset when you have to.
+  - **Only the director starts it.** The Claude Code skill sets `disable-model-invocation: true`, so the assistant can't start it on its own; `/align` may only recommend it.
+  - **As built (read only):** one read-only analysis per area in a fresh context, with tenancy and identity always its own area, since drift there is a security finding. Writes `resets/YYYY-MM-DD/as-built.md` with `file:line` evidence.
+  - **Interpretations (read only):** each pillar, PRD rule, contract rule and accepted ADR classified as consistent, divergent or contradictory, with its failure mode, in `interpretations.md`.
+  - **Rewrite the design:** one design call per split item, as in `/design`, with room for the director's own answer. The old PRD is archived as `prd-before.md`; only the director's choices reach `decisions.md`. Accepted ADRs are never dropped without a new ADR, and framework rules (tenancy, identity, cost, the check) are out of scope: a real conflict goes through `/architect`.
+  - **Plan the rebuild:** sized TASKS.md items with exact `Touches`, security bugs first. No application code; the rebuild runs through `/next-task`.
+  - **`/drift-reset postmortem`:** checks each failure mode after the rebuild, writes `postmortem.md`, and proposes checks for `tools/check.local.sh` as design calls, so repeated judgment turns into checks.
+- **`/align`** recommends a drift reset when a conflict has come up before, or one conflict involves several principles.
+- `rules.md` lists the procedure and gives `resets/` its row in "Each fact lives in one place". README, ONBOARDING and the behaviour scenarios document it; the README's procedure list says `design` instead of the old `product`.
+- **`selftest.sh`** asserts that `align.md` points to the reset and that the skill can only be started by the human.
+
+**Upgrade steps:** none. Framework files are replaced on upgrade; `resets/` is created by the first reset.
+
 ## 0.5.6 (2026-10-09)
 
 - **Integration session context surfaced to the director.** `integrate.md` › Work out the contract now instructs the session to quote or summarise the relevant guidance from `integrations.md` (including the Navision table) and the current contract value before offering options on each round.
