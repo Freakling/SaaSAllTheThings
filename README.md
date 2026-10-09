@@ -13,6 +13,16 @@ You own the product: what it does, for whom, and in what order. The framework ow
 
 In your app it's `.satt/` for short (SaaS All The Things), and the setup command is `/saasallthethings:saas-all-the-things`.
 
+## Part of Director-Driven Development
+
+This is one of three frameworks built on [Director-Driven Development](https://saemundsson.se/2026/10/07/director-driven-development/), a way of working with AI coding agents: you direct the design, agents build in small, fresh contexts, and the build verifies every change. The same loop runs all three; only the rules the check enforces change.
+
+- [Godot-Director](https://github.com/Freakling/Godot-Director): games in Godot 4
+- [App-Director](https://github.com/Freakling/App-Director): small web, mobile and desktop apps
+- [SaaSAllTheThings](https://github.com/Freakling/SaaSAllTheThings): B2B SaaS on Azure (this one)
+
+New here? Start with the step-by-step guide: [Build a B2B SaaS on Azure with Director-Driven Development](https://saemundsson.se/2026/10/09/build-a-b2b-saas-on-azure-with-director-driven-development/).
+
 ## Why
 
 AI writes backend code fast. Without structure, that speed goes wrong in familiar ways:

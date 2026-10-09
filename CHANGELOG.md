@@ -2,6 +2,12 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## Unreleased
+
+- **README: "Part of Director-Driven Development".** A new section after the opening description places SaaSAllTheThings among the three Director-Driven Development frameworks (Godot-Director, App-Director, SaaSAllTheThings), and links the step-by-step guide to building a B2B SaaS on Azure with it.
+
+**Upgrade steps:** none.
+
 ## 0.6.0 (2026-10-09)
 
 - **`/drift-reset`, the design drift reset** (`procedures/drift-reset.md`). When a design principle has been built in more than one way, patching makes it worse; the reset guides the director through a structured redo instead. Align often, reset when you have to.
