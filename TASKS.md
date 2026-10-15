@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T3 · B3
+**Next IDs:** T4 · B3
 
 ## Queue
+
+### T3 · The plugin installs the latest release · done · S · agent
+- Touches: .claude-plugin/marketplace.json, .claude/CLAUDE.md, selftest.sh, README.md, CHANGELOG.md
+- Done when: the marketplace's plugin entry pins `v<version>` and the selftest fails when its `ref` disagrees with `VERSION` (test) · `.claude/CLAUDE.md` › After any change lists the marketplace among the files that carry the version and says each release is tagged `v<version>` (check)
+- PRD: none
+- Source: Director-Driven-Development T39
 
 ### B1 · The upgrade-file check ignores nested clones · done · S · agent · med
 - Touches: framework/.githooks/pre-commit, framework/.satt/procedures/align.md, ONBOARDING.md, selftest.sh
