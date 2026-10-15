@@ -4,7 +4,7 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T2 · B2
+**Next IDs:** T2 · B3
 
 ## Queue
 
@@ -12,6 +12,12 @@ Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by mov
 - Touches: framework/.githooks/pre-commit, framework/.satt/procedures/align.md, ONBOARDING.md, selftest.sh
 - Repro: clone a repository into an ignored folder (such as `work/`), with no upgrade file present, then commit → expected: the commit goes ahead / actual: "unmerged SaaSAllTheThings upgrade files (*.satt-new) exist", listing the clone's folder, because `git ls-files` lists a nested repository in an ignored folder as a directory
 - Found in: Director-Driven-Development B2
+- PRD: none
+
+### B2 · The self-test's .NET part runs without an SDK · done · S · agent · med
+- Touches: selftest.sh, CHANGELOG.md
+- Repro: on a machine with the .NET runtime host but no SDK (`dotnet --list-sdks` prints nothing), run `bash selftest.sh` → expected: the .NET part is skipped ("no .NET SDK on this machine") / actual: "couldn't read the .NET SDK version ('')", and three .NET checks fail (setup-clone restores the example; the example builds and its tests pass; runs the example's tests)
+- Found in: Director-Driven-Development T48
 - PRD: none
 
 ### T1 · One commit model: a single task pauses for approval, a run commits without pausing · done · M · agent
