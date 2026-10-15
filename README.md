@@ -67,7 +67,7 @@ Your app needs git (`git init` if it has none) and no uncommitted changes. You a
 
 The plugin installs the latest release. Then open a new Claude Code session in your app's folder (or run `/reload-plugins`), and run `/saasallthethings:saas-all-the-things`.
 
-**Option 2: manual install.** Put this repository in your app's root folder as a folder named `SaaSAllTheThings`: run `git clone https://github.com/Freakling/SaaSAllTheThings.git SaaSAllTheThings` there, or download the zip and rename the extracted folder. Then ask your assistant:
+**Option 2: manual install.** Put the latest release in your app's root folder as a folder named `SaaSAllTheThings`. The release's tag is `v` followed by its version number, and the [Releases page](https://github.com/Freakling/SaaSAllTheThings/releases) shows the latest one. Either run `git clone --branch <tag> --depth 1 https://github.com/Freakling/SaaSAllTheThings.git SaaSAllTheThings` there, replacing `<tag>` with it, or download that release's source zip from the Releases page and rename the extracted folder. Then ask your assistant:
 
 > Read SaaSAllTheThings/ONBOARDING.md and follow it to install SaaSAllTheThings into this project.
 

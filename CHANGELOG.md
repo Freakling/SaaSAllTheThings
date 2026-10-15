@@ -18,6 +18,7 @@ Each entry lists what changed. An entry that requires changes to an app's own fi
 - **Selftest** checks that the research files exist and are wired into the procedures, the item format, the seeds and the docs, that the researcher has no edit, write or shell tool, that only `permissions.allow` lists web search and fetch, that the installer ships everything (including with `--tools none`), that a research note commits without running the check, and that the design-session skill leaves the procedure out and says so.
 - **The example** (`examples/order-desk`) shows the `R` counter and the note folder, and the scenarios gain three for research.
 - **The plugin installs the latest release.** The marketplace names the plugin as a `github` source with `ref` `v<version>`, because Claude Code's relative-path source (`./`) can't pin a ref and so took the default branch. The skills already clone `v<version>`; with this, every install path gets the release, and `main` is where changes are integrated. `.claude/CLAUDE.md` › After any change lists `.claude-plugin/marketplace.json` among the files that carry the version and says each release is tagged `v<version>` once its pull request is merged. The selftest checks the marketplace's `ref` against `VERSION`.
+- **The manual install takes the latest release.** Option 2 in the README clones the release tag (`git clone --branch <tag> --depth 1`), or downloads that release's source zip, instead of `main`, so it installs the same release as the plugin and the skills. The Releases page shows the tag.
 
 **Upgrade steps**
 
