@@ -486,6 +486,18 @@ out="$(git_q commit -qm "with satt-new" 2>&1)"; expect_status "refuses while a .
 rm -f tools/check.sh.satt-new
 git reset -q HEAD -- $domain && git checkout -q -- $domain
 
+# A nested clone in an ignored folder is listed by ls-files as a directory. It doesn't block a
+# commit, but a real upgrade file still does while the clone is there.
+printf '/clones/\n' >> .git/info/exclude
+mkdir -p clones/nested && (cd clones/nested && git init -q && git_q commit -q --allow-empty -m nested) >/dev/null 2>&1
+out="$(git_q commit -q --allow-empty -m "with a nested clone" 2>&1)"
+expect_status "a nested clone in an ignored folder doesn't block a commit" 0 $? "$out"
+printf 'x\n' > tools/check.sh.satt-new
+out="$(git_q commit -q --allow-empty -m "with a nested clone and satt-new" 2>&1)"
+expect_status "a real upgrade file still blocks with a nested clone present" 1 $? "$out"
+expect_no_output "names the upgrade file, not the nested clone" "clones/" "$out"
+rm -f tools/check.sh.satt-new
+
 # --- .NET, where the SDK is installed -----------------------------------------------------------
 if command -v dotnet >/dev/null 2>&1; then
   echo ".NET"

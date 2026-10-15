@@ -7,7 +7,7 @@ A consistency pass across the PRD, decisions, ADRs, integration contracts, TASKS
 2. **Entry files.**
    - AGENTS.md points to `.satt/rules.md`.
    - In Claude Code, CLAUDE.md contains `@AGENTS.md`.
-   - No `*.satt-new` files are left unmerged: `git ls-files -o -i --exclude-standard -- '*.satt-new'`.
+   - No `*.satt-new` files are left unmerged: `git ls-files -o -i --exclude-standard -- '*.satt-new' | grep '\.satt-new$'` (the grep drops nested clones, which `ls-files` lists as directories).
 3. **Items.**
    - IDs are unique and below `Next IDs`, and every `Depends on` exists, in TASKS.md or the archive.
    - No `done` item depends on a `todo` one.
