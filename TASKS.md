@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T4 · B3
+**Next IDs:** T5 · B3
 
 ## Queue
+
+### T4 · The manual install takes the latest release · done · XS · agent
+- Touches: README.md, CHANGELOG.md, TASKS.md
+- Done when: the manual install option in README.md clones the latest release tag instead of `main`, worded like App-Director's and Godot-Director's manual options (check)
+- PRD: none
+- Source: Director-Driven-Development T68
 
 ### T3 · The plugin installs the latest release · done · S · agent
 - Touches: .claude-plugin/marketplace.json, .claude/CLAUDE.md, selftest.sh, README.md, CHANGELOG.md
