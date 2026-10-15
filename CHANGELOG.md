@@ -2,7 +2,7 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
-## Unreleased
+## 0.7.0 (2026-10-15)
 
 - **README: "Part of Director-Driven Development".** A new section after the opening description places SaaSAllTheThings among the three Director-Driven Development frameworks (Godot-Director, App-Director, SaaSAllTheThings), and links the step-by-step guide to building a B2B SaaS on Azure with it.
 - **The upgrade-file check ignores nested clones.** `git ls-files` lists a nested repository in an ignored folder (such as a clone in `work/`) as a directory, which blocked every commit while no upgrade file existed. The pre-commit hook, the `/align` check and onboarding now keep only paths that end in `.satt-new`, so a real upgrade file still blocks the commit.
