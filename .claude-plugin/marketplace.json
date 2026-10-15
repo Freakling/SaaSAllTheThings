@@ -5,7 +5,11 @@
   "plugins": [
     {
       "name": "saasallthethings",
-      "source": "./",
+      "source": {
+        "source": "github",
+        "repo": "Freakling/SaaSAllTheThings",
+        "ref": "v0.7.0"
+      },
       "description": "Assesses an app for the move to SaaS, and installs and upgrades the SaaSAllTheThings workflow."
     }
   ]

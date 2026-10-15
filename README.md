@@ -65,7 +65,7 @@ Your app needs git (`git init` if it has none) and no uncommitted changes. You a
 /plugin install saasallthethings@saasallthethings
 ```
 
-Then open a new Claude Code session in your app's folder (or run `/reload-plugins`), and run `/saasallthethings:saas-all-the-things`.
+The plugin installs the latest release. Then open a new Claude Code session in your app's folder (or run `/reload-plugins`), and run `/saasallthethings:saas-all-the-things`.
 
 **Option 2: manual install.** Put this repository in your app's root folder as a folder named `SaaSAllTheThings`: run `git clone https://github.com/Freakling/SaaSAllTheThings.git SaaSAllTheThings` there, or download the zip and rename the extracted folder. Then ask your assistant:
 

@@ -55,6 +55,9 @@ plugin_version="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1
 [ "$plugin_version" = "$(tr -d '\r\n' < "$src/VERSION")" ] && ok "plugin.json version matches VERSION" \
   || bad "plugin.json version ($plugin_version) matches VERSION ($(cat "$src/VERSION"))"
 version="$(tr -d '\r\n' < "$src/VERSION")"
+pinned_ref="$(sed -n 's/.*"ref"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$src/.claude-plugin/marketplace.json")"
+[ "$pinned_ref" = "v$version" ] && ok "the marketplace pins the plugin to the release v<VERSION>" \
+  || bad "the marketplace pins the plugin to '$pinned_ref', VERSION is $version"
 for skill in "$src"/skills/*/SKILL.md; do
   folder="${skill%/SKILL.md}"; folder="${folder##*/}"
   name=""; description=""; skill_version=""; branch=""; clones=0; angle=0; dashes=0
