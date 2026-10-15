@@ -117,7 +117,7 @@ If the capabilities aren't decided yet, leave the placeholders, and add an agent
 
 ## 10. Verify, commit, hand off
 1. Run `bash tools/check.sh` and report the result. For an existing app, also report how many source files are outside every layer.
-2. Search for `{{` with `git grep -n "{{" -- '*.md' tools/check.cfg`. Only postponed template sections may remain, and only if an item exists for them. `git ls-files -o -i --exclude-standard -- '*.satt-new'` must print nothing.
+2. Search for `{{` with `git grep -n "{{" -- '*.md' tools/check.cfg`. Only postponed template sections may remain, and only if an item exists for them. `git ls-files -o -i --exclude-standard -- '*.satt-new' | grep '\.satt-new$'` must print nothing (the grep drops nested clones, which `ls-files` lists as directories).
 3. Walk through the checks in `.satt/procedures/align.md`. Its fixes go into the install commit.
 4. List every file created, changed or deleted (`git status`).
 5. **Commit it all in one commit, after the human approves.**
