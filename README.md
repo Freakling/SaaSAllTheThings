@@ -102,7 +102,7 @@ Only the framework's own files are replaced, and your edits to them are kept. Wh
 | Say | What happens |
 |---|---|
 | "Do the next task" (`/next-task`) | Builds the next ready item (high-severity bugs first), proves it with the check, updates the records, and asks you to approve the commit. |
-| "Do the next 3 tasks", "Work through the queue" | The same, item after item, until one needs you. |
+| "Do the next 3 tasks", "Work through the queue", "Grab tasks until you're blocked" | The same, item after item, committing each without pausing, until one needs you. |
 | "Assess the app", "Which workshops do we need?" (`/assess`) | A read-only assessment report: readiness, the roadmap by stage with rough effort, and the workshops with their agendas. "Process the workshop notes" turns a session's decisions into records. |
 | "Plan the next stage" (`/roadmap`) | Writes the next stage of the roadmap to SaaS as small items. |
 | "Which open questions block development?" (`/design questions`) | Ranks the open product questions by what they unblock, with options and a recommendation for each. |

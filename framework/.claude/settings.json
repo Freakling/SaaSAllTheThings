@@ -15,12 +15,12 @@
       "Bash(git grep *)",
       "Bash(git rev-parse *)",
       "Bash(git add *)",
+      "Bash(git commit *)",
       "Bash(dotnet build *)",
       "Bash(dotnet test *)",
       "Bash(bicep build *)"
     ],
     "ask": [
-      "Bash(git commit *)",
       "Bash(git push *)",
       "Bash(git rebase *)",
       "Bash(git restore *)",
