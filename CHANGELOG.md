@@ -2,6 +2,30 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## Unreleased
+
+- **New: `/research`, the research assistant** (`procedures/research.md`). When a product or architecture question depends on facts nobody has checked, or you ask for research, a read-only `researcher` subagent looks into it in a fresh context and reports a note. It informs; you decide: its recommendation is one option shown with its reason, and it never records a decision, edits the PRD, `product/decisions.md` or an ADR, answers an open question, accepts an ADR, or asks you anything. It states its assumptions in the note instead.
+  - **Research is a task type.** Research items get their own IDs, `R<n>`, drawn from the `Next IDs` line like bugs. Instead of `Done when` they have `Question:` and, when they feed an open question, `Informs: Q<n>`. They are sized like any item, and the size picks the model. An item is done when its note exists.
+  - **Two ways to start.** On the fly: a product or architecture session delegates a complex question, or you run `/research <question>`, and the item is created and run at once. For later: queue the item, and list it under `Depends on` of the tasks that need its findings. A task that needs the decision stays gated by the open question itself.
+  - **`/next-task` hands research items to the `researcher`.** No check runs and no review: research changes no code. This session writes the note to `product/research/YYYY-MM-DD-<slug>.md` and commits it with the records. A finished item that informs `Q<n>` makes that question ready for a product or architecture call, and a run goes on to the next item.
+  - **Product and architecture sessions** list `product/research/` first, show notes on the topic in the context brief, delegate a question that needs facts, and link the note afterwards: the decision line's `why` ends with its path, and the ADR's Context does.
+  - **The note** is one dated file per topic: the conclusion first, the options and trade-offs, the recommendation, every claim with its source, source tier and confidence, the date the claims were verified, and what stays unknown.
+  - **A domain file** (`.satt/research-domain.md`) is read when the question touches Azure, the reference architecture, the customer's security framework or an architecture decision. It sets out Azure first when Azure is central (current Microsoft guidance as input, never as the answer), the reference architecture's authority (a deviation starts with "comply"; costs start from `reference/cost.md`), the customer's security framework as a binding source (each requirement traced to a control and labelled direct, partial, interpretive or unverified, with the shared-responsibility boundary named), an ADR-ready summary for a significant decision, and a checklist for architecture questions.
+  - **Confidentiality.** Project text, customer and tenant names, requirements, integration contracts and resource identifiers never go into a public search query or fetch.
+  - **The researcher** has `Read`, `Grep`, `Glob`, `WebSearch` and `WebFetch`: no edit, write or shell tool. `.claude/settings.json` allows web search and fetch; Claude Code can't scope a permission to one subagent, so the allow applies to every session in the app, and the researcher's own tool list is the restriction. Everything with side effects keeps asking.
+- **Align** checks that `Next IDs` has an `R` counter, that research items have a `Question:` and an `Informs:` instead of `Touches` and `Done when`, and that each done research item has its note.
+- **The design-session skill** (`saas-design-session`) doesn't carry the research procedure, because the Claude apps have no subagents and no app folder to hold notes. Its bundled `rules.md`, `tasks.md`, `design.md` and `architect.md` are refreshed, and its `SKILL.md` says what to do where a procedure says to research first: check one fact yourself, otherwise make the missing facts open questions or ask.
+- **Selftest** checks that the research files exist and are wired into the procedures, the item format, the seeds and the docs, that the researcher has no edit, write or shell tool, that only `permissions.allow` lists web search and fetch, that the installer ships everything (including with `--tools none`), that a research note commits without running the check, and that the design-session skill leaves the procedure out and says so.
+- **The example** (`examples/order-desk`) shows the `R` counter and the note folder, and the scenarios gain three for research.
+
+**Upgrade steps**
+
+1. **TASKS.md:** add an `R` counter to the `Next IDs` line, so `**Next IDs:** T12 · B3` becomes `**Next IDs:** T12 · B3 · R1`.
+2. **`product/research/`:** the installer creates the folder with a short `README.md` (a project file, yours from then on) when the app doesn't have it. Notes are added there as research runs; commit them like the other records.
+3. `.claude/settings.json` is framework-owned, so it is replaced on upgrade. If you edited it, the new version arrives as `.claude/settings.json.satt-new`; merge it, and make sure `"WebSearch"` and `"WebFetch"` are in `permissions.allow`, which lets the researcher read the web without asking each time. Restart Claude Code afterwards so the new skill, subagent and permissions load.
+
+No other app-owned file changes are required.
+
 ## 0.7.0 (2026-10-15)
 
 - **README: "Part of Director-Driven Development".** A new section after the opening description places SaaSAllTheThings among the three Director-Driven Development frameworks (Godot-Director, App-Director, SaaSAllTheThings), and links the step-by-step guide to building a B2B SaaS on Azure with it.

@@ -88,7 +88,7 @@ Either way, onboarding works out whether this is a new app, an existing app or a
 
 Afterwards, restart Claude Code so the new commands load. Each new clone of the app later needs one command: `bash tools/setup-clone.sh`.
 
-**With another AI assistant:** tell onboarding, and it installs the tool-neutral core only (`--tools none`). Your assistant reads `AGENTS.md`, which points it to `.satt/rules.md` and the procedures. The core is tool-neutral: rules, procedures, the check and the git pre-commit hook work the same everywhere. Fresh-context builds, the reviewer, model sizing and the hooks that block risky commands depend on your assistant supporting subagents and hooks.
+**With another AI assistant:** tell onboarding, and it installs the tool-neutral core only (`--tools none`). Your assistant reads `AGENTS.md`, which points it to `.satt/rules.md` and the procedures. The core is tool-neutral: rules, procedures, the check and the git pre-commit hook work the same everywhere. Fresh-context builds, the reviewer and researcher, model sizing and the hooks that block risky commands depend on your assistant supporting subagents and hooks.
 
 ### Upgrade
 - **Plugin:** run `/plugin marketplace update saasallthethings` and then `/plugin update saasallthethings@saasallthethings`. Start a new session in the app and run `/saasallthethings:saas-all-the-things` again.
@@ -108,6 +108,7 @@ Only the framework's own files are replaced, and your edits to them are kept. Wh
 | "Which open questions block development?" (`/design questions`) | Ranks the open product questions by what they unblock, with options and a recommendation for each. |
 | "Let's work out {capability}" (`/design {topic}`) | A design session. Your decisions become PRD text, decision-log lines and task items. |
 | "Which UI tech for the Windows client?", "Can we use SQL instead?" (`/architect`) | An architecture session: options with "comply" first, then an ADR that you accept. |
+| "Research which Azure service fits {need}", "What does our security framework require for {topic}?" (`/research {question}`) | A read-only researcher looks into one question in a fresh context and saves a dated note in `product/research/`: the conclusion, the options, the sources with a confidence, and a recommendation, with an ADR-ready summary for an architecture question. It informs; you decide. Product and architecture sessions ask it for facts they don't have, and you can queue a research item (`R1`, `R2`, ...) for later. |
 | "Add the Navision integration" (`/integrate navision`) | Works out the integration contract with you (direction, system of record, conflicts), then plans it in stages. |
 | "Onboard tenant {customer}" (`/tenant`) | A readiness check and the human steps for a new customer: consent, plan, connections. |
 | "Prepare an acceptance check", "Process it" (`/acceptance`) | A checklist of what's been built that needs a human eye in a running app; you tick Works or Broken. |
@@ -150,9 +151,10 @@ your-app/
 │  yours: never overwritten
 ├── AGENTS.md                   for every assistant: project facts, layout, architecture table, project rules
 ├── CLAUDE.md                   "@AGENTS.md", for Claude Code
-├── TASKS.md                    milestones (the SaaSAllTheThings stages) and the queue (tasks and bugs)
+├── TASKS.md                    milestones (the SaaSAllTheThings stages) and the queue (tasks, bugs and research)
 ├── product/prd.md              the product's current requirements, and Open Questions
 ├── product/decisions.md        why: one line per product decision
+├── product/research/           dated research notes, one per topic; the decision line or the ADR links to its note
 ├── adr/                        architecture decision records: choices and accepted deviations
 ├── integrations/<system>/      one contract per external system (written by /integrate)
 ├── assessment/                 assessment reports and workshop notes (written by /assess)
@@ -163,8 +165,10 @@ your-app/
 │  the framework's, tool-neutral: updated on upgrade
 ├── .satt/rules.md              the workflow rules, loaded through AGENTS.md
 ├── .satt/reference/            the reference architecture, one topic per file (the authority)
-├── .satt/procedures/           next-task · build · assess · roadmap · design · architect · integrate ·
+├── .satt/procedures/           next-task · build · assess · roadmap · design · architect · research · integrate ·
 │                               tenant · acceptance · feedback · release · align · drift-reset · prune · review
+├── .satt/research-domain.md    what the researcher adds for SaaS on Azure: Azure guidance, the reference architecture,
+│                               the customer's security framework, ADR-ready summaries
 ├── .satt/templates/            ADR, integration contract and assessment templates
 ├── .satt/workshops/            the workshop playbook: one file per workshop, agendas and methods
 ├── .satt/tasks.md              the TASKS.md item format
@@ -175,7 +179,7 @@ your-app/
 │
 │  the framework's, Claude Code adapter: updated on upgrade
 ├── .claude/skills/             /next-task and the rest: each points to its procedure
-├── .claude/agents/             builder (builds each item in a fresh context) · reviewer (read-only)
+├── .claude/agents/             builder (builds each item in a fresh context) · reviewer and researcher (read-only)
 ├── .claude/hooks/              runs the check before a turn ends; blocks risky git and Azure commands;
 │                               asks you before framework files change or an ADR is accepted
 └── .claude/settings.json       permissions, hooks, timeouts
@@ -217,6 +221,9 @@ The orchestrator (main session) and the builder (builder subagent) are deliberat
 
 **The reviewer subagent (read-only, also isolated)**
 - For `L` or `XL` items, and `M` items touching contracts, tenant isolation, identity or a stored schema, a separate `reviewer` subagent checks the diff in its own fresh context before the commit. Findings go back to the main session as a ranked list; code findings are rebuilt, out-of-scope findings become new TASKS.md items.
+
+**The researcher subagent (read-only, also isolated)**
+- A question that needs facts nobody has checked goes to a `researcher` subagent, which reads the project's records and the web in its own fresh context and returns a note. The main session writes the note to `product/research/`, so a long search never fills its context, and later sessions reuse the note. It has `Read`, `Grep`, `Glob`, `WebSearch` and `WebFetch`: no edit, write or shell tool. Confidential project text never goes into a public search query.
 
 **Parallel sessions (design + coding)**
 - Two sessions can run at once against separate git worktrees, one designing, one building. Each reads from the same project files, and the `in-progress` claim in TASKS.md prevents them from touching the same item.

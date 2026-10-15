@@ -9,11 +9,12 @@ A consistency pass across the PRD, decisions, ADRs, integration contracts, TASKS
    - In Claude Code, CLAUDE.md contains `@AGENTS.md`.
    - No `*.satt-new` files are left unmerged: `git ls-files -o -i --exclude-standard -- '*.satt-new' | grep '\.satt-new$'` (the grep drops nested clones, which `ls-files` lists as directories).
 3. **Items.**
-   - IDs are unique and below `Next IDs`, and every `Depends on` exists, in TASKS.md or the archive.
+   - IDs are unique and below `Next IDs`, which has a counter for each of `T`, `B` and `R` (add `· R1` to a line that lacks one), and every `Depends on` exists, in TASKS.md or the archive.
    - No `done` item depends on a `todo` one.
-   - Every `agent` item has a Size, `Touches`, tagged `Done when` outcomes (or a Repro, for bugs) and a `PRD:` value. That value is an existing heading, or `none` for items that aren't about the product.
-   - Every `Q<n>` an item names is still in Open Questions. If it's been answered, update the item.
+   - Every `agent` item has a Size, `Touches`, tagged `Done when` outcomes (or a Repro, for bugs) and a `PRD:` value. That value is an existing heading, or `none` for items that aren't about the product. A research item has a Size, a `Question:`, an `Informs:` and a `PRD:` value instead, and no `Touches`.
+   - Every `Q<n>` an item that isn't done names, in `Done when` or `Informs:`, is still in Open Questions. If it's been answered, update the item.
    - Every `ADR:` an item names exists.
+   - Every done research item has a note in `product/research/` whose second line starts with its ID (`grep -l "^R3 · " product/research/*.md`).
    - Items follow `.satt/tasks.md`.
    - Report `in-progress` items claimed before today.
 4. **Coverage.** Every rule in PRD › Capabilities is either built (a done item), planned (a todo item), or reported to the human as a gap. Only report the gaps; the human decides which ones become items.

@@ -17,6 +17,8 @@ to="skills/saas-design-session/references"
 cd "$src"
 
 # What the skill needs: the rules, the reference, the playbook, and the session procedures.
+# The research assistant (procedures/research.md, research-domain.md) is left out on purpose: it needs
+# a subagent and the app's product/research/ folder, which the Claude apps don't have.
 list() {
   (cd "$from" && for f in rules.md tasks.md reference/*.md workshops/*.md templates/adr.md \
       templates/integration-contract.md procedures/architect.md procedures/assess.md procedures/design.md procedures/integrate.md; do
