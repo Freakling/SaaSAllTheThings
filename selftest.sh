@@ -41,6 +41,13 @@ finish() {
 new_repo() { # new_repo <folder>: an empty git repository with one commit
   mkdir -p "$1" && (cd "$1" && git init -q && git config core.autocrlf false && printf '# app\n' > README.md && git add -A && git_q commit -qm init)
 }
+# An SDK, not just the runtime host: a machine can have dotnet on its PATH with no SDK installed, and
+# then `dotnet --list-sdks` prints nothing. Both .NET checks below use this one probe.
+dotnet_sdk=0
+if command -v dotnet >/dev/null 2>&1; then
+  sdks="$(dotnet --list-sdks </dev/null 2>/dev/null)"
+  [[ $sdks =~ [0-9]+\.[0-9]+ ]] && dotnet_sdk=1
+fi
 
 # --- framework files ----------------------------------------------------------------------------
 echo "framework"
@@ -428,7 +435,7 @@ sed 's/^stack = none$/stack = cobol/' tools/check.cfg > "$work/cfg2" && cp "$wor
 out="$(bash tools/check.sh 2>&1)"; expect_status "fails on a stack without a profile" 1 $? "$out"
 sed 's/^stack = cobol$/stack = ..\/..\/x/' tools/check.cfg > "$work/cfg2" && cp "$work/cfg2" tools/check.cfg
 out="$(bash tools/check.sh 2>&1)"; expect_status "refuses a stack name that is a path" 1 $? "$out"
-if ! command -v dotnet >/dev/null 2>&1; then
+if [ "$dotnet_sdk" -eq 0 ]; then
   sed 's/^stack = .*$/stack = dotnet/' tools/check.cfg > "$work/cfg2" && cp "$work/cfg2" tools/check.cfg
   out="$(bash tools/check.sh 2>&1)"; expect_status "exits 3 when the stack's toolchain is missing" 3 $? "$out"
   expect_output "still runs the architecture rules" "architecture: PASS" "$out"
@@ -499,7 +506,7 @@ expect_no_output "names the upgrade file, not the nested clone" "clones/" "$out"
 rm -f tools/check.sh.satt-new
 
 # --- .NET, where the SDK is installed -----------------------------------------------------------
-if command -v dotnet >/dev/null 2>&1; then
+if [ "$dotnet_sdk" -eq 1 ]; then
   echo ".NET"
   dotnet_app="$work/order-desk-dotnet"
   cp -R "$src/examples/order-desk" "$dotnet_app"
