@@ -7,8 +7,13 @@ Each entry lists what changed. An entry that requires changes to an app's own fi
 - **README: "Part of Director-Driven Development".** A new section after the opening description places SaaSAllTheThings among the three Director-Driven Development frameworks (Godot-Director, App-Director, SaaSAllTheThings), and links the step-by-step guide to building a B2B SaaS on Azure with it.
 - **The upgrade-file check ignores nested clones.** `git ls-files` lists a nested repository in an ignored folder (such as a clone in `work/`) as a directory, which blocked every commit while no upgrade file existed. The pre-commit hook, the `/align` check and onboarding now keep only paths that end in `.satt-new`, so a real upgrade file still blocks the commit.
 - **selftest.sh** checks that a nested clone in an ignored folder doesn't block a commit, and that a real upgrade file still does.
+- **One commit model, shared with App-Director and Godot-Director.** One task, one commit, with the pre-commit check as the gate.
+  - **A single `/next-task` pauses for your approval** of its commit (`next-task.md` step 7).
+  - **A run commits without pausing.** `/next-task` now has a run mode, which it had no wording for before. When you ask for one ("grab tasks until you're blocked", "work through the queue", "the next N tasks"), each task commits as soon as its check passes. The run stops when an item is blocked on you, a build fails, or you decline a commit, and the final report lists every commit. A run approves commits in advance, not pushes, deploys or changes to cloud resources.
+  - **`git commit` is allowed in `.claude/settings.json`** (it used to ask every time). `git push`, rebasing, restoring, `git config` and the `az` and `azd` commands listed under `ask` still ask, and skipping the check with `--no-verify` is still denied.
+  - `rules.md` › Git and Azure says so; the `/next-task` skill description and the README's day-to-day table name the new phrase; the scenarios gain one for a run. The bundled copy of `rules.md` in `saas-design-session` is refreshed.
 
-**Upgrade steps:** none.
+**Upgrade steps:** none to your own files. `.claude/settings.json` is framework-owned, so it is replaced on upgrade. If you edited it, the new version arrives as `.claude/settings.json.satt-new`; merge it, and make sure `Bash(git commit *)` is in `permissions.allow` and no longer in `permissions.ask` (an `ask` entry wins over `allow`, so the old entry would keep the prompt). Restart Claude Code afterwards so the changed skill description and permissions load.
 
 ## 0.6.0 (2026-10-09)
 
