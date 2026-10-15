@@ -7,6 +7,7 @@ A question about how the system is built (a data store, a client's UI tech, a de
 
 ## Prepare
 - Read PRD › Product Pillars, PRD › Open Questions, the PRD sections the topic touches, and the related lines in `product/decisions.md`. Don't re-propose something decided against there without saying what has changed since.
+- List `product/research/` for notes on the topic. A note whose Verified as of date is recent enough for its claims is evidence you can use; research only what has changed since.
 - **Ranking the open questions** (no topic, or "which questions block development?"): order them by what they unblock in TASKS.md:
   1. a question blocking a ready item;
   2. one that would cause rework (a contract, a stored schema, who owns which data in an integration);
@@ -16,14 +17,18 @@ A question about how the system is built (a data store, a client's UI tech, a de
   Give a one-line reason for each position.
 
 ## For each question
-1. **Surface the relevant context.** Quote or summarise what's already decided that bears on this question: the applicable Product Pillars, the current PRD rule on this topic (if any), and any related line from `product/decisions.md`. If nothing yet exists, say so in one sentence. This lets the human see the full picture before choosing.
-2. Offer 2-4 concrete options. For each: what the user or customer experiences, what it would take to build (which systems in AGENTS.md › Architecture, which clients), what it costs to run, and which pillar it serves or strains.
-3. Recommend one, with a one-line reason.
-4. Wait for the human. If they answer only part, record only that part. If you had to interpret the answer, write down your reading and ask them to confirm it.
+1. **Surface the relevant context.** Quote or summarise what's already decided that bears on this question: the applicable Product Pillars, the current PRD rule on this topic (if any), and any related line from `product/decisions.md`. If nothing yet exists, say so in one sentence. Add the research on file for the topic (path, conclusion and Verified as of date), if there is any. This lets the human see the full picture before choosing.
+2. **Research first when the options depend on facts you don't have,** or when the human asks for it, such as what a market usually expects, what a service costs, or what a customer's requirements ask for.
+   - A single fact one source settles (a version, a limit, a price) you may check yourself. Anything larger goes to the `researcher`, as `research.md` › Starting research describes, so this session's context stays small.
+   - The result is a note in `product/research/` and a done `R<n>` item. Tell the human where the researcher's assumptions are, since those are the first thing to check.
+   - The researcher's recommendation is one option, shown with its reason like any other. It informs; the human decides.
+3. Offer 2-4 concrete options. For each: what the user or customer experiences, what it would take to build (which systems in AGENTS.md › Architecture, which clients), what it costs to run, and which pillar it serves or strains.
+4. Recommend one, with a one-line reason.
+5. Wait for the human. If they answer only part, record only that part. If you had to interpret the answer, write down your reading and ask them to confirm it.
 
 ## Record each decision in one change
 1. **PRD:** write the rule into its section as the current requirement, replacing any text it supersedes. A new capability gets a new `###` under Capabilities.
-2. **`product/decisions.md`:** append one line in the format given at the top of that file.
+2. **`product/decisions.md`:** append one line in the format given at the top of that file. When the decision followed research, end the `why` with the note's path, as in `why: <reason> (research: product/research/<note>.md)`, so later sessions reuse the evidence instead of redoing it.
 3. **PRD › Open Questions:** delete the answered question. Follow-up questions become new `Q<n>` (bump `Next`).
 4. **Integration contracts:** a decision about an external system's data (who owns a field, a conflict rule) also goes into its `integrations/<system>/contract.md`.
 5. **TASKS.md:** add or change the items the decision creates, in the format in `.satt/tasks.md`, as small slices.
@@ -36,5 +41,5 @@ A question about how the system is built (a data store, a client's UI tech, a de
 
 ## Finish
 - Summarise what was decided, what's still open, and the next most useful question.
-- Commit the product files as `docs: <summary>`, with a body listing the decisions, after the human approves (see `rules.md` › Git and Azure). A product session doesn't edit code.
+- Commit the product files as `docs: <summary>`, with a body listing the decisions, after the human approves (see `rules.md` › Git and Azure). The session's research notes and `R<n>` items go in the same commit. A product session doesn't edit code.
 - Once the commit lands, tell the human to start the next topic in a fresh session, in Claude Code: `/clear`. The PRD, `decisions.md` and TASKS.md hold everything; the conversation history has no remaining value and only grows the context window.

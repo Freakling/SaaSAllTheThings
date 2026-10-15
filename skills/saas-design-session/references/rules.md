@@ -4,11 +4,12 @@ only through an accepted ADR (see Who decides). -->
 # SaaSAllTheThings workflow rules
 
 These rules apply to any AI assistant working in this project. For each of these requests, follow the procedure in `.satt/procedures/`:
-- **next-task.md:** do the next task(s), or a named item (T12, B3). The build itself is `build.md`.
+- **next-task.md:** do the next task(s), or a named item (T12, B3, R2). The build itself is `build.md`.
 - **assess.md:** assess the app for the move to SaaS (readiness, roadmap, the workshops and how to run them), or process workshop notes.
 - **roadmap.md:** plan the next stage of the roadmap to SaaS, or replan.
 - **design.md:** a product session: capabilities, plans, clients, open questions.
 - **architect.md:** an architecture choice the reference leaves open, or a deviation from it.
+- **research.md:** research a question in a fresh context and save a dated note in `product/research/`, for a product or architecture call. It informs; the human decides. Domain reference: `.satt/research-domain.md`.
 - **integrate.md:** add or change an enterprise integration (Navision / Business Central first).
 - **tenant.md:** prepare onboarding a new tenant (customer).
 - **acceptance.md:** prepare or process an acceptance check.
@@ -19,7 +20,7 @@ These rules apply to any AI assistant working in this project. For each of these
 - **prune.md:** prune the task list.
 - **review.md:** review a finished change.
 
-In Claude Code these are also slash commands, and builds and reviews run as the `builder` and `reviewer` subagents.
+In Claude Code these are also slash commands, and builds, reviews and research run as the `builder`, `reviewer` and `researcher` subagents.
 
 ## Who decides
 - **The director owns the product:** capabilities, UX, plans and pricing, priorities, which tenants and integrations come first, and business rules such as which system owns which data. You build, keep the records, and propose.
@@ -28,6 +29,7 @@ In Claude Code these are also slash commands, and builds and reviews run as the 
 - **An architecture call** is a choice the reference leaves open (a client's UI tech, a data store alternative) or anything that would break a reference rule. Never settle one inside a build, and never work around a rule to make the check pass: stop and follow `architect.md`. Its first option is always to comply.
 - **Only the director accepts an ADR.** You write ADRs with `Status: proposed`, and set `accepted` only when the human has said so in this conversation. In Claude Code a hook asks the human to confirm that edit.
 - Never answer an item in PRD › Open Questions yourself. Work that depends on one gets a placeholder that names the question.
+- Research informs a product or architecture call and never makes it. The `researcher` records no decision, never edits the PRD, `product/decisions.md` or an ADR, never answers an open question, never accepts an ADR, and never asks the human; its recommendation is shown as one option with its reason.
 - Something that seems to contradict a Product Pillar is flagged, never reinterpreted.
 
 ## Each fact lives in one place
@@ -38,9 +40,10 @@ In Claude Code these are also slash commands, and builds and reviews run as the 
 | Why a product decision was made | `product/decisions.md` (append-only) |
 | The reference architecture | `.satt/reference/`, one topic per file (framework-owned) |
 | This project's architecture choices and deviations | `adr/ADR-<n>-<slug>.md` |
+| The evidence behind a product or architecture call | `product/research/`, one dated note per topic; the decision line, or the ADR, links to it |
 | Which systems, functions and messages exist, and who owns what | `AGENTS.md` › Architecture |
 | How an external system is integrated | `integrations/<system>/contract.md` |
-| Work, bugs, milestones | `TASKS.md` (format: `.satt/tasks.md`; done items: `TASKS-archive.md`) |
+| Work, bugs, research, milestones | `TASKS.md` (format: `.satt/tasks.md`; done items: `TASKS-archive.md`) |
 | Assessments and workshop notes | `assessment/`: snapshots. What they decide is recorded in the PRD, ADRs, contracts and TASKS.md (`assess.md` › Process workshop notes). |
 | Design drift resets | `resets/YYYY-MM-DD/`: snapshots (as built, interpretations, the design before, postmortem). What they decide is recorded in the PRD, `decisions.md`, ADRs and TASKS.md (`drift-reset.md`). |
 | Settings per environment | `infra/env/<env>.bicepparam` (never secrets) |
@@ -93,6 +96,7 @@ The check enforces what can be checked mechanically; `reference/README.md` › W
 
 ## Reviews and model size
 - An `L` or `XL` item, or an `M` item that changes a contract (an API route, event or command), tenant isolation, identity or a stored schema, gets an independent review (`review.md`) before its commit. Fix the findings that are in scope.
+- A research item (`R<n>`) gets no check run and no review: it changes no code. Its size picks the `researcher`'s model the same way.
 - **Model sizing** (recommended on): when enabled, each task size builds on a different model: trivial tasks cheap and fast, large tasks on the most capable. AGENTS.md › Project rules stores one model ID per size:
   ```
   Model sizing: on

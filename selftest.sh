@@ -108,7 +108,7 @@ other=" contract.md prd.md decisions.md as-built.md interpretations.md prd-befor
 while IFS="$(printf '\t')" read -r doc ref; do
   case "$ref" in
     reference/*) [ -f "$src/framework/.satt/$ref" ] || missing="$missing ${doc##*/}→$ref" ;;
-    rules.md|tasks.md) [ -f "$src/framework/.satt/$ref" ] || missing="$missing ${doc##*/}→$ref" ;;
+    rules.md|tasks.md|research-domain.md) [ -f "$src/framework/.satt/$ref" ] || missing="$missing ${doc##*/}→$ref" ;;
     *) [ -f "$src/framework/.satt/procedures/$ref" ] && continue
        [ -f "$src/framework/.satt/reference/$ref" ] && continue
        [ -f "$src/framework/.satt/workshops/$ref" ] && continue
@@ -131,6 +131,49 @@ for agent in "$src"/framework/.claude/agents/*.md; do
   [ -n "$procedure" ] && [ -f "$src/framework/.satt/procedures/$procedure" ] || missing="$missing ${agent##*/}"
 done
 [ -z "$missing" ] && ok "every subagent points to an existing procedure" || bad "subagents without procedures:$missing"
+# The research assistant: every piece exists and is wired in, and the researcher can read and search but not change anything.
+missing=""
+for file in framework/.satt/procedures/research.md framework/.satt/research-domain.md \
+    framework/.claude/agents/researcher.md framework/.claude/skills/research/SKILL.md \
+    project/product/research/README.md examples/order-desk/product/research/README.md; do
+  [ -f "$src/$file" ] || missing="$missing $file"
+done
+[ -z "$missing" ] && ok "the research assistant's files exist" || bad "research assistant files missing:$missing"
+researcher="$src/framework/.claude/agents/researcher.md"
+settings="$src/framework/.claude/settings.json"
+if [ "$(sed -n 's/^tools: //p' "$researcher" | tr -d '\r')" = "Read, Grep, Glob, WebSearch, WebFetch" ] \
+    && grep -q '^model: inherit' "$researcher" \
+    && awk '/"allow": *\[/ { s = "allow" } /"ask": *\[/ { s = "ask" } /"deny": *\[/ { s = "deny" }
+        s == "allow" && /^ *"(WebSearch|WebFetch)",? *$/ { n++ }
+        s != "allow" && /"(WebSearch|WebFetch)/ { other++ }
+        END { exit !(n == 2 && other == 0) }' "$settings"; then
+  ok "the researcher has read, search and fetch tools only, and settings.json allows web search and fetch"
+else
+  bad "researcher.md must have exactly the tools Read, Grep, Glob, WebSearch, WebFetch (no edit, write or shell), and only settings.json › allow lists WebSearch and WebFetch"
+fi
+wired=""
+satt="$src/framework/.satt"
+grep -q 'research-domain\.md' "$satt/procedures/research.md" || wired="$wired research.md>research-domain.md"
+grep -q 'never go into a public search query' "$satt/procedures/research.md" || wired="$wired research.md(confidentiality)"
+grep -q 'never accepts an ADR' "$satt/procedures/research.md" || wired="$wired research.md(never accepts an ADR)"
+grep -q 'researcher' "$satt/procedures/next-task.md" && grep -q '^## Research items' "$satt/procedures/next-task.md" || wired="$wired next-task.md"
+grep -q 'research\.md' "$satt/procedures/design.md" && grep -q 'product/research/' "$satt/procedures/design.md" || wired="$wired design.md"
+grep -q 'research\.md' "$satt/procedures/architect.md" && grep -q 'product/research/' "$satt/procedures/architect.md" || wired="$wired architect.md"
+grep -q 'R<n>' "$satt/tasks.md" && grep -q '^- \*\*Research\.\*\*' "$satt/tasks.md" || wired="$wired tasks.md"
+grep -q 'research' "$satt/procedures/align.md" || wired="$wired align.md"
+grep -q 'research\.md' "$satt/rules.md" && grep -q 'product/research/' "$satt/rules.md" || wired="$wired rules.md"
+grep -q '/research' "$src/README.md" && grep -q '/research' "$src/ONBOARDING.md" || wired="$wired README.md/ONBOARDING.md"
+grep -q '^\*\*Next IDs:\*\* T[0-9]* · B[0-9]* · R[0-9]*$' "$src/project/TASKS.md" || wired="$wired project/TASKS.md(Next IDs)"
+grep -q '^\*\*Next IDs:\*\* T[0-9]* · B[0-9]* · R[0-9]*$' "$src/examples/order-desk/TASKS.md" || wired="$wired order-desk/TASKS.md(Next IDs)"
+[ -z "$wired" ] && ok "the research assistant is wired into the procedures, the item format, the seeds and the docs" \
+  || bad "the research assistant isn't wired into:$wired"
+# The design-session skill runs in the Claude apps without subagents, so it leaves the research procedure out and says so.
+if [ ! -e "$src/skills/saas-design-session/references/procedures/research.md" ] && [ ! -e "$src/skills/saas-design-session/references/research-domain.md" ] \
+    && grep -q 'research assistant' "$src/skills/saas-design-session/SKILL.md"; then
+  ok "the design-session skill leaves out the research procedure and says so"
+else
+  bad "the design-session skill must not carry research.md or research-domain.md, and its SKILL.md must say why"
+fi
 grep -qF "drift-reset.md" "$src/framework/.satt/procedures/align.md" \
   && ok "align.md recommends a drift reset for recurring or cross-cutting conflicts" \
   || bad "align.md doesn't point to drift-reset.md"
@@ -174,6 +217,12 @@ if [ -f .satt/manifest ] && [ -f .satt/procedures/next-task.md ] && [ -f .satt/r
 else
   bad "copies the core and the Claude adapter, and writes the manifest" "$out"
 fi
+if [ -f .satt/procedures/research.md ] && [ -f .satt/research-domain.md ] && [ -f .claude/agents/researcher.md ] \
+    && [ -f .claude/skills/research/SKILL.md ] && [ -f product/research/README.md ]; then
+  ok "installs the research assistant: procedure, domain file, researcher, skill and note folder"
+else
+  bad "installs the research assistant: procedure, domain file, researcher, skill and note folder" "$out"
+fi
 grep -q "Order Desk" AGENTS.md && ok "keeps the project's own files" || bad "keeps the project's own files"
 git add -A >/dev/null 2>&1 && git_q commit -qm "install" >/dev/null 2>&1
 out="$(bash "$src/install.sh" . 2>&1)"; expect_output "a second run changes nothing" "0 new, 0 updated" "$out"
@@ -215,6 +264,12 @@ if [ ! -e "$core_only/.claude" ] && [ ! -e "$core_only/CLAUDE.md" ] && [ -f "$co
   ok "--tools none installs the tool-neutral core only"
 else
   bad "--tools none installs the tool-neutral core only" "$out"
+fi
+if [ -f "$core_only/.satt/procedures/research.md" ] && [ -f "$core_only/.satt/research-domain.md" ] \
+    && [ -f "$core_only/product/research/README.md" ] && grep -q '^\*\*Next IDs:\*\* T[0-9]* · B[0-9]* · R[0-9]*$' "$core_only/TASKS.md"; then
+  ok "a new app gets the research procedure and domain file, the note folder, and an R counter in TASKS.md, even with --tools none"
+else
+  bad "a new app gets the research procedure and domain file, the note folder, and an R counter in TASKS.md" "$out"
 fi
 # Installing from a SaaSAllTheThings folder that is itself a git clone, or sits inside the app.
 s_clone="$work/satt-clone"; cp -R "$src" "$s_clone"; rm -rf "$s_clone/.git"
@@ -453,6 +508,10 @@ out="$(hook)"; expect_status "does nothing when code is unchanged" 0 $? "$out"
 printf '# notes\n' > notes.md
 out="$(hook)"; expect_status "does nothing for a docs-only change" 0 $? "$out"
 rm -f notes.md
+put product/research/2026-10-15-azure-region.md '# Norway East or West Europe
+R1 · Informs: Q4 · Verified as of 2026-10-15 · Size: M'
+out="$(hook)"; expect_status "does nothing for a research note" 0 $? "$out"
+rm -f product/research/2026-10-15-azure-region.md
 printf '\n// a harmless change\n' >> $domain
 out="$(hook)"; expect_status "lets a passing change through" 0 $? "$out"
 cp $domain "$work/passing"
@@ -485,6 +544,13 @@ out="$(git_q commit -qm "fine" 2>&1)"; expect_status "allows a commit that passe
 printf '# notes\n' > notes.md && git add notes.md
 out="$(git_q commit -qm "docs only" 2>&1)"; expect_status "allows a docs-only commit" 0 $? "$out"
 expect_no_output "doesn't run the check for a docs-only commit" "running the project check" "$out"
+# A research item changes no code: its note and the records commit without the check.
+put product/research/2026-10-15-azure-region.md '# Norway East or West Europe
+R1 · Informs: Q4 · Verified as of 2026-10-15 · Size: M'
+git add product/research/2026-10-15-azure-region.md
+out="$(git_q commit -qm "docs: research the Azure region (R1)" 2>&1)"; status=$?
+expect_status "allows a commit with only a research note" 0 "$status" "$out"
+expect_no_output "doesn't run the check for a research note" "running the project check" "$out"
 printf '# ADR-3 · x\n\n- **Status:** proposed\n' > adr/ADR-3-x.md && git add adr/ADR-3-x.md
 out="$(git_q commit -qm "an ADR" 2>&1)"; expect_output "runs the check for an ADR" "running the project check" "$out"
 printf 'x\n' > tools/check.sh.satt-new

@@ -18,7 +18,9 @@
       "Bash(git commit *)",
       "Bash(dotnet build *)",
       "Bash(dotnet test *)",
-      "Bash(bicep build *)"
+      "Bash(bicep build *)",
+      "WebSearch",
+      "WebFetch"
     ],
     "ask": [
       "Bash(git push *)",
