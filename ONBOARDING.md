@@ -69,8 +69,26 @@ If `assessment/` holds an assessment report (`.satt/procedures/assess.md`), star
 
 **Workshop notes first.** If `assessment/workshops/` holds notes (`.satt/workshops/README.md` › Notes), their decisions are the human's answers: record them as the interview below would, confirm your reading with the human instead of asking again, and ask only what they leave open. ADR drafts in them become ADRs (`.satt/procedures/architect.md` › Record); a draft about the backend stack becomes ADR-1 in step 3. Then mark each file `**Processed:**` as `.satt/procedures/assess.md` › Process workshop notes says.
 
+### Your own product brief (before the interview or the PRD)
+Every project has `product/director-brief.md`: the human's own product brief template, in their own words. It is the SaaS variant of a product brief, with sections the customer's architect or product owner fills in about the enterprise architecture the SaaS must fit into (identity provider, data residency, hosting constraints, integrations), the requirements (functional and non-functional), the security requirements, and the control frameworks the customer must meet. It is the human's file: you read it and never edit it. The PRD stays the record of current requirements that you maintain, so each fact lives in one place; the human's brief is input that stays as they wrote it.
+1. **Is it filled?** It is still the template while its title reads `[App Name]` and its sections hold only the prompts. If the human points to another document (a requirements document, a customer's architecture or security questionnaire, or a file in `assessment/`), read that too.
+2. **If it is blank, offer it** before the interview, as an alternative to the chat interview or an addition to it:
+   - what it is: the template for describing the product, the architecture it fits into, its requirements, its security requirements and the control frameworks the customer must meet, in their own words;
+   - where it is: `product/director-brief.md`;
+   - why it helps: a written brief gives you their intent and the context behind it, adds value that a chat interview alone doesn't, and sets the stage for later development, since every design session, assessment and build starts from it, anchored in the customer's security framework;
+   - when: it can be filled before onboarding, now (you wait), or later, by them or by the customer's architect or product owner, for a new SaaS or an existing app; and the interview works without it.
+
+   Ask which they prefer: fill it now, interview only, or both (interview first, brief later). Never fill it in for them. If they fill it later, the next session reads it as below.
+3. **If it is filled, read it first.**
+   - Fresh start: take the interview's answers from it (step 1 of Fresh start below). Show each answer taken, marked `(from your document)`, and ask only what it leaves open. An answer you worked out from the brief without it saying so is `(inferred, please confirm)`.
+   - Existing app: read it with the existing documents, the code and any assessment report, and use it to build the initial assessment: PRD sections, Architecture rows and first items. Mark each statement it supplied `(from your document)` and each you inferred `(inferred, please confirm)`.
+   - Both: where the brief and the code, the assessment or the workshop notes disagree, say so and let the human decide.
+4. **Record it.** The PRD sections you write from it: Customers and Tenants, Capabilities, Clients, Integrations, Data and Compliance (the control frameworks named, the security requirements and the data residency), Service Levels (the non-functional requirements) and the rest as they fit. A `product/decisions.md` line for each decision (`why: from your document` when that is the reason). The enterprise architecture constraints (identity provider, hosting, residency) go into AGENTS.md › Project facts and into the ADRs they bind, as drafts for the human to accept. Anything the brief leaves undecided becomes a `Q<n>`. Don't copy the brief wholesale into the PRD; write the current requirements in the PRD's own sections.
+5. **The security framework.** Where the brief names the security framework and the control frameworks, record them under PRD › Data and Compliance and tell the human to put the frameworks' requirements (or the customer's own control list) in `compliance/`, which architecture sessions and research read. Never claim a requirement is met, or a control framework satisfied, because the brief names it; the work is anchored in them, and each requirement is traced to a control as `.satt/procedures/architect.md` and `research.md` describe.
+6. **Upgrade.** On an upgrade the installer adds `product/director-brief.md` when it is missing; offer it as above. Later, when the human says the brief changed, read it again and bring the PRD in line, marking what you inferred.
+
 ### Fresh start
-1. **A short product interview,** in short rounds. For each question, give options with a recommendation and let the human pick:
+1. **A short product interview,** in short rounds, after reading the human's brief if they filled one (above): ask only what it leaves open, and confirm what you took from it. For each question, give options with a recommendation and let the human pick:
    1. pitch, the customers (tenants), the first customer, and how they'd pay (plans);
    2. 3-5 Product Pillars;
    3. the first capabilities, in priority order;
@@ -80,7 +98,7 @@ If `assessment/` holds an assessment report (`.satt/procedures/assess.md`), star
 2. **Record it.** Write the answers into the PRD as current requirements, and add a line to `product/decisions.md` for each. Anything undecided becomes a `Q<n>`.
 
 ### Existing app
-1. **PRD:** fill each section from the existing documents and code. Mark anything inferred `(inferred, please confirm)`, and turn anything unknown into a `Q<n>`. Delete a section the product doesn't need only after the human agrees.
+1. **PRD:** fill each section from the human's brief (above), the existing documents and the code. Mark anything inferred `(inferred, please confirm)`, and turn anything unknown into a `Q<n>`. Delete a section the product doesn't need only after the human agrees.
 2. **AGENTS.md › Architecture:** one row per existing area (a screen group, a service, a job, a store), marked `(outside the layers: Extract)`, plus the layered systems as they appear. Take "Owns" from the code, not from guesses.
 3. **TASKS.md:** known bugs and the human's priorities become items, with bugs as `B` items. Secrets found in step 5 are `high` bugs: rotate first, then remove.
 4. **Existing tests** run from the stack's test command if they fit, or from `tools/check.local.sh`.
