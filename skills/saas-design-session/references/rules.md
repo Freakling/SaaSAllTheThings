@@ -14,6 +14,7 @@ These rules apply to any AI assistant working in this project. For each of these
 - **tenant.md:** prepare onboarding a new tenant (customer).
 - **acceptance.md:** prepare or process an acceptance check.
 - **feedback.md:** new feedback report, process a feedback report.
+- **ui-design.md:** capture the screens (`/ui-design`): a PNG per screen, state and size of the web client on this machine or in dev (never prod), as test users of seeded test tenants, with an element map, a numbered map image, layout lint and a starter drawing; process the director's Excalidraw drawing of a screen into a screen spec and items; verify a built screen against its spec and write compare images; list the screens in the catalog.
 - **release.md:** deploy to an environment.
 - **align.md:** check the docs and tasks are aligned.
 - **drift-reset.md:** a design drift reset, only when the director asks for one: align often, reset when you have to. `drift-reset postmortem` runs after its rebuild.
@@ -32,6 +33,9 @@ In Claude Code these are also slash commands, and builds, reviews and research r
 - Research informs a product or architecture call and never makes it. The `researcher` records no decision, never edits the PRD, `product/decisions.md` or an ADR, never answers an open question, never accepts an ADR, and never asks the human; its recommendation is shown as one option with its reason.
 - Something that seems to contradict a Product Pillar is flagged, never reinterpreted.
 
+## Protected space
+`director/` is the director's personal workspace: screen drawings (`director/ui/`), mockups, brand assets, reference images, notes, third-party API specs. Read files there for context when an item needs them, but never create, modify or delete anything inside it. If work depends on an asset the director owns that isn't there yet, ask for it, and meanwhile use a minimal stand-in marked `PLACEHOLDER`, never a generated version of the real thing. In Claude Code a hook blocks edits there.
+
 ## Each fact lives in one place
 | Fact | Only in |
 |---|---|
@@ -42,6 +46,8 @@ In Claude Code these are also slash commands, and builds, reviews and research r
 | This project's architecture choices and deviations | `adr/ADR-<n>-<slug>.md` |
 | The evidence behind a product or architecture call | `product/research/`, one dated note per topic; the decision line, or the ADR, links to it |
 | Which systems, functions and messages exist, and who owns what | `AGENTS.md` › Architecture |
+| How each screen is laid out | `product/ui/<screen>.md`, one spec per screen (`procedures/ui-design.md`) |
+| The director's screen drawings | `director/ui/` (Excalidraw files; read-only for you) |
 | How an external system is integrated | `integrations/<system>/contract.md` |
 | Work, bugs, research, milestones | `TASKS.md` (format: `.satt/tasks.md`; done items: `TASKS-archive.md`) |
 | Assessments and workshop notes | `assessment/`: snapshots. What they decide is recorded in the PRD, ADRs, contracts and TASKS.md (`assess.md` › Process workshop notes). |
@@ -63,6 +69,7 @@ Read the reference topics an item touches (`reference/README.md` lists them). Ev
 - **Layers.** Code lives in the layers of `reference/layers.md`, which says what each may depend on. AGENTS.md › Layout maps layers to folders; `tools/check.cfg` › `[layers]` to path patterns.
 - **The domain is pure.** Business rules receive time, ids, randomness and configuration as inputs and do no I/O, so tests build them directly.
 - **Hosts are thin.** A function validates input, takes the tenant, calls one handler and maps the result.
+- **Screens.** Every screen of a web client has an entry in the screen catalog, `tools/ui/screens.mjs`; add or update it whenever you add or change a screen. Elements a screen spec names get a `data-testid` (`order-list`) that the spec, element maps and tests share. Build layouts with flex or grid, never pixel positions. The catalog opens a tenant's screen as a test user of a seeded test tenant and seeds data through the public API, as a client does: never a real tenant, account, token or customer's data.
 - **The tenant comes from the validated token** (for messages: the envelope), never from a header, route, query or request body. Tenants differ only by registry data and plans; no code names a tenant.
 - **Contracts are versioned.** Events and commands are named `…V<n>`; a version only ever changes additively.
 - **No secrets** in the repository, config files or client apps: managed identities and federated credentials instead.

@@ -109,6 +109,7 @@ Only the framework's own files are replaced, and your edits to them are kept. Wh
 | "Let's work out {capability}" (`/design {topic}`) | A design session. Your decisions become PRD text, decision-log lines and task items. |
 | "Which UI tech for the Windows client?", "Can we use SQL instead?" (`/architect`) | An architecture session: options with "comply" first, then an ADR that you accept. |
 | "Research which Azure service fits {need}", "What does our security framework require for {topic}?" (`/research {question}`) | A read-only researcher looks into one question in a fresh context and saves a dated note in `product/research/`: the conclusion, the options, the sources with a confidence, and a recommendation, with an ADR-ready summary for an architecture question. It informs; you decide. Product and architecture sessions ask it for facts they don't have, and you can queue a research item (`R1`, `R2`, ...) for later. |
+| "Capture the screens", "Redesign the orders screen", "Process my drawing", "Verify the orders screen" (`/ui-design`) | Opens your web client on this machine in headless Chromium (Node and Playwright, installed once in `tools/ui/`; the check never needs them), signed in as test users of seeded test tenants, and captures each screen at each size, with a numbered map of its elements and a layout lint (squeezed text, off-screen or unreachable controls, a dialog without focus), and writes a starter drawing per screen. You draw over it in Excalidraw (free, no account) and save it in `director/ui/`; `process` reads exactly what you drew, asks about what it can't tell, and records the layout once in `product/ui/<screen>.md`; the build follows that spec, and `verify` captures the built screen, lists its deviations and writes a compare image of your drawing's screenshot beside the result. Data is seeded through the API, never a real tenant's, and capture opens only this machine, or the dev environment you name, never prod. Drawing is optional; capture and lint work without it. Native Windows and mobile clients get capture later. |
 | "Add the Navision integration" (`/integrate navision`) | Works out the integration contract with you (direction, system of record, conflicts), then plans it in stages. |
 | "Onboard tenant {customer}" (`/tenant`) | A readiness check and the human steps for a new customer: consent, plan, connections. |
 | "Prepare an acceptance check", "Process it" (`/acceptance`) | A checklist of what's been built that needs a human eye in a running app; you tick Works or Broken. |
@@ -161,12 +162,16 @@ your-app/
 ├── resets/                     design drift resets: as built, interpretations, postmortem (written by /drift-reset)
 ├── validation/TEMPLATE.md      the feedback template, one section per capability
 ├── tools/check.cfg             the stack, the layers' folders, size limits
+├── tools/ui/screens.mjs        the screen catalog: each web client screen, its route, the test tenant it opens as, its states
+├── tools/ui_capture.cfg        capture sizes and seed, the web client to open, the test tenants, lint thresholds, verify tolerance
+├── product/ui/                 one spec per screen (and a gitignored captures/ folder); README.md says how to draw
+├── director/ui/                your screen drawings (you create director/; the agent only reads it)
 │
 │  the framework's, tool-neutral: updated on upgrade
 ├── .satt/rules.md              the workflow rules, loaded through AGENTS.md
 ├── .satt/reference/            the reference architecture, one topic per file (the authority)
 ├── .satt/procedures/           next-task · build · assess · roadmap · design · architect · research · integrate ·
-│                               tenant · acceptance · feedback · release · align · drift-reset · prune · review
+│                               ui-design · tenant · acceptance · feedback · release · align · drift-reset · prune · review
 ├── .satt/research-domain.md    what the researcher adds for SaaS on Azure: Azure guidance, the reference architecture,
 │                               the customer's security framework, ADR-ready summaries
 ├── .satt/templates/            ADR, integration contract and assessment templates
@@ -174,6 +179,7 @@ your-app/
 ├── .satt/tasks.md              the TASKS.md item format
 ├── tools/check.sh, archcheck.awk, cfg.sh, stacks/   the check, and one profile per backend stack
 ├── tools/setup-clone.sh        per clone: toolchain, dependencies, the pre-commit hook
+├── tools/ui_capture.sh, tools/ui/  screen capture, element map, layout lint, drawing reader, compare and verify (Node and Playwright)
 ├── .githooks/pre-commit        runs the check before commits that touch more than docs
 ├── validation/README.md        how acceptance checks and feedback reports work
 │
@@ -181,10 +187,10 @@ your-app/
 ├── .claude/skills/             /next-task and the rest: each points to its procedure
 ├── .claude/agents/             builder (builds each item in a fresh context) · reviewer and researcher (read-only)
 ├── .claude/hooks/              runs the check before a turn ends; blocks risky git and Azure commands;
-│                               asks you before framework files change or an ADR is accepted
+│                               asks you before framework files change or an ADR is accepted; keeps out of director/
 └── .claude/settings.json       permissions, hooks, timeouts
 ```
-Machine-local and gitignored: `.satt/state/` (check logs and caches) and `.claude/settings.local.json`.
+Machine-local and gitignored: `.satt/state/` (check logs and caches), `.claude/settings.local.json`, `product/ui/captures/`, `tools/ui/node_modules/` and `tools/ui/.auth/` (test users' saved sign-ins).
 
 ### The architecture, briefly
 The full reference is in `.satt/reference/`, one topic per file; the assistant reads the topics an item touches.

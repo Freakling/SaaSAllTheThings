@@ -6,5 +6,8 @@ local.settings.json
 node_modules/
 .venv/
 __pycache__/
+/product/ui/captures/
+/tools/ui/node_modules/
+/tools/ui/.auth/
 bin/
 obj/

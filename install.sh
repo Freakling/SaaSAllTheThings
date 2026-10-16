@@ -216,11 +216,14 @@ ensure_lines() { # ensure_lines <file> <line>…
 }
 # local.settings.json is the Functions host's per-machine settings file: it must never be committed.
 # The stack's build output (bin/ and obj/ for .NET) is added by onboarding once the stack is known.
+# Screen captures are regenerated on demand, and a test user's saved sign-in never leaves this machine.
 ensure_lines "$dest/.gitignore" "/.satt/state/" "/.claude/settings.local.json" "*.satt-new" \
-  "local.settings.json" "node_modules/" ".venv/" "__pycache__/"
+  "local.settings.json" "node_modules/" ".venv/" "__pycache__/" \
+  "/product/ui/captures/" "/tools/ui/node_modules/" "/tools/ui/.auth/"
 # LF everywhere SaaSAllTheThings writes: bash can't run CRLF scripts, and upgrades compare contents.
 ensure_lines "$dest/.gitattributes" "*.sh text eol=lf" "/.githooks/** text eol=lf" "/.satt/** text eol=lf" \
-  "/.claude/** text eol=lf" "/tools/archcheck.awk text eol=lf" "/validation/README.md text eol=lf"
+  "/.claude/** text eol=lf" "/tools/archcheck.awk text eol=lf" "/validation/README.md text eol=lf" \
+  "/tools/ui/** text eol=lf"
 
 # --- report ---------------------------------------------------------------------------------------
 if [ -z "$old_version" ]; then action="installed $version"

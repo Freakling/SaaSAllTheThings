@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T5 · B3
+**Next IDs:** T6 · B3
 
 ## Queue
+
+### T5 · /ui-design with Playwright capture · done · L · agent
+- Touches: framework/.satt/procedures/ui-design.md (new), framework/.claude/skills/ui-design/SKILL.md (new), framework/tools/ui_capture.sh (new), framework/tools/ui/ (new: capture.mjs, lint.mjs, drawing.mjs, overlay.mjs, verify.mjs, common.mjs, package.json, .npmrc), project/tools/ui/screens.mjs (new), project/tools/ui_capture.cfg (new), project/product/ui/README.md (new), project/AGENTS.md, framework/.satt/rules.md, framework/.satt/tasks.md, framework/.satt/procedures/build.md, framework/.satt/procedures/review.md, framework/.satt/procedures/acceptance.md, framework/.satt/procedures/align.md, framework/.satt/procedures/design.md, framework/.satt/procedures/feedback.md, framework/.claude/settings.json, framework/.claude/hooks/guard-authority.sh, install.sh, ONBOARDING.md, README.md, skills/saas-design-session/ (SKILL.md and the bundle), examples/order-desk (the seeds, AGENTS.md, .gitignore), tests/ui-drawing/ (new), tests/ui-web/ (new), .gitignore (new), selftest.sh, CHANGELOG.md
+- Done when: `/ui-design list` prints the catalog and `capture` writes a PNG, element map, map image and lint file per catalog screen, state and size of a web client on this machine, the same twice, opens the dev environment named in `dev_url` (`env: dev`) and refuses every other hosted address, Azure-hosted ones even when allowed (test) · a screen sent away to sign in, by a redirect or a script, or refused with 401 or 403 fails alone with the sign-in advice (test) · a tenant's screen opens as a test user of a seeded test tenant: a tenant that isn't seeded, or one without its test user's sign-in, fails the catalog entry, as does a state naming its tenant without its sign-in, and a sign-in that isn't saved exits 3 with what to set up and writes nothing (test) · the lint catches each of its seven rules on a fixture page built to break it and reports nothing on a clean one, and the reader gives the same `drawing.json` as Godot Director's for the shared fixtures (test) · `verify` reports no deviation on a page built as its spec says and exactly the element moved 10% (test) · the hook blocks writes to `director/`, and without Node, Playwright or a web client capture exits 3 with the reason while the check doesn't need them (test)
+- PRD: none
+- Source: Director-Driven-Development T85
 
 ### T4 · The manual install takes the latest release · done · XS · agent
 - Touches: README.md, CHANGELOG.md, TASKS.md

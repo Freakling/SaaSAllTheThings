@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Sign in</title></head>
+<body>
+<h1 data-testid="title">Orders</h1>
+<script>
+  // A single-page app that loads, then sends the browser to its sign-in page by script, as MSAL's
+  // loginRedirect does: capture must fail the screen, not write it.
+  setTimeout(() => { location.href = "http://203.0.113.9/oauth2/authorize"; }, 50);
+</script>
+</body>
+</html>
