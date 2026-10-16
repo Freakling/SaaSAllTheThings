@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T6 · B3
+**Next IDs:** T7 · B3
 
 ## Queue
+
+### T6 · The human-written SaaS brief · done · M · agent
+- Touches: project/product/director-brief.md (new), examples/order-desk/product/director-brief.md (new), ONBOARDING.md, framework/.satt/procedures/assess.md, framework/.satt/templates/assessment.md, skills/saas-assessment/SKILL.md, skills/saas-design-session/references/procedures/assess.md (bundled), README.md, selftest.sh, CHANGELOG.md
+- Done when: every project has a SaaS variant of the director's product brief template as a seed (`product/director-brief.md`), which also asks about the enterprise architecture, requirements, security requirements and the control frameworks the customer must meet, worded for the human to answer and anchored in the customer's security framework (check) · onboarding offers it before the interview, as an alternative or an addition to the chat interview, with a word on why it helps, and reads a filled one first for a new or an existing app, marking what it took `(from your document)` and what it inferred `(inferred, please confirm)` (check) · the assessment procedure and the `saas-assessment` skill read a filled one first and mark what came from the brief (check) · the README mentions it (check) · the selftest fails when the seed, the example copy or the wiring is missing, and checks a new app receives the seed (check)
+- PRD: none
+- Source: Director-Driven-Development T89
 
 ### T5 · align checks the PRD and ADRs against reality · done · S · agent
 - Touches: framework/.satt/procedures/align.md, CHANGELOG.md
