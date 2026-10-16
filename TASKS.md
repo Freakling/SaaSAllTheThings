@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T5 · B3
+**Next IDs:** T6 · B3
 
 ## Queue
+
+### T5 · align checks the PRD and ADRs against reality · done · S · agent
+- Touches: framework/.satt/procedures/align.md, CHANGELOG.md
+- Done when: align's item 6 is "Brief against reality", in place of the Decisions spot-check: it reads the whole PRD and the ADRs, checks every statement of state (including each ADR's status) against the built system, the done items and the latest releases, and checks every decision line since the last `docs: align` commit one by one (check)
+- PRD: none
+- Source: Director-Driven-Development T95
 
 ### T4 · The manual install takes the latest release · done · XS · agent
 - Touches: README.md, CHANGELOG.md, TASKS.md
