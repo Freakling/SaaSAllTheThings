@@ -107,7 +107,7 @@ done
 [ -z "$missing" ] && ok "every procedure has a skill (except build and review, which are subagents)" || bad "procedures without skills:$missing"
 # Every .md a rule, procedure or reference topic names: one awk pass prints "doc<TAB>ref" pairs.
 missing=""
-other=" contract.md prd.md decisions.md as-built.md interpretations.md prd-before.md postmortem.md README.md TEMPLATE.md ONBOARDING.md CHANGELOG.md AGENTS.md CLAUDE.md TASKS.md TASKS-archive.md adr.md integration-contract.md "
+other=" contract.md prd.md director-brief.md decisions.md as-built.md interpretations.md prd-before.md postmortem.md README.md TEMPLATE.md ONBOARDING.md CHANGELOG.md AGENTS.md CLAUDE.md TASKS.md TASKS-archive.md adr.md integration-contract.md "
 while IFS="$(printf '\t')" read -r doc ref; do
   case "$ref" in
     reference/*) [ -f "$src/framework/.satt/$ref" ] || missing="$missing ${doc##*/}→$ref" ;;
@@ -170,6 +170,26 @@ grep -q '^\*\*Next IDs:\*\* T[0-9]* · B[0-9]* · R[0-9]*$' "$src/project/TASKS.
 grep -q '^\*\*Next IDs:\*\* T[0-9]* · B[0-9]* · R[0-9]*$' "$src/examples/order-desk/TASKS.md" || wired="$wired order-desk/TASKS.md(Next IDs)"
 [ -z "$wired" ] && ok "the research assistant is wired into the procedures, the item format, the seeds and the docs" \
   || bad "the research assistant isn't wired into:$wired"
+# The human-written product brief: the SaaS variant ships as a seed (and in the example), keeps the
+# director's structure and adds the SaaS sections, and onboarding, the assessment and the README present it.
+wired=""
+for file in project/product/director-brief.md examples/order-desk/product/director-brief.md; do
+  grep -q '^# Product Brief: \[App Name\]' "$src/$file" && grep -q '^## 1\. Executive Summary' "$src/$file" \
+    && grep -q '^## 7\. Enterprise Architecture' "$src/$file" && grep -q '^\*\*Identity provider:\*\*\|^\* \*\*Identity provider:\*\*' "$src/$file" \
+    && grep -q '^\* \*\*Data residency:\*\*' "$src/$file" && grep -q '^\* \*\*Hosting constraints:\*\*' "$src/$file" \
+    && grep -q '^### Functional requirements' "$src/$file" && grep -q '^### Non-functional requirements' "$src/$file" \
+    && grep -q '^## 9\. Security Requirements' "$src/$file" && grep -q '^## 10\. Control Frameworks' "$src/$file" \
+    && grep -q 'security framework' "$src/$file" || wired="$wired $file"
+done
+cmp -s "$src/project/product/director-brief.md" "$src/examples/order-desk/product/director-brief.md" || wired="$wired example copy differs from the seed"
+grep -q 'product/director-brief\.md' "$src/ONBOARDING.md" && grep -q '(from your document)' "$src/ONBOARDING.md" \
+  && grep -q '(inferred, please confirm)' "$src/ONBOARDING.md" && grep -q 'alternative to the chat interview or an addition to it' "$src/ONBOARDING.md" \
+  && grep -q 'sets the stage for later development' "$src/ONBOARDING.md" || wired="$wired ONBOARDING.md"
+grep -q 'director-brief\.md' "$satt/procedures/assess.md" && grep -q '(from the brief)' "$satt/procedures/assess.md" \
+  && grep -q 'director-brief\.md' "$src/skills/saas-assessment/SKILL.md" || wired="$wired assess.md, saas-assessment"
+grep -q 'product/director-brief\.md' "$src/README.md" || wired="$wired README.md"
+[ -z "$wired" ] && ok "the SaaS product brief template ships as a seed and in the example, and onboarding, the assessment and the README present it" \
+  || bad "the SaaS product brief isn't wired into:$wired"
 # The design-session skill runs in the Claude apps without subagents, so it leaves the research procedure out and says so.
 if [ ! -e "$src/skills/saas-design-session/references/procedures/research.md" ] && [ ! -e "$src/skills/saas-design-session/references/research-domain.md" ] \
     && grep -q 'research assistant' "$src/skills/saas-design-session/SKILL.md"; then
@@ -273,6 +293,11 @@ if [ -f "$core_only/.satt/procedures/research.md" ] && [ -f "$core_only/.satt/re
   ok "a new app gets the research procedure and domain file, the note folder, and an R counter in TASKS.md, even with --tools none"
 else
   bad "a new app gets the research procedure and domain file, the note folder, and an R counter in TASKS.md" "$out"
+fi
+if [ -f "$core_only/product/director-brief.md" ] && grep -q '^## 10\. Control Frameworks' "$core_only/product/director-brief.md"; then
+  ok "a new app gets the product brief template, even with --tools none"
+else
+  bad "a new app gets the product brief template, even with --tools none" "$out"
 fi
 # Installing from a SaaSAllTheThings folder that is itself a git clone, or sits inside the app.
 s_clone="$work/satt-clone"; cp -R "$src" "$s_clone"; rm -rf "$s_clone/.git"

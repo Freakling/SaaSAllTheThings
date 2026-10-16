@@ -17,4 +17,4 @@ The assessment follows a procedure in the SaaSAllTheThings repository, and asses
    dir="$(mktemp -d)" && git -c advice.detachedHead=false clone -q --depth 1 --branch v0.8.0 https://github.com/Freakling/SaaSAllTheThings.git "$dir/SaaSAllTheThings" && echo "$dir/SaaSAllTheThings"
    ```
    `$SATT` is the folder it prints. If the clone fails (no network, no git), tell the human and stop.
-4. Read `$SATT/framework/.satt/procedures/assess.md` and follow it; where it says `.satt/`, read `$SATT/framework/.satt/`. When the report is written, delete a temporary clone.
+4. Read `$SATT/framework/.satt/procedures/assess.md` and follow it; where it says `.satt/`, read `$SATT/framework/.satt/`. Its first questions include the human's product brief: if they have filled one in, read it first; if not, offer the template, `$SATT/project/product/director-brief.md`, for them to copy, fill in and give you. When the report is written, delete a temporary clone.

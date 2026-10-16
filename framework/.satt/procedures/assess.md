@@ -12,8 +12,12 @@ You recommend; the human decides. Every choice in the report is options with a r
 ## 1. Frame it
 Ask the human, as multiple-choice questions where the tool supports them:
 1. **Who it's for:** internal planning, or a proposal to a customer. A proposal gets a more careful tone, and effort ranges only if the human wants them.
-2. **What's known already:** the goal, a deadline, the team, the first customer, the systems to integrate, constraints (budget, compliance, the customer's Azure governance). Anything unknown becomes an open question in the report, never a guess.
-3. **Language and place:** the report's language (English by default), and where to write it: `assessment/YYYY-MM-DD-assessment.md` in the app by default, untracked until the human commits it.
+2. **The human's product brief.** It is the SaaS product brief template, which the human or the customer's architect or product owner fills in, in their own words: the product, the enterprise architecture it must fit into, the requirements, the security requirements and the control frameworks the customer must meet. In an app with SaaSAllTheThings installed it is `product/director-brief.md`. Before installation, the template is `$SATT/project/product/director-brief.md`, and the human can copy it anywhere, fill it in and give you the path; they may instead point to their own requirements or architecture documents.
+   - **Filled** (its title no longer reads `[App Name]`, or the human gives a document): read it first. Take the answers to question 3 from it, and let it set what the scan and the assessment look for (the identity provider, the residency, the hosting constraints, the integrations, the security requirements, the control frameworks). Never edit it.
+   - **Blank:** offer it as an addition to the questions below. Say what it is, where it is, and that it helps because the assessment is anchored in the customer's security framework and its requirements, and a written brief carries their intent and context better than answers in a chat, which sets the stage for the roadmap and the build. They can fill it before the assessment or after it; the assessment goes ahead without it.
+   - Mark in the report what came from the brief (`(from the brief)`) and what you inferred (`(inferred, please confirm)`). Where the brief and the scan disagree, say so in the report and leave the call to the human.
+3. **What's known already:** the goal, a deadline, the team, the first customer, the systems to integrate, constraints (budget, the customer's security framework and control frameworks, the customer's Azure governance). Anything the brief answers isn't asked again. Anything unknown becomes an open question in the report, never a guess.
+4. **Language and place:** the report's language (English by default), and where to write it: `assessment/YYYY-MM-DD-assessment.md` in the app by default, untracked until the human commits it.
 
 ## 2. Scan
 Collect evidence (`file:line`, counts, commands you ran), not impressions. In a large repository, scan the areas in parallel subagents where the tool has them (in Claude Code, `Explore`) and keep only their summaries. Read project files and representative files; count the rest.
@@ -27,7 +31,7 @@ Collect evidence (`file:line`, counts, commands you ran), not impressions. In a 
 - **Integrations:** calls to Navision or Business Central (OData, SOAP web services, `/api/v2.0/`), other ERPs, file drops, email, queues.
 - **Clients:** which apps exist, for whom, and whether their screens hold business rules.
 - **Tests and delivery:** test suites and their size, CI configuration, deployment scripts, environments.
-- **Documents:** README, requirements, designs, runbooks.
+- **Documents:** README, requirements, designs, runbooks, and the human's product brief (Frame it, question 2).
 
 ## 3. The stack
 Follow `.satt/reference/stacks.md` › Choosing the stack: tell the human the languages and frameworks you found, and ask whether they have a preference. If the current stack is compatible, offer to keep it first; if not, say why, list the compatible stacks with a recommendation, or ask for their preferred language. Their answer decides whether the roadmap reuses or converts. If the human would rather leave it open, the report presents it as a decision for the architecture workshop.
@@ -61,7 +65,7 @@ Fill `.satt/templates/assessment.md`. The report is self-contained, because it g
 
 ## 7. Finish
 - Summarise in a few lines: the verdict, the top risks, the first workshop.
-- Offer the next step: prepare the first workshop's invitation and pre-read, or install SaaSAllTheThings (onboarding reads the report and the workshop notes instead of asking again).
+- Offer the next step: prepare the first workshop's invitation and pre-read, or install SaaSAllTheThings (onboarding reads the report, the workshop notes and the human's product brief instead of asking again).
 - Don't commit. In an app with SaaSAllTheThings installed, commit the report as `docs: assessment YYYY-MM-DD` after the human approves.
 
 ## Process workshop notes
