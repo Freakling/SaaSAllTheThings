@@ -4,7 +4,7 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T7 · B3 · R1
+**Next IDs:** T8 · B3 · R1
 
 ## Queue
 
@@ -22,7 +22,7 @@ Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by mov
 
 ## Queue
 
-### T6 · The repository's own queue has a research counter · done · XS · agent
+### T7 · The repository's own queue has a research counter · done · XS · agent
 - Touches: TASKS.md
 - Done when: `Next IDs` carries the `R` counter that `align.md` asks for, `· R1` (check)
 - PRD: none
