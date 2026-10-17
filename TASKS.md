@@ -4,7 +4,7 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T8 · B3 · R1
+**Next IDs:** T9 · B3 · R1
 
 ## Queue
 
@@ -21,6 +21,12 @@ Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by mov
 - Source: Director-Driven-Development T95
 
 ## Queue
+
+### T8 · An install from a non-release source marks itself unreleased · done · S · agent
+- Touches: install.sh, selftest.sh
+- Done when: an install from a source whose CHANGELOG.md has an Unreleased section with entries records `<version> + unreleased (<commit>)` in the manifest, and its closing lines say it's a development snapshot, not a release (test) · an install from a release records the plain version, with the source commit in a `# source` line (test) · an upgrade from a manifest carrying the unreleased suffix reads the old version without it (test)
+- PRD: none
+- Source: Director-Driven-Development T135
 
 ### T7 · The repository's own queue has a research counter · done · XS · agent
 - Touches: TASKS.md
