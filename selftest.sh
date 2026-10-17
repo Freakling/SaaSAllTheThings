@@ -311,6 +311,59 @@ out="$(bash "$inside/SaaSAllTheThings/install.sh" "$inside" 2>&1)"; expect_statu
 mkdir -p "$core_only/sub"
 out="$(bash "$src/install.sh" "$core_only/sub" 2>&1)"; expect_status "refuses a folder that isn't the repository root" 1 $? "$out"
 
+# An install says when its source has unreleased changes: the manifest's first line and the closing
+# lines carry it, with the commit when the source is a git checkout. A release records the plain version.
+src_copy() { # src_copy <folder> <CHANGELOG.md to use>: a fresh git checkout of this framework, with that changelog
+  rm -rf "$1" && cp -R "$src" "$1" && rm -rf "$1/.git" && cp "$2" "$1/CHANGELOG.md" \
+    && (cd "$1" && git init -q && git config core.autocrlf false && git add -A && git_q commit -qm source) >/dev/null 2>&1
+}
+printf '# Changelog\n\n## Unreleased\n\n- **A change not released yet.**\n\n## 0.9.0 (2026-10-16)\n\n- Earlier.\n' > "$work/changelog-unreleased.md"
+printf '# Changelog\n\n## Unreleased\n\n## 0.9.0 (2026-10-16)\n\n- Earlier.\n' > "$work/changelog-empty.md"
+printf '# Changelog\n\n## 0.9.0 (2026-10-16)\n\n- Earlier.\n' > "$work/changelog-none.md"
+unrel_src="$work/unreleased-src"; src_copy "$unrel_src" "$work/changelog-unreleased.md"
+unrel_sha="$(git -C "$unrel_src" rev-parse --short HEAD)"
+unrel_app="$work/unreleased-app"; new_repo "$unrel_app"
+out="$(bash "$unrel_src/install.sh" "$unrel_app" 2>&1)"; expect_status "installs from a checkout with unreleased changes" 0 $? "$out"
+if [ "$(head -n 1 "$unrel_app/.satt/manifest" | tr -d '\r')" = "# saasallthethings $version + unreleased ($unrel_sha)" ] \
+    && grep -qxF "# source $unrel_sha" "$unrel_app/.satt/manifest" && grep -qxF "# tools claude" "$unrel_app/.satt/manifest"; then
+  ok "the manifest records '+ unreleased (<commit>)' and the source commit, and keeps the tools line"
+else
+  bad "the manifest records '+ unreleased (<commit>)' and the source commit" "$(head -n 3 "$unrel_app/.satt/manifest")"
+fi
+printf '%s\n' "$out" | grep -qxF "Installed $version + unreleased ($unrel_sha): a development snapshot, not a release. The latest release is at https://github.com/Freakling/SaaSAllTheThings/releases." \
+  && ok "the closing lines say it's a development snapshot, with the commit" || bad "the closing lines don't say it's a development snapshot" "$out"
+# A release zip has no .git: the same changelog records the version without a commit.
+zip_src="$work/unreleased-zip"; rm -rf "$zip_src" && cp -R "$src" "$zip_src" && rm -rf "$zip_src/.git" && cp "$work/changelog-unreleased.md" "$zip_src/CHANGELOG.md"
+zip_app="$work/unreleased-zip-app"; new_repo "$zip_app"
+out="$(bash "$zip_src/install.sh" "$zip_app" 2>&1)"
+if [ "$(head -n 1 "$zip_app/.satt/manifest" | tr -d '\r')" = "# saasallthethings $version + unreleased" ] \
+    && ! grep -q '^# source ' "$zip_app/.satt/manifest" && printf '%s\n' "$out" | grep -qxF "Installed $version + unreleased: a development snapshot, not a release. The latest release is at https://github.com/Freakling/SaaSAllTheThings/releases."; then
+  ok "a source without a git checkout (a release zip) records '+ unreleased' with no commit"
+else
+  bad "a source without a git checkout records '+ unreleased' with no commit" "$out"
+fi
+for empty in empty none; do
+  rel_src="$work/release-$empty"; src_copy "$rel_src" "$work/changelog-$empty.md"
+  rel_sha="$(git -C "$rel_src" rev-parse --short HEAD)"
+  rel_app="$work/release-$empty-app"; new_repo "$rel_app"
+  out="$(bash "$rel_src/install.sh" "$rel_app" 2>&1)"; expect_status "installs from a release ($empty Unreleased)" 0 $? "$out"
+  if [ "$(head -n 1 "$rel_app/.satt/manifest" | tr -d '\r')" = "# saasallthethings $version" ] && grep -qxF "# source $rel_sha" "$rel_app/.satt/manifest" \
+      && ! printf '%s' "$out" | grep -qE 'unreleased|development snapshot'; then
+    ok "a release ($empty Unreleased) records the plain version and its commit, and doesn't say unreleased"
+  else
+    bad "a release ($empty Unreleased) records the plain version and its commit" "$(head -n 3 "$rel_app/.satt/manifest")"
+  fi
+done
+# Upgrade detection reads the version out of an unreleased manifest, and skips the source line.
+up_app="$work/upgrade-app"; new_repo "$up_app"
+bash "$work/release-none/install.sh" "$up_app" >/dev/null 2>&1
+{ printf '# saasallthethings 0.8.0 + unreleased (abc1234)\n'; tail -n +2 "$up_app/.satt/manifest"; } > "$work/manifest-up" && cp "$work/manifest-up" "$up_app/.satt/manifest"
+out="$(bash "$work/release-none/install.sh" "$up_app" 2>&1)"
+expect_output "an upgrade from an unreleased 0.8.0 reads the old version as 0.8.0" "upgraded from 0.8.0 to $version" "$out"
+{ printf '# saasallthethings %s + unreleased (abc1234)\n' "$version"; tail -n +2 "$up_app/.satt/manifest"; } > "$work/manifest-up" && cp "$work/manifest-up" "$up_app/.satt/manifest"
+out="$(bash "$work/release-none/install.sh" "$up_app" 2>&1)"
+expect_output "a reinstall over an unreleased manifest of the same version says reinstalled" "$version reinstalled" "$out"
+
 # A Windows clone with core.autocrlf=true, and an editor that saved CRLF.
 crlf_src="$work/crlf-src"; new_repo "$crlf_src"
 bash "$src/install.sh" "$crlf_src" >/dev/null 2>&1 && (cd "$crlf_src" && git add -A && git_q commit -qm install)
