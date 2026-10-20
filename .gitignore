@@ -1,1 +1,7 @@
 tests/ui-web/node_modules/
+
+# OS metadata files the plugin directory scanner refuses
+.DS_Store
+Thumbs.db
+desktop.ini
+__MACOSX/

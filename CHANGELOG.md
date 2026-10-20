@@ -4,6 +4,8 @@ Each entry lists what changed. An entry that requires changes to an app's own fi
 
 ## Unreleased
 
+- **The repository ignores OS metadata files.** `.gitignore` keeps `.DS_Store`, `Thumbs.db`, `desktop.ini` and `__MACOSX/` out of the repository, as the Claude plugin directory's scanner asks.
+  - **Upgrade steps:** none. This repository's `.gitignore` isn't installed into apps.
 - **Two sessions that build at once each get a worktree.** `rules.md` extends the parallel-sessions rule to any two sessions that build (say product and coding, or two coding sessions), and says why: one session's half-written files fail the other's check and the Stop hook, and both queue on the same build artefacts. The commands stay the same (`git worktree add`, then `bash tools/setup-clone.sh` in the new worktree). The README's day-to-day section points at the rule, and the self-test checks that the rule names the worktree and its reason.
   - **Upgrade steps:** none. The rules are framework-owned and arrive on upgrade.
 - **The README starts with writing your own product brief.** The how-to-use section opens with a "Start here" step, before the install: write `product/director-brief.md` in your own words first, with a link to the template at the latest release tag. The template's header carries the same link, so a copied file explains where the latest one is. The self-test checks both links against `VERSION`.
