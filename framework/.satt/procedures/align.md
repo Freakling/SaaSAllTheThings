@@ -23,7 +23,13 @@ A consistency pass across the PRD, decisions, ADRs, integration contracts, TASKS
    - AGENTS.md › Layout matches `tools/check.cfg` › `[layers]`.
    - `bash tools/check.sh --architecture` passes, and its notes list no stale ADR exceptions and no proposed ADR waiting for longer than a week. Report the count of source files outside any layer; for an existing app each area of them has an Extract item.
    - Every accepted ADR with a temporary deviation has its removal item.
-6. **Decisions.** Spot-check that recent lines in `product/decisions.md` are reflected in the PRD and the integration contracts, and that no older text contradicts them. Report workshop notes in `assessment/workshops/` that have no `Processed:` line.
+6. **Brief against reality.** For this step only, read the whole PRD and the ADRs, not sections by heading.
+   - Read `product/prd.md` and each ADR in `adr/` from its first line to its last.
+   - For every statement of state, check it against what exists: the built system (its code, infrastructure and clients), the done items (`TASKS.md` and `TASKS-archive.md`) and, where the project tracks them, the latest releases (the deploys to `dev` and `prod`; `prod` deploys from a tag, and its contents are the done items since the last tag; see `release.md`). A statement of state is a section marked later or planned, a count, a list of what exists, a line saying work waits on something, and "once X exists". Fix a stale statement as mechanical drift when the fact is settled (the item is done, the page exists). Report it to the human when the fix is a design call.
+     - An ADR's status is a statement of state too: an `accepted` ADR's Decision is in the code or infrastructure, or an open item builds it; a `proposed` ADR that the code already follows is stale; and `superseded by ADR-<m>` names an ADR that exists.
+   - Check every line added to `product/decisions.md` since the last `docs: align` commit (`git log --grep="^docs: align"` for the last one; all lines if there is none) against the PRD, the ADRs and the integration contracts, one by one and not a sample. Each is reflected in them, and no older text contradicts it.
+   - Report what was fixed and what needs the human, naming each stale statement, so the next align can tell a repeat.
+   - Report workshop notes in `assessment/workshops/` that have no `Processed:` line.
 7. **Undecided values.** Count them with `git grep -n "PLACEHOLDER" -- src infra clients`, and report the number with the files.
 8. **Setup.**
    - `bash tools/check.sh` passes and prints no `note:` about the hook or the toolchain.

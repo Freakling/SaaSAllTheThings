@@ -14,7 +14,8 @@
 # - Framework files an earlier version installed but this one no longer ships are deleted, unless
 #   you changed them.
 # - .gitignore and .gitattributes get the lines SaaSAllTheThings needs.
-# - What was installed is recorded in .satt/manifest (commit it).
+# - What was installed is recorded in .satt/manifest (commit it). An install from a source with
+#   unreleased changes (an Unreleased section in its CHANGELOG.md) says so there and when it's done.
 # Nothing is committed. Review with `git status` and `git diff`, then follow ONBOARDING.md.
 #
 # Adapter files are the tool's own paths: for Claude Code, `.claude/…` and `CLAUDE.md`. To add
@@ -68,6 +69,30 @@ if grep -rlq "$(printf '\r')" "$src/framework" "$src/project" 2>/dev/null; then
 fi
 
 version="$(tr -d '\r\n' < "$src/VERSION")"
+# The source's commit, when the source is a git checkout of its own: not a release zip, and not a
+# folder that sits inside another repository (git would report that repository's commit).
+src_prefix="$(git -C "$src" rev-parse --show-prefix 2>/dev/null)" || src_prefix="?"
+commit=""
+if [ -z "$src_prefix" ]; then
+  commit="$(git -C "$src" rev-parse --short HEAD 2>/dev/null)" || commit=""
+fi
+# Unreleased: CHANGELOG.md has a `## Unreleased` heading with at least one non-blank line before the
+# next `## ` heading. The repo writes the heading that way; CRs are ignored.
+unreleased=0
+if [ -f "$src/CHANGELOG.md" ]; then
+  unreleased="$(awk '
+    { sub(/\r$/, "") }
+    /^## Unreleased[ \t]*$/ { inside = 1; next }
+    /^## / { inside = 0 }
+    inside && /[^ \t]/ { found = 1 }
+    END { print found + 0 }
+  ' "$src/CHANGELOG.md")" || unreleased=0
+fi
+label="$version"
+if [ "$unreleased" = 1 ]; then
+  label="$version + unreleased"
+  if [ -n "$commit" ]; then label="$label ($commit)"; fi
+fi
 manifest_rel=".satt/manifest"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -77,6 +102,7 @@ old_version=""; old_tools=""
 if [ -f "$dest/$manifest_rel" ]; then
   tr -d '\r' < "$dest/$manifest_rel" > "$tmp/manifest"
   old_version="$(sed -n 's/^# saasallthethings //p' "$tmp/manifest" | head -n 1)"
+  old_version="${old_version% + unreleased*}"   # an unreleased install records "<version> + unreleased (<commit>)"
   old_tools="$(sed -n 's/^# tools //p' "$tmp/manifest" | head -n 1)"
   grep -v '^#' "$tmp/manifest" > "$tmp/old" || true
 fi
@@ -175,7 +201,12 @@ done < "$tmp/plan"
 copy_list "$src/framework" "$dest" "$tmp/copy"
 
 mkdir -p "$dest/${manifest_rel%/*}"
-{ printf '# saasallthethings %s\n# tools %s\n' "$version" "$tools"; cat "$tmp/new"; } > "$dest/$manifest_rel"
+# The first line says "+ unreleased" when the source has unreleased changes, and the # source line
+# records the commit whenever it's known. Readers take the version from the first line, stripping
+# " + unreleased (...)", and skip the other comment lines.
+{ printf '# saasallthethings %s\n' "$label"
+  if [ -n "$commit" ]; then printf '# source %s\n' "$commit"; fi
+  printf '# tools %s\n' "$tools"; cat "$tmp/new"; } > "$dest/$manifest_rel"
 
 # --- project-owned seeds --------------------------------------------------------------------------
 : > "$tmp/seeds"
@@ -239,6 +270,9 @@ if [ -n "$left" ]; then echo "  no longer part of SaaSAllTheThings but changed l
 if [ -n "$conflicts" ]; then
   echo "  CONFLICTS: you changed these and so does this version. The new version is next to each as"
   echo "  <file>.satt-new; merge it, then delete it:$conflicts"
+fi
+if [ "$unreleased" = 1 ]; then
+  echo "Installed $label: a development snapshot, not a release. The latest release is at https://github.com/Freakling/SaaSAllTheThings/releases."
 fi
 echo "Next: review with git status / git diff, then follow $src/ONBOARDING.md."
 exit 0

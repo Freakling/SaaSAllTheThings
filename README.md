@@ -82,7 +82,7 @@ Then ask your assistant to "SaaS all the things" in your app's folder. The skill
 Either way, onboarding works out whether this is a new app, an existing app or an upgrade. It then:
 1. installs the files;
 2. settles the backend stack with you: for an existing app it asks your preference, keeps your stack if it's compatible, and otherwise lists the compatible ones;
-3. interviews you (new app) or reads the existing app, including its single-tenant habits and secrets;
+3. interviews you (new app) or reads the existing app, including its single-tenant habits and secrets, or reads the product brief you wrote yourself in `product/director-brief.md` (an alternative or an addition; it adds the architecture, requirements and control frameworks the customer must meet, and gives everything that follows its context);
 4. writes the first stages of the roadmap to SaaS into `TASKS.md`;
 5. ends with one commit for you to approve.
 
@@ -154,6 +154,7 @@ your-app/
 ├── CLAUDE.md                   "@AGENTS.md", for Claude Code
 ├── TASKS.md                    milestones (the SaaSAllTheThings stages) and the queue (tasks, bugs and research)
 ├── product/prd.md              the product's current requirements, and Open Questions
+├── product/director-brief.md   a product brief template for you to fill in, in your own words (optional): the enterprise architecture, requirements, security requirements and control frameworks; onboarding and the assessment read it first and never edit it
 ├── product/decisions.md        why: one line per product decision
 ├── product/research/           dated research notes, one per topic; the decision line or the ADR links to its note
 ├── adr/                        architecture decision records: choices and accepted deviations

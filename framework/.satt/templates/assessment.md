@@ -5,6 +5,7 @@ delete this comment and the guidance in parentheses. Self-contained: no links in
 
 - **Date:** YYYY-MM-DD · **Build:** <git rev-parse --short HEAD> · **For:** <internal planning / customer proposal>
 - **Scope:** <the repository, and anything not looked at>
+- **Product brief:** <the human's brief and the sections that answered questions, marked "(from the brief)" where used; or "none">; what the assessment inferred is marked "(inferred, please confirm)"
 
 ## Summary
 (One paragraph: what the app is, how far it is from a multi-tenant SaaS on Azure, the recommended path, the top three risks, and the first step.)

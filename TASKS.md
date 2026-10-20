@@ -4,11 +4,39 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T6 · B3
+**Next IDs:** T10 · B3 · R1
 
 ## Queue
 
-### T5 · /ui-design with Playwright capture · done · L · agent
+### T6 · The human-written SaaS brief · done · M · agent
+- Touches: project/product/director-brief.md (new), examples/order-desk/product/director-brief.md (new), ONBOARDING.md, framework/.satt/procedures/assess.md, framework/.satt/templates/assessment.md, skills/saas-assessment/SKILL.md, skills/saas-design-session/references/procedures/assess.md (bundled), README.md, selftest.sh, CHANGELOG.md
+- Done when: every project has a SaaS variant of the director's product brief template as a seed (`product/director-brief.md`), which also asks about the enterprise architecture, requirements, security requirements and the control frameworks the customer must meet, worded for the human to answer and anchored in the customer's security framework (check) · onboarding offers it before the interview, as an alternative or an addition to the chat interview, with a word on why it helps, and reads a filled one first for a new or an existing app, marking what it took `(from your document)` and what it inferred `(inferred, please confirm)` (check) · the assessment procedure and the `saas-assessment` skill read a filled one first and mark what came from the brief (check) · the README mentions it (check) · the selftest fails when the seed, the example copy or the wiring is missing, and checks a new app receives the seed (check)
+- PRD: none
+- Source: Director-Driven-Development T89
+
+### T5 · align checks the PRD and ADRs against reality · done · S · agent
+- Touches: framework/.satt/procedures/align.md, CHANGELOG.md
+- Done when: align's item 6 is "Brief against reality", in place of the Decisions spot-check: it reads the whole PRD and the ADRs, checks every statement of state (including each ADR's status) against the built system, the done items and the latest releases, and checks every decision line since the last `docs: align` commit one by one (check)
+- PRD: none
+- Source: Director-Driven-Development T95
+
+## Queue
+
+### T8 · An install from a non-release source marks itself unreleased · done · S · agent
+- Touches: install.sh, selftest.sh
+- Done when: an install from a source whose CHANGELOG.md has an Unreleased section with entries records `<version> + unreleased (<commit>)` in the manifest, and its closing lines say it's a development snapshot, not a release (test) · an install from a release records the plain version, with the source commit in a `# source` line (test) · an upgrade from a manifest carrying the unreleased suffix reads the old version without it (test)
+- PRD: none
+- Source: Director-Driven-Development T135
+
+### T7 · The repository's own queue has a research counter · done · XS · agent
+- Touches: TASKS.md
+- Done when: `Next IDs` carries the `R` counter that `align.md` asks for, `· R1` (check)
+- PRD: none
+- Source: Director-Driven-Development T119
+
+## Queue
+
+### T9 · /ui-design with Playwright capture · done · L · agent
 - Touches: framework/.satt/procedures/ui-design.md (new), framework/.claude/skills/ui-design/SKILL.md (new), framework/tools/ui_capture.sh (new), framework/tools/ui/ (new: capture.mjs, lint.mjs, drawing.mjs, overlay.mjs, verify.mjs, common.mjs, package.json, .npmrc), project/tools/ui/screens.mjs (new), project/tools/ui_capture.cfg (new), project/product/ui/README.md (new), project/AGENTS.md, framework/.satt/rules.md, framework/.satt/tasks.md, framework/.satt/procedures/build.md, framework/.satt/procedures/review.md, framework/.satt/procedures/acceptance.md, framework/.satt/procedures/align.md, framework/.satt/procedures/design.md, framework/.satt/procedures/feedback.md, framework/.claude/settings.json, framework/.claude/hooks/guard-authority.sh, install.sh, ONBOARDING.md, README.md, skills/saas-design-session/ (SKILL.md and the bundle), examples/order-desk (the seeds, AGENTS.md, .gitignore), tests/ui-drawing/ (new), tests/ui-web/ (new), .gitignore (new), selftest.sh, CHANGELOG.md
 - Done when: `/ui-design list` prints the catalog and `capture` writes a PNG, element map, map image and lint file per catalog screen, state and size of a web client on this machine, the same twice, opens the dev environment named in `dev_url` (`env: dev`) and refuses every other hosted address, Azure-hosted ones even when allowed (test) · a screen sent away to sign in, by a redirect or a script, or refused with 401 or 403 fails alone with the sign-in advice (test) · a tenant's screen opens as a test user of a seeded test tenant: a tenant that isn't seeded, or one without its test user's sign-in, fails the catalog entry, as does a state naming its tenant without its sign-in, and a sign-in that isn't saved exits 3 with what to set up and writes nothing (test) · the lint catches each of its seven rules on a fixture page built to break it and reports nothing on a clean one, and the reader gives the same `drawing.json` as Godot Director's for the shared fixtures (test) · `verify` reports no deviation on a page built as its spec says and exactly the element moved 10% (test) · the hook blocks writes to `director/`, and without Node, Playwright or a web client capture exits 3 with the reason while the check doesn't need them (test)
 - PRD: none
