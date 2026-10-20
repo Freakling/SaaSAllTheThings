@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T10 · B3 · R1
+**Next IDs:** T11 · B3 · R1
 
 ## Queue
+
+### T10 · Two sessions that build at once each get a worktree · done · XS · agent
+- Touches: framework/.satt/rules.md, README.md, selftest.sh, CHANGELOG.md, skills/saas-design-session/references (bundled rules.md)
+- Done when: the same rule as T160 in SaaSAllTheThings' rules and README, checked by its selftest (check)
+- PRD: none
+- Source: Director-Driven-Development T161
 
 ### T9 · The README starts with writing your own product brief · done · S · agent
 - Touches: README.md, project/product/director-brief.md, examples/order-desk/product/director-brief.md (the example copy must match the seed), selftest.sh, CHANGELOG.md

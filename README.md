@@ -123,6 +123,8 @@ Only the framework's own files are replaced, and your edits to them are kept. Wh
 | "Reset the design" (`/drift-reset`), only when you start it | For when a principle has been built two ways and `/align` keeps finding it: describes the system as built, maps each interpretation, you rewrite the design where it splits, and the rebuild is planned as items. `/drift-reset postmortem` afterwards turns what drifted into checks. Align often, reset when you have to. |
 | "Prune the task list" (`/prune`) | Moves done items to `TASKS-archive.md`. |
 
+Running two sessions that build at once? Give each its own git worktree; the rule and its reason are in `framework/.satt/rules.md`, under "Two sessions that build at once".
+
 ```
 you, a customer or a pilot has an idea
         │

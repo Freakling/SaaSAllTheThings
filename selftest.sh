@@ -173,6 +173,8 @@ grep -q '^\*\*Next IDs:\*\* T[0-9]* · B[0-9]* · R[0-9]*$' "$src/project/TASKS.
 grep -q '^\*\*Next IDs:\*\* T[0-9]* · B[0-9]* · R[0-9]*$' "$src/examples/order-desk/TASKS.md" || wired="$wired order-desk/TASKS.md(Next IDs)"
 [ -z "$wired" ] && ok "the research assistant is wired into the procedures, the item format, the seeds and the docs" \
   || bad "the research assistant isn't wired into:$wired"
+# Two sessions that build each get a worktree, and the rule says why (half-written files and shared build artefacts).
+grep -q 'git worktree add' "$satt/rules.md" && grep -q 'half-written' "$satt/rules.md" && grep -q 'Stop hook' "$satt/rules.md"   && grep -q 'build artefacts' "$satt/rules.md" && grep -q 'two coding sessions' "$satt/rules.md"   && ok "the worktree rule for parallel building sessions is in the rules, with its reason"   || bad "the worktree rule for parallel building sessions is missing or doesn't say why (rules.md › Two sessions that build at once)"
 # The human-written product brief: the SaaS variant ships as a seed (and in the example), keeps the
 # director's structure and adds the SaaS sections, and onboarding, the assessment and the README present it.
 wired=""
