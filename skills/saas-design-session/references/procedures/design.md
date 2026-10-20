@@ -37,7 +37,8 @@ A question about how the system is built (a data store, a client's UI tech, a de
    - Leave `in-progress` items alone and tell the human about them, since another session may be working on them.
    - Suggest reorders; don't make them.
 6. **Numbers** (limits, quotas, prices, timeouts) stay `PLACEHOLDER` values until the human gives them. Say what a value is for and how it should feel.
-7. **Pillars:** if an idea contradicts a Product Pillar, stop and ask which gives way, the pillar or the idea.
+7. **Layout:** where things sit on a screen goes to `ui-design.md`. A product session settles what a screen is for, not where its elements are.
+8. **Pillars:** if an idea contradicts a Product Pillar, stop and ask which gives way, the pillar or the idea.
 
 ## Finish
 - Summarise what was decided, what's still open, and the next most useful question.

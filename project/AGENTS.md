@@ -25,6 +25,8 @@ folders move, together with tools/check.cfg › [layers]. -->
 | `clients/windows/`, `clients/mobile/` | client | the client apps |
 | `tests/` | tests | tests, fakes, recorded fixtures |
 | `infra/` | (none) | Bicep: `main.bicep`, `modules/`, `env/` |
+| `product/ui/` | (none) | screen specs, one per screen, and `captures/` (gitignored); the director's drawings are in `director/ui/` |
+| `tools/ui/` | (none) | screen capture (Node and Playwright, kept apart from the product); `screens.mjs` is the screen catalog |
 
 ## Architecture
 One row per system: a project, a function app or an area within one. Clients depend on contracts, hosts on handlers, never the other way round.
@@ -39,5 +41,6 @@ Architecture never goes here: it changes through an ADR in adr/.
 Examples:
 - The agent may deploy to dev without asking each time; production stays with the human.
 - No git remote: never push.
+- UI / screen layout: director designs (director/ui/), agent builds
 - Model sizing: on
 -->

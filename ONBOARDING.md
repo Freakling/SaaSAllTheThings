@@ -109,6 +109,7 @@ Run `.satt/procedures/roadmap.md`. It fills TASKS.md › Milestones with the sta
 ## 7. Project facts and settings
 - **AGENTS.md:** name, pitch, the stack (ADR-1), the clients (their UI tech is a `Decide:` item until an ADR settles it), the Azure region (a `Q<n>` if unknown), the integrations. Fill in the Layout table from `tools/check.cfg` › `[layers]` and the real folders, deleting rows that don't apply.
 - **`tools/check.cfg`:** as step 3 set it; adjust `[scan] skip` for generated code the project has.
+- **`tools/ui_capture.cfg`** › `[web]`, when a client is a web app (Flutter web and Blazor included): `base_url`, the address of the web client running on this machine (such as `http://localhost:5173`), `api_url` for the local Functions host, `start_command` if capture should start them, `tenants`, the seeded test tenants, and `dev_url` if the dev environment's web client should be captured too (never prod). Leave `base_url` empty when every client is native (Windows or mobile): capture isn't available for those yet. The catalog (`tools/ui/screens.mjs`) starts with the root route. Capture needs Node 18 and, once per clone, `cd tools/ui && npm install && npx playwright install chromium`. Offer that install; the check never needs it. A screen behind the sign-in needs a test user's saved sign-in, which the human saves once (`.satt/procedures/ui-design.md` › The catalog); never ask for a password or a token.
 
 ## 8. Ownership and project rules
 Walk the human through the defaults, and record only the workflow differences in AGENTS.md › Project rules. Say clearly that the architecture isn't a project rule: it changes only through an ADR.
@@ -127,6 +128,16 @@ Walk the human through the defaults, and record only the workflow differences in
   ```
   To update models later, run `/refresh-model-sizing`.
 - Reviews: by default after `L` items, and after `M` items that change contracts, tenant isolation, identity or a stored schema.
+
+### Designing screens by drawing
+Ask once whether the director wants to design screens by drawing over screenshots of the running product (`/ui-design`; free Excalidraw, no account).
+- **Yes:** add `UI / screen layout: director designs (director/ui/), agent builds` to AGENTS.md › Project rules. Offer `director/` (below) with `director/ui/`, and tell them the loop: `/ui-design capture` writes a starter drawing per screen of a web client, they draw and save it as `director/ui/<screen>.excalidraw`, and `/ui-design process <screen>` turns it into the screen's spec.
+- **No:** nothing changes; the agent lays out screens. Capture, the layout lint and the catalog still work. No open question and no item is added: drawing is optional, never a prerequisite.
+
+### Protected workspace
+If the director wants a space the agent will never touch (screen drawings, mockups, brand assets, notes, third-party API specs), offer to create `director/`. The agent reads files there for context but never creates, modifies or deletes anything inside it (`.satt/rules.md` › Protected space; in Claude Code a hook blocks it). If they want it:
+1. Create `director/` and `director/README.md` saying what it is and that the agent won't touch it, and `director/ui/` if they design screens by drawing.
+2. Ask whether to gitignore it (for large binary assets) or commit it (for drawings and notes). Update `.gitignore` accordingly.
 
 ## 9. Feedback template
 Replace the `{{CAPABILITY…}}` parts of `validation/TEMPLATE.md` with one section per capability in PRD › Capabilities, usually 3-6. Each gets one fixed scored statement and 1-2 open questions. Update the "Capabilities covered" line to match.
@@ -150,6 +161,6 @@ If the capabilities aren't decided yet, leave the placeholders, and add an agent
 8. **Offer a "Development" section for the app's README:** clone, then `bash tools/setup-clone.sh`, then the commands.
 9. **Tell the human:**
    - what needs their confirmation (inferred PRD text, open questions, `Decide:` items, human items);
-   - how to use it: "do the next task", "plan the next stage", "let's work out <capability>", "add the Navision integration", "which UI tech for the Windows client?", "research which Azure service fits…", "prepare an acceptance check", "process this feedback", "release to dev", "check the docs are aligned" (in Claude Code also `/next-task`, `/roadmap`, `/design`, `/integrate`, `/architect`, `/research`, `/acceptance`, `/feedback`, `/release`, `/align`, `/tenant`, `/prune`, and `/drift-reset`, which only the human starts, when `/align` keeps finding the same conflict);
+   - how to use it: "do the next task", "plan the next stage", "let's work out <capability>", "add the Navision integration", "which UI tech for the Windows client?", "research which Azure service fits…", "prepare an acceptance check", "process this feedback", "release to dev", "check the docs are aligned", "capture the screens" (in Claude Code also `/next-task`, `/roadmap`, `/design`, `/integrate`, `/architect`, `/research`, `/ui-design`, `/acceptance`, `/feedback`, `/release`, `/align`, `/tenant`, `/prune`, and `/drift-reset`, which only the human starts, when `/align` keeps finding the same conflict);
    - with the Claude adapter: to restart Claude Code, because skills, hooks and permissions load when a session starts;
    - that every new clone needs `bash tools/setup-clone.sh`.

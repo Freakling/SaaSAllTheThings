@@ -19,6 +19,8 @@ Instructions for AI assistants working on this product. The workflow is SaaSAllT
 | `src/OrderDesk.Application/` | application | `Orders/` handlers, `Ports/`, `Tenancy/` |
 | `src/OrderDesk.Functions/` | host | the product's functions, by area |
 | `tests/` | tests | one test project per layer, `Fakes/` |
+| `product/ui/` | (none) | screen specs and `captures/` (gitignored); no web client yet, so no capture |
+| `tools/ui/` | (none) | screen capture (Node and Playwright); `screens.mjs` is the screen catalog |
 
 ## Architecture
 | System | Owns | Where | Talks to |

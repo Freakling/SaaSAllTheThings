@@ -8,9 +8,10 @@ The request is `prepare` (the default), `process`, or `all` (a full regression r
 ## Prepare
 1. Run `bash tools/check.sh`. If it fails, say so and stop: the build isn't worth checking by hand.
 2. Collect the `(demo)` outcomes of `done` items in TASKS.md and TASKS-archive.md.
-3. Keep those that haven't been ticked (Works or Broken) in an earlier `validation/*-acceptance.md`. Add done bugs without a regression test whose fix hasn't been ticked yet, with the outcome "the repro no longer happens".
-4. **`all`:** keep every `(demo)` outcome, plus one item for each PRD rule that no done item covers. That second part picks up behaviour the app had before SaaSAllTheThings.
-5. Write `validation/YYYY-MM-DD-acceptance.md`:
+3. For a done item with `UI:`, regenerate its compare images first when capture can run: `bash tools/ui_capture.sh <id> --verify`. If it exits 3, link the images that exist and say they may be out of date.
+4. Keep those that haven't been ticked (Works or Broken) in an earlier `validation/*-acceptance.md`. Add done bugs without a regression test whose fix hasn't been ticked yet, with the outcome "the repro no longer happens".
+5. **`all`:** keep every `(demo)` outcome, plus one item for each PRD rule that no done item covers. That second part picks up behaviour the app had before SaaSAllTheThings.
+6. Write `validation/YYYY-MM-DD-acceptance.md`:
    ```
    # Acceptance check YYYY-MM-DD
    **Build:** <git rev-parse --short HEAD> · **Environment:** <local | dev> · **Covers:** T12, T14, B3
@@ -25,6 +26,13 @@ The request is `prepare` (the default), `process`, or `all` (a full regression r
    - Write each item as what the user sees, and on which client.
    - Add a *How:* hint: which client, which role, which test tenant. For tenant isolation, include "signed in as the second test tenant, the first one's data isn't visible".
    - Leave nothing for the tester to copy or format.
+   - The entry for a done `UI:` item asks the human to judge the screen against their drawing, and links the compare image:
+     ```
+     - **T31** The orders screen matches your drawing. *Compare:* `product/ui/captures/orders.compare@1920x1080.png` (your drawing's screenshot on the left, the screen now on the right). *How:* web client, signed in as a Tenant.User of the test tenant; try mouse, touch and keyboard.
+       - [ ] Works   - [ ] Broken / missing
+       - Notes:
+     ```
+     It uses the item's own `(demo)` outcome for what to try, so the usual collection of outcomes picks it up. A note that the layout should change is a drawing for `ui-design.md`, not a bug.
 
 ## Process
 1. **Works:** nothing to record; the ticked file is the record.
