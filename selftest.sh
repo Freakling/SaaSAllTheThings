@@ -175,6 +175,31 @@ grep -q '^\*\*Next IDs:\*\* T[0-9]* · B[0-9]* · R[0-9]*$' "$src/examples/order
   || bad "the research assistant isn't wired into:$wired"
 # Two sessions that build each get a worktree, and the rule says why (half-written files and shared build artefacts).
 grep -q 'git worktree add' "$satt/rules.md" && grep -q 'half-written' "$satt/rules.md" && grep -q 'Stop hook' "$satt/rules.md"   && grep -q 'build artefacts' "$satt/rules.md" && grep -q 'two coding sessions' "$satt/rules.md"   && ok "the worktree rule for parallel building sessions is in the rules, with its reason"   || bad "the worktree rule for parallel building sessions is missing or doesn't say why (rules.md › Two sessions that build at once)"
+# Every subagent launch sets its model explicitly from the mapping, so none inherits the session's model:
+# next-task.md says so for the builder, the reviewer, the researcher and an escalated retry, and
+# rules.md states the rule the launches apply.
+launch=""
+nt="$satt/procedures/next-task.md"
+grep -qF 'Every subagent launch sets its model explicitly' "$nt" || launch="$launch launch-rule"
+grep -qF "A launch never lets a subagent inherit the session's model" "$nt" || launch="$launch no-inherit"
+grep -qF 'Where the mapping has no entry for the size, or model sizing is off, the launch passes the session model explicitly' "$nt" \
+  || launch="$launch session-fallback"
+grep -qF 'the builder, the reviewer (Review), the researcher (Research items) and an escalated retry' "$nt" || launch="$launch launches"
+grep -qF 'Pass that model as `model: <id>`' "$nt" || launch="$launch builder-model"
+grep -qF 'or in a subagent if your tool has them, with its model set as Build says' "$nt" || launch="$launch builder-other-tools"
+grep -qF 'subagent, with its model set as Build says for the item' "$nt" || launch="$launch reviewer"
+grep -qF 'in the foreground (`run_in_background: false`), with its model set as Build says' "$nt" || launch="$launch researcher"
+grep -qF 'a subagent if your tool has them, with its model set as Build says.' "$nt" || launch="$launch research-other-tools"
+grep -qF 'the model mapped to the new size, set on the launch as Build says' "$nt" || launch="$launch escalation"
+grep -qF "rerun it once on the next size's model, set on the launch as Build says" "$nt" || launch="$launch research-escalation"
+grep -qF 'If no entry exists for this size, use the session model' "$nt" && launch="$launch old-fallback"
+grep -qF 'turn on model sizing' "$nt" && launch="$launch old-research"
+grep -qF 'Every subagent launch sets its model explicitly' "$satt/rules.md" \
+  && grep -qF 'A size with no entry, or model sizing off, passes the session model, also explicitly' "$satt/rules.md" \
+  || launch="$launch rules.md"
+grep -qF 'A size with no entry uses the session model.' "$satt/rules.md" && launch="$launch rules-old"
+[ -z "$launch" ] && ok "every subagent launch sets its model explicitly, and next-task.md and rules.md say so" \
+  || bad "the subagent model wording is missing or has drifted:$launch"
 # The human-written product brief: the SaaS variant ships as a seed (and in the example), keeps the
 # director's structure and adds the SaaS sections, and onboarding, the assessment and the README present it.
 wired=""

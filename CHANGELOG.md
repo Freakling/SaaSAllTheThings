@@ -4,6 +4,8 @@ Each entry lists what changed. An entry that requires changes to an app's own fi
 
 ## Unreleased
 
+- **Every subagent launch passes its model explicitly.** The builder, the reviewer, the researcher and an escalated retry each get the model for the item's size from the mapping in Project rules, set on the launch. Where the mapping has no entry for the size, or model sizing is off, the session model is passed the same way. No launch leaves a subagent to inherit the session's model, so each build runs on the model its launch names. `rules.md` states the rule, `next-task.md` applies it at each launch, and the self-test checks the wording.
+  - **Upgrade steps:** none. The procedures and rules are framework-owned and arrive on upgrade.
 - **Two sessions that build at once each get a worktree.** `rules.md` extends the parallel-sessions rule to any two sessions that build (say product and coding, or two coding sessions), and says why: one session's half-written files fail the other's check and the Stop hook, and both queue on the same build artefacts. The commands stay the same (`git worktree add`, then `bash tools/setup-clone.sh` in the new worktree). The README's day-to-day section points at the rule, and the self-test checks that the rule names the worktree and its reason.
   - **Upgrade steps:** none. The rules are framework-owned and arrive on upgrade.
 - **The README starts with writing your own product brief.** The how-to-use section opens with a "Start here" step, before the install: write `product/director-brief.md` in your own words first, with a link to the template at the latest release tag. The template's header carries the same link, so a copied file explains where the latest one is. The self-test checks both links against `VERSION`.
