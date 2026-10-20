@@ -190,6 +190,16 @@ grep -q 'director-brief\.md' "$satt/procedures/assess.md" && grep -q '(from the 
 grep -q 'product/director-brief\.md' "$src/README.md" || wired="$wired README.md"
 [ -z "$wired" ] && ok "the SaaS product brief template ships as a seed and in the example, and onboarding, the assessment and the README present it" \
   || bad "the SaaS product brief isn't wired into:$wired"
+# The README's Start here step comes first in how-to-use, before the assessment and the install, and links the brief template
+# at the release tag; the template's header carries the same link, so a copied file says where the latest one is.
+brief_link="https://raw.githubusercontent.com/Freakling/SaaSAllTheThings/v$version/project/product/director-brief.md"
+start_line="$(grep -n '^### Start here' "$src/README.md" | head -n 1 | cut -d: -f1)"
+assess_line="$(grep -n '^### Assess first' "$src/README.md" | head -n 1 | cut -d: -f1)"
+[ -n "$start_line" ] && [ -n "$assess_line" ] && [ "$start_line" -lt "$assess_line" ] \
+  && grep -qF "$brief_link" "$src/README.md" && grep -qF "$brief_link" "$src/project/product/director-brief.md" \
+  && grep -qF "$brief_link" "$src/examples/order-desk/product/director-brief.md" \
+  && ok "the README's Start here step links the brief template at v$version, and the template's header carries the same link" \
+  || bad "the README's Start here step or the template header doesn't link the brief at v$version"
 # The design-session skill runs in the Claude apps without subagents, so it leaves the research procedure out and says so.
 if [ ! -e "$src/skills/saas-design-session/references/procedures/research.md" ] && [ ! -e "$src/skills/saas-design-session/references/research-domain.md" ] \
     && grep -q 'research assistant' "$src/skills/saas-design-session/SKILL.md"; then

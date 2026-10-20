@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T9 · B3 · R1
+**Next IDs:** T10 · B3 · R1
 
 ## Queue
+
+### T9 · The README starts with writing your own product brief · done · S · agent
+- Touches: README.md, project/product/director-brief.md, examples/order-desk/product/director-brief.md (the example copy must match the seed), selftest.sh, CHANGELOG.md
+- Done when: the README's how-to-use section opens with a "Start here" step before the install, telling the reader to write the product brief in their own words first, with a link to the template at the `v<version>` release tag, to fill in what they know and leave the rest, and noting that the brief also carries the enterprise architecture, requirements, security requirements and control frameworks, which the assessment and the builds read (check) · the template's header comment carries the same link (check) · the selftest fails when either link doesn't name the `VERSION` tag (test)
+- PRD: none
+- Source: Director-Driven-Development T156
 
 ### T6 · The human-written SaaS brief · done · M · agent
 - Touches: project/product/director-brief.md (new), examples/order-desk/product/director-brief.md (new), ONBOARDING.md, framework/.satt/procedures/assess.md, framework/.satt/templates/assessment.md, skills/saas-assessment/SKILL.md, skills/saas-design-session/references/procedures/assess.md (bundled), README.md, selftest.sh, CHANGELOG.md
