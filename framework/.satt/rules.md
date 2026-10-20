@@ -98,7 +98,7 @@ The check enforces what can be checked mechanically; `reference/README.md` › W
 
 ## Sessions, clones and context
 - **New clone or machine.** Run `bash tools/setup-clone.sh`. It checks the stack's toolchain, restores dependencies and installs the pre-commit hook.
-- **Two sessions at once** (say product and coding): give one its own worktree (`git worktree add ../app-product`) and run `bash tools/setup-clone.sh` there. A claim in TASKS.md protects only its own working tree. So only one session per project picks items; the others name the item they work on.
+- **Two sessions that build at once** (say product and coding, or two coding sessions): give one its own worktree (`git worktree add ../app-product`) and run `bash tools/setup-clone.sh` there. Two sessions in one working tree break each other: one session's half-written files fail the other's check and the Stop hook, and both queue on the same build artefacts. A claim in TASKS.md protects only its own working tree. So only one session per project picks items; the others name the item they work on.
 - **The records are the hand-off.** TASKS.md (what's done and what's next), commit messages (why), AGENTS.md, the PRD and the ADRs carry everything between sessions. Once an item is committed, a fresh session, or `/clear` in Claude Code, loses nothing.
 
 ## Reviews and model size
