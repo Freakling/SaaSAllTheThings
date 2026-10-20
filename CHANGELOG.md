@@ -2,6 +2,11 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## Unreleased
+
+- **The README starts with writing your own product brief.** The how-to-use section opens with a "Start here" step, before the install: write `product/director-brief.md` in your own words first, with a link to the template at the latest release tag. The template's header carries the same link, so a copied file explains where the latest one is. The self-test checks both links against `VERSION`.
+  - **Upgrade steps:** none. Project seeds are copied once and never overwritten.
+
 ## 0.9.1 (2026-10-18)
 
 - **An install from a source with unreleased changes says so.** When the source's `CHANGELOG.md` has an Unreleased section with entries, the manifest's first line reads `# saasallthethings <version> + unreleased (<commit>)`, and the closing lines say the install is a development snapshot, not a release, with a link to the releases page. The commit is recorded in a `# source` line whenever the source is a git checkout, so a release install records its commit too. A release (an empty Unreleased section, or none) records the plain version as before. Upgrade detection strips the suffix, so an upgrade from an unreleased install works.
