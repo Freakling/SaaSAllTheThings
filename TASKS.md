@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T11 · B3 · R1
+**Next IDs:** T12 · B3 · R1
 
 ## Queue
+
+### T11 · Every subagent launch passes its model explicitly · done · S · agent
+- Touches: framework/.satt/procedures/next-task.md, framework/.satt/rules.md, selftest.sh, CHANGELOG.md, skills/saas-design-session/references (bundled rules.md)
+- Done when: every subagent launch (the builder, the reviewer, the researcher and an escalated retry) sets its model explicitly from the sizing table for the item's size and never inherits the session's model, and a size with no entry, or model sizing off, passes the session model explicitly; rules.md states the rule and next-task.md applies it at each launch, and the selftest checks both (check)
+- PRD: none
+- Source: Director-Driven-Development T151
 
 ### T10 · Two sessions that build at once each get a worktree · done · XS · agent
 - Touches: framework/.satt/rules.md, README.md, selftest.sh, CHANGELOG.md, skills/saas-design-session/references (bundled rules.md)
