@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T12 · B3 · R1
+**Next IDs:** T13 · B3 · R1
 
 ## Queue
+
+### T12 · The repository ignores OS metadata files · done · XS · agent
+- Touches: .gitignore, CHANGELOG.md
+- Done when: `.gitignore` lists `.DS_Store`, `Thumbs.db`, `desktop.ini` and `__MACOSX/` (check)
+- PRD: none
+- Source: Director-Driven-Development T100
 
 ### T11 · Every subagent launch passes its model explicitly · done · S · agent
 - Touches: framework/.satt/procedures/next-task.md, framework/.satt/rules.md, selftest.sh, CHANGELOG.md, skills/saas-design-session/references (bundled rules.md)
