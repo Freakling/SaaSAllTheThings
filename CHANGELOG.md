@@ -2,7 +2,7 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
-## Unreleased
+## 0.10.0 (2026-10-23)
 
 - **The repository ignores OS metadata files.** `.gitignore` keeps `.DS_Store`, `Thumbs.db`, `desktop.ini` and `__MACOSX/` out of the repository, as the Claude plugin directory's scanner asks.
   - **Upgrade steps:** none. This repository's `.gitignore` isn't installed into apps.

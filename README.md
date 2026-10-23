@@ -46,7 +46,7 @@ AI writes backend code fast. Without structure, that speed goes wrong in familia
 
 ### Start here
 
-Before you install, write your product brief in your own words. Copy the [template at this release](https://raw.githubusercontent.com/Freakling/SaaSAllTheThings/v0.9.1/project/product/director-brief.md) to `product/director-brief.md` in your app, and fill in what you know: onboarding reads it after the install and asks only what you left open. It also carries your enterprise architecture, requirements, security requirements and control frameworks, which the assessment and every build read too.
+Before you install, write your product brief in your own words. Copy the [template at this release](https://raw.githubusercontent.com/Freakling/SaaSAllTheThings/v0.10.0/project/product/director-brief.md) to `product/director-brief.md` in your app, and fill in what you know: onboarding reads it after the install and asks only what you left open. It also carries your enterprise architecture, requirements, security requirements and control frameworks, which the assessment and every build read too.
 
 ### Assess first (optional)
 
