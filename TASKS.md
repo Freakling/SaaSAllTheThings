@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T24 · B3 · R1
+**Next IDs:** T25 · B3 · R1
 
 ## Queue
+
+### T24 · Onboarding and the assessment ask which compliance frameworks apply · done · M · agent
+- Touches: ONBOARDING.md, framework/.satt/reference/compliance-questions.md (new), framework/.satt/reference/README.md, framework/.satt/procedures/assess.md, framework/.satt/workshops/vision.md, framework/.satt/workshops/tenancy-identity.md, skills/saas-design-session/references/ (bundle), selftest.sh, CHANGELOG.md
+- Done when: when the brief's section 10 is blank or vague, onboarding and the assessment ask the one question set (security framework, markets and data, each regulation asked and never assumed, auditor and evidence, the customer's control list), the answers go to PRD › Data and Compliance and the section 10 table, controls reach `compliance/mapping.md` only from the human or a document, never from memory, an unknown answer stays an open question, the vision and tenancy-identity workshops use it, and nothing marks a control met because a framework is named (check)
+- PRD: none
+- Source: Director-Driven-Development T200
 
 ### T23 · OWASP is a non-negotiable baseline · done · M · agent
 - Touches: framework/.satt/rules.md, framework/.satt/procedures/architect.md, framework/.satt/procedures/review.md, framework/.satt/procedures/align.md, project/compliance/mapping.md, ONBOARDING.md, skills/saas-design-session/references/ (bundle), selftest.sh, CHANGELOG.md

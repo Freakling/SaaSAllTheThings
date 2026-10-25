@@ -19,7 +19,7 @@
 | 1:05 | Break | |
 | 1:15 | Plans | The plan models as options with a recommendation; decide the model, and list what each plan includes. Prices and limits may stay open. |
 | 1:35 | Product pillars | 3-5 statements every later choice is checked against; dot-vote from a longlist. |
-| 1:50 | Constraints and close | Deadline, budget, compliance, the customer's Azure governance. Read back the decisions. |
+| 1:50 | Constraints and close | Deadline, budget, the customer's Azure governance, and the security framework and regulations as constraints: ask `reference/compliance-questions.md` for what the brief leaves open. Read back the decisions. |
 
 ## Decisions to reach
 - The pitch, and the first customer.

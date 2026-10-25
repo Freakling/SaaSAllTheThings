@@ -817,6 +817,15 @@ grep -q 'Never add a `direct` row without naming what meets it' "$src/framework/
   && grep -q "labelled \`direct\` whose Met by is \`none yet\`" "$src/framework/.satt/procedures/align.md" \
   && ok "architect forbids a direct row with no evidence and align reports one" || bad "architect or align lacks the direct-row rule"
 
+# The compliance questions: one set, used by onboarding, assess and the two workshops.
+cq="$src/framework/.satt/reference/compliance-questions.md"
+{ [ -f "$cq" ] && grep -q 'Security framework' "$cq" && grep -q 'Regulations' "$cq" && grep -q 'Audit and evidence' "$cq"   && grep -q 'never assume' "$cq" && grep -q 'never from the agent.s memory' "$cq" && grep -q 'controls: to add' "$cq" && grep -q 'marks nothing met' "$cq"; }   && ok "reference/compliance-questions.md asks the security framework, regulations, auditor and evidence, and never takes controls from memory" || bad "reference/compliance-questions.md lacks a question or the no-memory rule"
+missing=""
+for f in ONBOARDING.md framework/.satt/procedures/assess.md framework/.satt/workshops/vision.md framework/.satt/workshops/tenancy-identity.md; do
+  grep -q 'compliance-questions.md' "$src/$f" || missing="$missing $f"
+done
+[ -z "$missing" ] && ok "onboarding, assess and the vision and tenancy-identity workshops point at the compliance questions" || bad "not pointing at compliance-questions.md:$missing"
+
 # OWASP is a non-negotiable baseline.
 grep -q 'OWASP is the baseline' "$src/framework/.satt/rules.md" && grep -q 'OWASP API Security Top 10' "$src/framework/.satt/rules.md"   && grep -q 'no project setting' "$src/framework/.satt/rules.md" && grep -q 'An accepted ADR may deviate from a single item' "$src/framework/.satt/rules.md"   && ok "rules.md states the OWASP baseline as framework-owned, with an ADR as the only way to deviate from an item" || bad "rules.md lacks the OWASP baseline rule"
 n=$(grep -c '^| OWASP A[01][0-9] .*(baseline: keep) |' "$map"); [ "$n" = 10 ] && ok "the seed mapping has the ten OWASP baseline rows" || bad "the seed mapping has $n OWASP baseline rows, expected 10"

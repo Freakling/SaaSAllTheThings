@@ -19,7 +19,7 @@
 | 0:45 | Roles | The app roles from the capabilities workshop; who assigns them in the customer's directory. Operator access for our own staff. |
 | 1:00 | Break | |
 | 1:10 | Isolation | Pooled by default. Does any customer need its own deployment (a silo), and would they pay for it? |
-| 1:25 | Data rules | Where data must stay (region), how long it's kept, what's personal, audit needs, export and deletion when a customer leaves. |
+| 1:25 | Data rules | Where data must stay (region), how long it's kept, what's personal, audit needs, export and deletion when a customer leaves. Check the answers to `reference/compliance-questions.md` with the security officer and the data protection officer; what they can't answer stays an open question. |
 | 1:50 | Close | Read back the decisions and the open questions. |
 
 ## Decisions to reach
