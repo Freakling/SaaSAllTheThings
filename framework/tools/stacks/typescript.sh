@@ -22,13 +22,16 @@ stack_setup() {
 }
 
 stack_check() {
-  local script ran=0
+  local script ran=0 status
   if [ ! -f package.json ]; then echo "check: FAIL: no package.json at the repository root"; return 1; fi
   if [ ! -d node_modules ]; then echo "check: node_modules is missing. Run: bash tools/setup-clone.sh"; return 3; fi
   for script in typecheck lint build test; do
     grep -qE "\"$script\"[[:space:]]*:" package.json || continue
     ran=1
-    if ! npm run --silent "$script" </dev/null >"$state/npm-$script.log" 2>&1; then
+    run_limited "$state/npm-$script.log" npm run --silent "$script"
+    status=$?
+    if [ "$status" -eq 124 ]; then timed_out "npm run $script"; return 3; fi
+    if [ "$status" -ne 0 ]; then
       echo "check: npm run $script failed:"
       tail -n 40 "$state/npm-$script.log" | sed 's/^/  /'
       return 1

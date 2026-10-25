@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T15 · B3 · R1
+**Next IDs:** T16 · B3 · R1
 
 ## Queue
+
+### T15 · The Bash guard blocks hangs, and the check limits its test runs · done · M · agent
+- Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, framework/.satt/rules.md, framework/tools/check.sh, framework/tools/cfg.sh, framework/tools/stacks/dotnet.sh, framework/tools/stacks/typescript.sh, framework/tools/stacks/python.sh, project/tools/check.cfg, selftest.sh, CHANGELOG.md
+- Done when: the guard blocks an empty Python heredoc, a sleep loop without a `timeout` of 280 seconds or less, a loop reading a task's output without its end marker, and a lone sleep over 280 seconds, with messages that give the form that works, and passes the forms that work (test) · `rules.md` gives every long command a time limit, `run_in_background` and no empty-heredoc probes (check) · `tools/check.sh` runs test commands under GNU timeout (`[tests] timeout`, default 600) and exits 3 on a timeout (check)
+- PRD: none
+- Source: Director-Driven-Development T165
 
 ### T14 · A screen is re-arranged by dragging its grey boxes · done · M · agent
 - Touches: framework/tools/ui/drawing.mjs, framework/.satt/procedures/ui-design.md, project/product/ui/README.md, examples/order-desk/product/ui/README.md, tests/ui-drawing, selftest.sh, CHANGELOG.md

@@ -37,14 +37,18 @@ stack_check() {
   fi
   echo "check: Python modules compile"
   if "$py" -c 'import pytest' >/dev/null 2>&1 </dev/null; then
-    "$py" -m pytest -q </dev/null >"$state/test.log" 2>&1
+    run_limited "$state/test.log" "$py" -m pytest -q
     case $? in
+      124) timed_out "pytest"; return 3 ;;
       0) echo "check: pytest passed" ;;
       5) echo "check: note: pytest found no tests" ;;
       *) echo "check: pytest failed:"; tail -n 40 "$state/test.log" | sed 's/^/  /'; return 1 ;;
     esac
   else
-    if ! "$py" -m unittest discover -q </dev/null >"$state/test.log" 2>&1; then
+    run_limited "$state/test.log" "$py" -m unittest discover -q
+    status=$?
+    if [ "$status" -eq 124 ]; then timed_out "unittest"; return 3; fi
+    if [ "$status" -ne 0 ]; then
       echo "check: unittest failed:"; tail -n 40 "$state/test.log" | sed 's/^/  /'; return 1
     fi
     echo "check: unittest passed"
