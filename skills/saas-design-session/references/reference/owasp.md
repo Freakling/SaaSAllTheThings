@@ -1,9 +1,9 @@
 <!-- SaaSAllTheThings · framework-owned: replaced on upgrade. -->
 # The OWASP checklist
 
-The OWASP Top 10 (2021), and the OWASP API Security Top 10 (2023) for anything that serves an API, is the baseline every app meets (`rules.md` › Architecture in code). This file breaks each category into checks a reader can verify in this reference architecture, and says where to look. `procedures/security.md` goes through it category by category; `review.md` uses it for a single change.
+The OWASP Top 10 (2025), and the OWASP API Security Top 10 (2023) for anything that serves an API, is the baseline every app meets (`rules.md` › Architecture in code). This file breaks each category into checks a reader can verify in this reference architecture, and says where to look. `procedures/security.md` goes through it category by category; `review.md` uses it for a single change.
 
-- **Sources.** The categories are the OWASP Top 10 (2021; the ids and names of the baseline rows in `compliance/mapping.md`) and the OWASP API Security Top 10 (2023). The checks paraphrase the OWASP Application Security Verification Standard (ASVS) 5.0 at level 1 where it has a matching requirement, named by chapter, and add what this architecture makes specific. Read the OWASP documents themselves for the wording; nothing here is copied from them.
+- **Sources.** The categories are the OWASP Top 10 (2025; the ids and names of the baseline rows in `compliance/mapping.md`) and the OWASP API Security Top 10 (2023). The checks paraphrase the OWASP Application Security Verification Standard (ASVS) 5.0 at level 1 where it has a matching requirement, named by chapter, and add what this architecture makes specific. Read the OWASP documents themselves for the wording; nothing here is copied from them.
 - **Kinds.** Each check is marked:
   - `code`: verified by reading the app's code and tests;
   - `config`: verified by reading the Bicep in `infra/`, `tools/check.cfg`, the workflow or app settings;
@@ -16,18 +16,18 @@ The tool step of `procedures/security.md` reports each result under this OWASP i
 
 | Tool or rule | OWASP item | What a clean run doesn't prove |
 |---|---|---|
-| `secrets` (the check) | A02 | that no secret is in an app setting, a pipeline variable, a log or the git history, or in a form the pattern doesn't know |
+| `secrets` (the check) | A04 | that no secret is in an app setting, a pipeline variable, a log or the git history, or in a form the pattern doesn't know |
 | `tenant-source` (the check) | A01, API1 | that every query filters by the tenant: the rule sees where the tenant comes from, not how a store uses it |
 | `tenant-branching` (the check) | A01 | that tenants can't reach each other's data by other means |
-| `network-public` (the check) | A05, API8 | anything about resource types it doesn't cover, network security groups, egress, or Function app settings; it doesn't run when off in `tools/check.cfg` |
-| `dotnet list package --vulnerable --include-transitive`, `npm audit --omit=dev`, `pip-audit` | A06 | that the code uses its dependencies safely, or that an advisory without a published fix doesn't apply |
-| `dependency-review` and `sbom` jobs (the shipped workflow) | A06, A08 | that the dependencies are trustworthy; the SBOM lists components and verifies nothing |
+| `network-public` (the check) | A02, API8 | anything about resource types it doesn't cover, network security groups, egress, or Function app settings; it doesn't run when off in `tools/check.cfg` |
+| `dotnet list package --vulnerable --include-transitive`, `npm audit --omit=dev`, `pip-audit` | A03 | that the code uses its dependencies safely, or that an advisory without a published fix doesn't apply |
+| `dependency-review` and `sbom` jobs (the shipped workflow) | A03, A08 | that the dependencies are trustworthy; the SBOM lists components and verifies nothing |
 | Semgrep with `p/owasp-top-ten` | the item each rule names | anything its rules don't match: authorization logic, tenant scoping, business flows |
 
-## OWASP Top 10 (2021)
+## OWASP Top 10 (2025)
 
 ### A01 Broken Access Control
-ASVS: V8 Authorization. Rules: `tenant-source`, `tenant-branching`.
+ASVS: V8 Authorization, V1 Encoding and Sanitization, V15 Secure Coding and Architecture. Rules: `tenant-source`, `tenant-branching`.
 - `code` Every HTTP function runs behind the host's token validation, and none skips it (no route outside it except `GET /api/health`). Where: the host's middleware or filter, `identity.md` › Validating a token.
 - `code` Each handler authorizes the use case from the tenant context's roles, and denies by default; a role check isn't left to the client. Where: `src/*.Application` handlers.
 - `code` Every query, write, blob path, cache key and message is scoped by the tenant from the tenant context, and another tenant's record answers 404. Where: the stores in `src/*.Infrastructure`, `tenancy.md` › Isolation.
@@ -38,31 +38,11 @@ ASVS: V8 Authorization. Rules: `tenant-source`, `tenant-branching`.
 - `code` Adapters resolve endpoints through the tenant's stamp, never a single global setting. Where: `src/*.Infrastructure`, `src/*.Integrations.*`, `tenancy.md` › Silo-ready.
 - `code` Every store has a tenant-isolation test (tenant B can't read, change or list tenant A's data). Where: `tests/`.
 - `code` Operator routes in `platform` require the operator role. Where: `src/*.Platform`.
+- `code` Server-side request forgery: the backend calls only known systems whose addresses come from configuration or the integration contract, never a URL taken from a request or a tenant's data without an allow list. Where: `src/*.Integrations.*`, `integrations.md`.
+- `config` Outbound calls go only to the systems the integration contracts name. Where: `infra/`, `network.md`.
 - `people` Access reviews: who holds `Tenant.Admin`, `Operator` and the Azure roles, reviewed on a schedule, with leavers removed.
 
-### A02 Cryptographic Failures
-ASVS: V11 Cryptography, V12 Secure Communication, V14 Data Protection. Rule: `secrets`.
-- `code` No key, password, connection secret, token or private key in the repository, config or a client. Where: the whole repository, `identity.md` › No secrets.
-- `config` Services reach Cosmos DB, Service Bus and Storage with managed identities, and the one credential an ADR allows lives in Key Vault behind a Key Vault reference. Where: `infra/`, app settings in Bicep.
-- `config` HTTPS only, and the minimum TLS version set on every resource that has the setting. Where: `infra/`.
-- `code` Sensitive data the PRD names is not logged or returned beyond what the use case needs. Where: handlers, response contracts in `src/*.Contracts`, `observability.md`.
-- `people` Key and certificate rotation: an owner and a schedule for every credential an ADR allows, and for signing certificates the app trusts.
-
-### A03 Injection
-ASVS: V1 Encoding and Sanitization, V2 Validation and Business Logic.
-- `code` Queries are parameterized (Cosmos DB `QueryDefinition` with parameters, or the stack's equivalent); no query, filter or command is built by joining strings with input. Where: stores in `src/*.Infrastructure`.
-- `code` Input is validated against the request contract before the handler runs, and invalid input answers 400. Where: hosts, `api.md`.
-- `code` No input reaches a shell, a process start, a file path or a template engine unescaped. Where: integrations and file handling.
-- `code` The web client renders data as text, never as HTML built from input. Where: `clients/` (web).
-
-### A04 Insecure Design
-ASVS: V2 Validation and Business Logic, V15 Secure Coding and Architecture. Rules: `layers`, `domain-purity` (structure only).
-- `code` Business rules live in the domain and application layers, not in a host or client, so one place enforces them. Where: `layers.md`.
-- `code` Plan limits are enforced in the application layer (a handler refuses work beyond the plan). Where: `tenancy.md` › Plans and limits.
-- `code` Accepted ADRs state their effect on the baseline by OWASP item (`architect.md`), and each deviation from an item has one. Where: `adr/`.
-- `people` Threat modelling: the risky flows (sign-in, tenant onboarding, payments, integrations) were discussed with the security officer when they were designed.
-
-### A05 Security Misconfiguration
+### A02 Security Misconfiguration
 ASVS: V13 Configuration. Rule: `network-public`.
 - `config` `network-public` is on in `tools/check.cfg`, or an ADR says why not. Where: `tools/check.cfg` › `[rules]`.
 - `config` Public network access and local authentication are off on Cosmos DB, Service Bus, Key Vault and Storage, with exceptions only in accepted ADRs. Where: `infra/modules/`, `network.md`.
@@ -70,14 +50,39 @@ ASVS: V13 Configuration. Rule: `network-public`.
 - `code` Errors are problem details without stack traces, internal names or versions; `GET /api/health` reveals no versions. Where: hosts, `observability.md`.
 - `config` Each managed identity has only the data-plane roles it needs. Where: `infra/`, `infra.md` › Access.
 
-### A06 Vulnerable and Outdated Components
-ASVS: V15 Secure Coding and Architecture. Tools: the dependency audits, `dependency-review`.
+### A03 Software Supply Chain Failures
+ASVS: V15 Secure Coding and Architecture. Tools: the dependency audits, `dependency-review`, `sbom`.
 - `config` The dependency audit for each stack in the app reports no high or critical advisory without an accepted ADR. Where: the manifests (`*.csproj`, `package-lock.json`, `requirements.txt` or `pyproject.toml`).
-- `config` The shipped workflow's `dependency-review` job runs on pull requests, where the app has the workflow. Where: `.github/workflows/check.yml`.
+- `config` Lockfiles are committed for every stack that has one (`package-lock.json`, `packages.lock.json`, a pinned `requirements.txt`), and dependencies are pinned to exact or locked versions, not floating ranges. Where: the manifests and lockfiles beside them.
+- `config` Packages come from known sources only: the stack's public registry or a feed the app names in `nuget.config`, `.npmrc` or `pip.conf`; no dependency installed from a bare URL or an unnamed git branch. Where: the manifests and feed settings.
+- `config` The shipped workflow's `dependency-review` job runs on pull requests and its `sbom` job exports the component list, where the app has the workflow. Where: `.github/workflows/check.yml`.
+- `config` Bicep modules are local files under `infra/modules/`; no module is pulled from a remote registry (`br:` or `ts:` references). Where: `infra/`.
 - `config` Runtimes and frameworks are versions still supported by their vendor. Where: `*.csproj` target frameworks, `infra/` runtime settings.
 - `people` Vulnerability response: who reads advisories, and how fast a high one is patched, is the customer's process (`infra.md` › Dependencies and the SBOM).
 
-### A07 Identification and Authentication Failures
+### A04 Cryptographic Failures
+ASVS: V11 Cryptography, V12 Secure Communication, V14 Data Protection. Rule: `secrets`.
+- `code` No key, password, connection secret, token or private key in the repository, config or a client. Where: the whole repository, `identity.md` › No secrets.
+- `config` Services reach Cosmos DB, Service Bus and Storage with managed identities, and the one credential an ADR allows lives in Key Vault behind a Key Vault reference. Where: `infra/`, app settings in Bicep.
+- `config` HTTPS only, and the minimum TLS version set on every resource that has the setting. Where: `infra/`.
+- `code` Sensitive data the PRD names is not logged or returned beyond what the use case needs. Where: handlers, response contracts in `src/*.Contracts`, `observability.md`.
+- `people` Key and certificate rotation: an owner and a schedule for every credential an ADR allows, and for signing certificates the app trusts.
+
+### A05 Injection
+ASVS: V1 Encoding and Sanitization, V2 Validation and Business Logic.
+- `code` Queries are parameterized (Cosmos DB `QueryDefinition` with parameters, or the stack's equivalent); no query, filter or command is built by joining strings with input. Where: stores in `src/*.Infrastructure`.
+- `code` Input is validated against the request contract before the handler runs, and invalid input answers 400. Where: hosts, `api.md`.
+- `code` No input reaches a shell, a process start, a file path or a template engine unescaped. Where: integrations and file handling.
+- `code` The web client renders data as text, never as HTML built from input. Where: `clients/` (web).
+
+### A06 Insecure Design
+ASVS: V2 Validation and Business Logic, V15 Secure Coding and Architecture. Rules: `layers`, `domain-purity` (structure only).
+- `code` Business rules live in the domain and application layers, not in a host or client, so one place enforces them. Where: `layers.md`.
+- `code` Plan limits are enforced in the application layer (a handler refuses work beyond the plan). Where: `tenancy.md` › Plans and limits.
+- `code` Accepted ADRs state their effect on the baseline by OWASP item (`architect.md`), and each deviation from an item has one. Where: `adr/`.
+- `people` Threat modelling: the risky flows (sign-in, tenant onboarding, payments, integrations) were discussed with the security officer when they were designed.
+
+### A07 Authentication Failures
 ASVS: V6 Authentication, V7 Session Management, V9 Self-contained Tokens, V10 OAuth and OIDC.
 - `code` The host validates the token's signature against the issuer's published keys, the issuer and directory, the audience, expiry and the scope or app role, before any handler runs. Where: the host's token validation, `identity.md` › Validating a token.
 - `code` A token whose directory isn't an active tenant is refused with 403. Where: the token validation and the tenant registry.
@@ -85,24 +90,27 @@ ASVS: V6 Authentication, V7 Session Management, V9 Self-contained Tokens, V10 OA
 - `config` No app registration has a client secret; pipelines use workload identity federation. Where: `infra/`, the pipeline definitions.
 - `people` The customer admin's consent, and the customer's own sign-in policy (multi-factor authentication, conditional access), are confirmed during tenant onboarding (`procedures/tenant.md`).
 
-### A08 Software and Data Integrity Failures
+### A08 Software or Data Integrity Failures
 ASVS: V15 Secure Coding and Architecture, V2 Validation and Business Logic.
 - `code` Message consumers take the tenant from the envelope only our code writes, are idempotent, and reject a message whose envelope is missing or invalid. Where: Service Bus functions, `messaging.md`.
 - `code` No untrusted data is deserialized into arbitrary types (no type names taken from the payload). Where: message and request handling.
 - `config` Actions in the workflow are pinned, and CI signs in to Azure with workload identity federation scoped to its environment. Where: `.github/workflows/`, `identity.md` › Pipelines.
 - `people` Who may merge to main and deploy to prod, with branch protection on main.
 
-### A09 Security Logging and Monitoring Failures
+### A09 Security Logging and Alerting Failures
 ASVS: V16 Security Logging and Error Handling.
 - `code` Authentication failures, authorization denials and operator actions are logged as structured events with `TenantId` and the correlation id. Where: hosts and handlers, `observability.md`.
 - `code` No secret, token or personal data in logs, traces or metrics. Where: log calls.
 - `config` Alerts in Bicep for failed requests above a rate and for dead-lettered messages, to the owner's action group. Where: `infra/`.
 - `people` Alert routing and on-call: who receives each alert, who is on call, and the incident response steps when one fires.
 
-### A10 Server-Side Request Forgery
-ASVS: V1 Encoding and Sanitization, V15 Secure Coding and Architecture.
-- `code` The backend calls only known systems whose addresses come from configuration or the integration contract, never a URL taken from a request or a tenant's data without an allow list. Where: `src/*.Integrations.*`, `integrations.md`.
-- `config` Outbound calls go only to the systems the integration contracts name. Where: `infra/`, `network.md`.
+### A10 Mishandling of Exceptional Conditions
+ASVS: V16 Security Logging and Error Handling, V15 Secure Coding and Architecture.
+- `code` A failure answers a problem details response that carries no stack trace, internal name, query text or another tenant's data, and one host-wide handler catches what a handler doesn't. Where: hosts, `api.md`, `observability.md`.
+- `code` Token validation, tenant resolution and authorization fail closed: an exception in any of them refuses the request (401, 403 or 500), and never lets it reach the handler as unauthenticated, with a default tenant or with a role it didn't prove. Where: the host's token validation, the tenant registry, `src/*.Application` handlers, `identity.md` › Validating a token.
+- `code` Service Bus handlers don't swallow exceptions: a failed message throws, so the retry and the dead-letter queue take it, and a message is never completed after a failure. Where: Service Bus functions, `messaging.md`.
+- `code` No empty `catch`, and no catch-all that returns success or a default to the caller. Where: handlers, stores, `src/*.Integrations.*`.
+- `code` Connections, streams, locks and leases are released on error (`using`, `finally`), and a failure partway through a write leaves no half-written state: the operation is idempotent so a retry completes it, or it compensates. Where: stores in `src/*.Infrastructure`, handlers, `messaging.md`.
 
 ## OWASP API Security Top 10 (2023)
 Each API item names the Top 10 row it belongs under in `compliance/mapping.md`, which has no API rows of its own.
@@ -116,24 +124,24 @@ Each API item names the Top 10 row it belongs under in `compliance/mapping.md`, 
 ### API3 Broken Object Property Level Authorization (row A01)
 - `code` Request contracts carry only the properties a caller may set (no tenant, owner, role or status a caller mustn't change), and responses only the properties the caller may see. Where: `src/*.Contracts/Api/`.
 
-### API4 Unrestricted Resource Consumption (row A04)
+### API4 Unrestricted Resource Consumption (row A06)
 - `code` Lists are paged with a maximum page size, uploads have a size limit, and a plan limit answers 429. Where: handlers, `api.md`, `tenancy.md` › Plans and limits.
 - `config` Function apps have a scale limit, and the budget alerts exist. Where: `infra/`, `cost.md`.
 
 ### API5 Broken Function Level Authorization (row A01)
 - `code` Admin and operator functions check the role in the handler, separate from user functions. Where: handlers, `src/*.Platform`.
 
-### API6 Unrestricted Access to Sensitive Business Flows (row A04)
+### API6 Unrestricted Access to Sensitive Business Flows (row A06)
 - `code` Flows the PRD marks sensitive (sign-up, purchases, invitations) have a limit per tenant or user. Where: handlers.
 - `people` Which business flows are sensitive is the director's call in the PRD.
 
-### API7 Server Side Request Forgery (row A10)
-- `code` The checks of A10. Where: integrations.
+### API7 Server Side Request Forgery (row A01)
+- `code` The SSRF checks of A01. Where: integrations.
 
-### API8 Security Misconfiguration (row A05)
-- `config` The checks of A05, plus: HTTP methods a route doesn't use are refused, and responses set no cache headers on tenant data. Where: hosts, `infra/`.
+### API8 Security Misconfiguration (row A02)
+- `config` The checks of A02, plus: HTTP methods a route doesn't use are refused, and responses set no cache headers on tenant data. Where: hosts, `infra/`.
 
-### API9 Improper Inventory Management (row A05)
+### API9 Improper Inventory Management (row A02)
 - `code` The OpenAPI document generated from the contracts lists every route, old versions are retired on a date, and no test or debug route ships. Where: `src/*.Contracts`, `api.md`.
 - `people` An owner keeps the list of environments and published API versions.
 
