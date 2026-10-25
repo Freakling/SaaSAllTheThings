@@ -22,3 +22,9 @@
 - Deploys sign in with workload identity federation (`identity.md` › Pipelines). dev deploys from the main branch; prod deploys from a tag, behind an approval in the pipeline's environment.
 - Every deploy starts with a what-if (`az deployment group what-if`) and ends with a smoke test. `procedures/release.md` is the procedure.
 - Never a complete-mode deployment: it deletes what the template doesn't list.
+
+## Dependencies and the SBOM
+- The shipped workflow (`.satt/templates/check-workflow.yml`) has two jobs beside the check. `dependency-review` runs on pull requests and fails one that adds a dependency with a high or critical advisory from GitHub's advisory database. `sbom` runs on each push to main and keeps the dependency graph as an SPDX document, `sbom.spdx.json`, in an artifact.
+- Both read GitHub's dependency graph for the repository. It's on by default for public repositories; private repositories need GitHub Advanced Security or the setting turned on.
+- Not covered: vulnerabilities in the app's code, its container images and its Azure resources, and transitive dependencies the graph can't see. The SBOM lists what the graph knows, so it isn't a complete inventory.
+- Vulnerability response stays the customer's process: triage, the patch timelines and who acts on an advisory are the customer's, and nothing here sets them.

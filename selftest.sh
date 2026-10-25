@@ -343,6 +343,13 @@ if [ -f "$wf" ]; then
   expect_no_output "the workflow sets no retention-days" 'retention-days' "$wf_flat"
   expect_no_output "every action is pinned to a major version tag" 'uses: [^@ ]+@([^v ]|v[0-9]+\.)' "$wf_flat"
   expect_output "the workflow skips secrets.txt when it collects logs" 'secrets\.txt\) continue' "$wf_flat"
+  expect_output "dependency review runs only on pull requests" 'dependency-review: if: github\.event_name == .pull_request. runs-on' "$wf_flat"
+  expect_output "dependency review uses the v4 action at high severity" 'uses: actions/dependency-review-action@v4 with: fail-on-severity: high' "$wf_flat"
+  expect_no_output "dependency review comments on pull requests (needs pull-requests: write)" 'comment-summary-in-pr|pull-requests: write' "$wf_flat"
+  expect_output "the SBOM job runs only on pushes" 'sbom: if: github\.event_name == .push. runs-on' "$wf_flat"
+  expect_output "the SBOM comes from the dependency-graph endpoint with the job token" 'GH_TOKEN: \$\{\{ github\.token \}\} run: .*/repos/\$\{GITHUB_REPOSITORY\}/dependency-graph/sbom' "$wf_flat"
+  expect_output "the SBOM is written to sbom.spdx.json and checked as SPDX" '--jq .\.sbom. > sbom\.spdx\.json grep -q .\"spdxVersion\". sbom\.spdx\.json' "$wf_flat"
+  expect_output "the SBOM is uploaded with upload-artifact v4" 'uses: actions/upload-artifact@v4 with: name: sbom-\$\{\{ github\.run_number \}\}-\$\{\{ github\.run_attempt \}\} path: sbom\.spdx\.json' "$wf_flat"
 else
   bad "the check workflow template is missing: framework/.satt/templates/check-workflow.yml"
 fi
@@ -350,6 +357,10 @@ onboarding_text="$(cat "$src/ONBOARDING.md")"
 expect_output "onboarding names the workflow template and its target path" '\.satt/templates/check-workflow\.yml.*\.github/workflows/check\.yml' "$onboarding_text"
 expect_output "onboarding never overwrites an existing check.yml" 'Never overwrite an existing `\.github/workflows/check\.yml`' "$onboarding_text"
 expect_output "release.md names the CI run and artifact as the check's record" 'CI run for the release commit' "$(cat "$src/framework/.satt/procedures/release.md")"
+infra_text="$(cat "$src/framework/.satt/reference/infra.md")"
+expect_output "infra.md has the dependencies and SBOM section" '## Dependencies and the SBOM' "$infra_text"
+expect_output "infra.md says vulnerability response stays the customer's process" "Vulnerability response stays the customer.s process" "$infra_text"
+expect_output "infra.md says what the SBOM and review don't cover" 'Not covered: vulnerabilities in the app' "$infra_text"
 
 # --- installer ----------------------------------------------------------------------------------
 echo "installer"
