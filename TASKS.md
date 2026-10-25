@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T16 · B3 · R1
+**Next IDs:** T19 · B3 · R1
 
 ## Queue
+
+### T18 · The repository's own TASKS.md has one queue and unique IDs · done · XS · agent
+- Touches: TASKS.md
+- Done when: one `## Queue` heading; the second item numbered T9 renumbered T17; T10's Done when names its own rule rather than another repository's item (check)
+- PRD: none
+- Source: Director-Driven-Development T167
 
 ### T15 · The Bash guard blocks hangs, and the check limits its test runs · done · M · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, framework/.satt/rules.md, framework/tools/check.sh, framework/tools/cfg.sh, framework/tools/stacks/dotnet.sh, framework/tools/stacks/typescript.sh, framework/tools/stacks/python.sh, project/tools/check.cfg, selftest.sh, CHANGELOG.md
@@ -40,7 +46,7 @@ Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by mov
 
 ### T10 · Two sessions that build at once each get a worktree · done · XS · agent
 - Touches: framework/.satt/rules.md, README.md, selftest.sh, CHANGELOG.md, skills/saas-design-session/references (bundled rules.md)
-- Done when: the same rule as T160 in SaaSAllTheThings' rules and README, checked by its selftest (check)
+- Done when: `rules.md` and the README say that two sessions that build at the same time each take their own git worktree, checked by the selftest (check)
 - PRD: none
 - Source: Director-Driven-Development T161
 
@@ -62,8 +68,6 @@ Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by mov
 - PRD: none
 - Source: Director-Driven-Development T95
 
-## Queue
-
 ### T8 · An install from a non-release source marks itself unreleased · done · S · agent
 - Touches: install.sh, selftest.sh
 - Done when: an install from a source whose CHANGELOG.md has an Unreleased section with entries records `<version> + unreleased (<commit>)` in the manifest, and its closing lines say it's a development snapshot, not a release (test) · an install from a release records the plain version, with the source commit in a `# source` line (test) · an upgrade from a manifest carrying the unreleased suffix reads the old version without it (test)
@@ -76,9 +80,7 @@ Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by mov
 - PRD: none
 - Source: Director-Driven-Development T119
 
-## Queue
-
-### T9 · /ui-design with Playwright capture · done · L · agent
+### T17 · /ui-design with Playwright capture (numbered T9 until a second T9 was found) · done · L · agent
 - Touches: framework/.satt/procedures/ui-design.md (new), framework/.claude/skills/ui-design/SKILL.md (new), framework/tools/ui_capture.sh (new), framework/tools/ui/ (new: capture.mjs, lint.mjs, drawing.mjs, overlay.mjs, verify.mjs, common.mjs, package.json, .npmrc), project/tools/ui/screens.mjs (new), project/tools/ui_capture.cfg (new), project/product/ui/README.md (new), project/AGENTS.md, framework/.satt/rules.md, framework/.satt/tasks.md, framework/.satt/procedures/build.md, framework/.satt/procedures/review.md, framework/.satt/procedures/acceptance.md, framework/.satt/procedures/align.md, framework/.satt/procedures/design.md, framework/.satt/procedures/feedback.md, framework/.claude/settings.json, framework/.claude/hooks/guard-authority.sh, install.sh, ONBOARDING.md, README.md, skills/saas-design-session/ (SKILL.md and the bundle), examples/order-desk (the seeds, AGENTS.md, .gitignore), tests/ui-drawing/ (new), tests/ui-web/ (new), .gitignore (new), selftest.sh, CHANGELOG.md
 - Done when: `/ui-design list` prints the catalog and `capture` writes a PNG, element map, map image and lint file per catalog screen, state and size of a web client on this machine, the same twice, opens the dev environment named in `dev_url` (`env: dev`) and refuses every other hosted address, Azure-hosted ones even when allowed (test) · a screen sent away to sign in, by a redirect or a script, or refused with 401 or 403 fails alone with the sign-in advice (test) · a tenant's screen opens as a test user of a seeded test tenant: a tenant that isn't seeded, or one without its test user's sign-in, fails the catalog entry, as does a state naming its tenant without its sign-in, and a sign-in that isn't saved exits 3 with what to set up and writes nothing (test) · the lint catches each of its seven rules on a fixture page built to break it and reports nothing on a clean one, and the reader gives the same `drawing.json` as Godot Director's for the shared fixtures (test) · `verify` reports no deviation on a page built as its spec says and exactly the element moved 10% (test) · the hook blocks writes to `director/`, and without Node, Playwright or a web client capture exits 3 with the reason while the check doesn't need them (test)
 - PRD: none
