@@ -2,7 +2,7 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
-## Unreleased
+## 0.14.0 (2026-10-25)
 
 - **The OWASP baseline moves to the Top 10 (2025).** `rules.md`, `reference/owasp.md`, the seed `compliance/mapping.md` and the procedures use the OWASP Top 10:2025 categories and names; the API Security Top 10 stays at its 2023 edition. Server-side request forgery is rolled into A01, so its checks sit under Broken Access Control. A03 Software Supply Chain Failures expands the old components category: the dependency audit and `dependency-review` checks stay, and it adds committed lockfiles, pinned dependencies, known package sources, the shipped workflow's `sbom` job and local Bicep modules only. A10 Mishandling of Exceptional Conditions is new, with checks for errors that leak internals or another tenant's data, failing open in token validation, tenant resolution or authorization, Service Bus handlers that swallow an exception or complete a message after a failure, and cleanup on error. The check's rules are unchanged; the security assessment files them under their new items (`secrets` is A04, `network-public` is A02).
   - **Upgrade steps:** in `compliance/mapping.md`, rename each baseline row to its 2025 category, move its Met by, Label and Evidence to the 2025 row it maps to, and add the new A10 row from the source's `project/compliance/mapping.md` (`none yet`, `unverified`). Then re-label any ADR exception or bug item that names a 2021 category with its 2025 one. Keep your own rows.
