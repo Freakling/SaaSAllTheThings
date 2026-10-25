@@ -45,8 +45,9 @@ stack_check() {
     return 1
   fi
   echo "check: dotnet build passed"
-  dotnet test "$target" --no-build -nologo -v:q </dev/null >"$state/test.log" 2>&1
+  run_limited "$state/test.log" dotnet test "$target" --no-build -nologo -v:q
   status=$?
+  if [ "$status" -eq 124 ]; then timed_out "dotnet test"; return 3; fi
   grep -E '(Passed!|Failed!)|^[[:space:]]*Failed [A-Za-z_]|error' "$state/test.log" | head -n 40 | sed 's/^[[:space:]]*/  /'
   if [ "$status" -ne 0 ]; then echo "check: dotnet test failed"; return 1; fi
   echo "check: dotnet test passed"

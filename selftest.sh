@@ -492,6 +492,7 @@ echo "command guard"
 guard() { # guard <expected exit> <command>
   local escaped="${2//\\/\\\\}"
   escaped="${escaped//\"/\\\"}"
+  escaped="${escaped//$'\n'/\\n}"   # a real command line carries newlines as \n in the JSON
   printf '{"session_id":"s","tool_name":"Bash","tool_input":{"command":"%s","description":"run"}}' "$escaped" \
     | bash .claude/hooks/guard-commands.sh >/dev/null 2>&1
   local got=$?
@@ -513,6 +514,34 @@ for cmd in 'git status --short' 'git commit -m "feat: x (T12)" -- a.cs' 'git com
     'az bicep build --file infra/main.bicep' 'az ad app federated-credential create --id 1 --parameters fc.json' 'dotnet test'; do
   guard 0 "$cmd"
 done
+
+# Hangs: an empty heredoc into Python, a polling loop without a limit, a lone long sleep.
+nlc=$'\n'
+for cmd in "python3 - <<'EOF' 2>/dev/null || echo \"no python\"${nlc}EOF" "python3 - <<EOF${nlc}EOF" \
+    "py.exe - <<'PY'${nlc}PY" "python3 - <<'EOF' 2>/dev/null || python - <<'EOF2'${nlc}EOF${nlc}x${nlc}EOF2" \
+    "cd x && /usr/bin/python3 - <<'EOF'${nlc}EOF" "python3 - <<'EOF'${nlc}EOF${nlc}echo after" \
+    'until grep -q "^exit" /tmp/t/tasks/b1.output; do sleep 5; done' 'while true; do sleep 10; done' \
+    'until [ -f done.flag ]; do sleep 2; done' 'timeout 900 bash -c "until [ -f f ]; do sleep 2; done"' \
+    "timeout 300 bash -c 'until [ -f f ]; do sleep 2; done'" 'timeout 5m bash -c "while sleep 1; do :; done"' \
+    'timeout 0 bash -c "until [ -f f ]; do sleep 2; done"' 'while ! grep -q ok /tmp/t/tasks/b1.output; do sleep 3; done' \
+    'sleep 300' 'sleep 5m' 'echo hi && sleep 1h' 'sleep 281'; do
+  guard 2 "$cmd"
+done
+for cmd in "python - <<-'EOF'${nlc}${nlc}EOF" "python3 - <<'EOF'${nlc}print(1)${nlc}EOF" "python3 - <<EOF 2>/dev/null || echo no${nlc}import sys${nlc}EOF" 'python3 --version' \
+    "python3 -c 'print(1)'" 'timeout 240 bash -c "until [ -f f ]; do sleep 2; done"' \
+    "(timeout 240s bash -c 'while [ ! -f f ]; do sleep 2; done')" 'cd x && timeout 4m bash -c "until [ -f f ]; do sleep 2; done"' \
+    'timeout -k 5 280 bash -c "until [ -f f ]; do sleep 2; done"' \
+    'until grep -q "exited with code" /tmp/t/tasks/b1.output; do sleep 5; done' \
+    'until grep -qE "exited with code|\[killed\]" /tmp/t/tasks/b1.output; do sleep 5; done' \
+    'sleep 5' 'sleep 280' 'sleep 4m' 'sleep 0.5' 'echo "wait: sleep 600"' 'git commit -m "no until loop with sleep" -- a.md' \
+    'while read -r l; do echo "$l"; done < f'; do
+  guard 0 "$cmd"
+done
+grep -q '"matcher": "Bash|Monitor"' .claude/settings.json && ok "the command guard runs for Monitor too" || bad "settings.json runs guard-commands.sh for Monitor"
+grep -q 'run_in_background' .satt/rules.md && grep -q 'empty heredoc' .satt/rules.md && grep -q 'time limit under five minutes' .satt/rules.md \
+  && ok "rules.md names the time limit, run_in_background and the empty heredoc" || bad "rules.md says: time limits, run_in_background, never an empty heredoc"
+grep -vE '^[[:space:]]*#' .claude/hooks/guard-commands.sh | grep -qE '\$\([^(]|`' \
+  && bad "the guard starts no other processes" || ok "the guard starts no other processes"
 
 # --- authority guard (Claude Code PreToolUse hook on Edit and Write) -----------------------------
 echo "authority guard"
@@ -708,6 +737,25 @@ cp "$work/cfg" tools/check.cfg
 printf 'exit 1\n' > tools/check.local.sh
 out="$(bash tools/check.sh 2>&1)"; expect_status "fails when tools/check.local.sh fails" 1 $? "$out"
 rm -f tools/check.local.sh
+if timeout --version 2>/dev/null | grep -qi coreutils; then
+  cp tools/check.cfg "$work/cfg-timeout"
+  printf '[tests]
+timeout = 1
+' >> tools/check.cfg
+  printf 'sleep 20
+' > tools/check.local.sh
+  out="$(bash tools/check.sh 2>&1)"; expect_status "exits 3 when a test command runs past [tests] timeout" 3 $? "$out"
+  expect_output "and says it was stopped at the limit" "ran past the 1-second limit" "$out"
+  printf 'sleep 20
+exit 1
+' > tools/check.local.sh
+  out="$(CHECK_TIMEOUT=1 bash tools/check.sh 2>&1)"; expect_status "CHECK_TIMEOUT overrides the limit" 3 $? "$out"
+  printf 'exit 0
+' > tools/check.local.sh
+  out="$(bash tools/check.sh 2>&1)"; expect_status "a test command under the limit passes" 0 $? "$out"
+  rm -f tools/check.local.sh; cp "$work/cfg-timeout" tools/check.cfg
+fi
+grep -q '^timeout = 600' "$src/project/tools/check.cfg" && ok "check.cfg ships [tests] timeout = 600" || bad "check.cfg has [tests] timeout = 600"
 git add -A >/dev/null 2>&1; git_q commit -qm "stack none for the hook tests" >/dev/null 2>&1
 
 # --- Stop hook ----------------------------------------------------------------------------------

@@ -88,6 +88,7 @@ The check enforces what can be checked mechanically; `reference/README.md` › W
   - `(demo)`: a human verifies it in a running app, in the next acceptance check.
 - **Done** means every `(test)` and `(check)` outcome holds, every `(demo)` outcome is implemented, and `bash tools/check.sh` exits 0. Never report done otherwise, and show the output of a failing check. Exit 3 means the check couldn't run, so say the work is unverified.
 - **Running the check.** Run it in the foreground with a long timeout (10 minutes or more); other runs and hooks wait for it. While working, `bash tools/check.sh --architecture` gives the architecture rules in seconds.
+- **Commands that may run long.** Give every command that may run long a time limit under five minutes (`timeout 240 …`): past five minutes the prompt cache expires and the next turn rewrites the whole context. Start a long check with `run_in_background` and keep working until its completion notice, instead of polling with a `sleep` loop (the command guard blocks a loop without a limit of 280 seconds or less, and a lone `sleep` past it). Never probe for a tool with an empty heredoc (`python3 - <<'EOF'` followed by `EOF` waits for console input on Windows and never returns); run `python3 --version`.
 - **Two failed attempts.** After two failed attempts at the same problem, stop and report instead of guessing further.
 
 ## Git and Azure

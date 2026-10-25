@@ -15,6 +15,8 @@
 #   2. the backend stack's build and tests: tools/stacks/<stack>.sh (tools/check.cfg › [project])
 #   3. infra: compiles infra/*.bicep and infra/env/*.bicepparam when the Bicep CLI is installed
 #   4. tools/check.local.sh, if the project has one: clients, emulator tests, extra steps
+# Test commands run under GNU timeout when available: [tests] timeout in tools/check.cfg, 600 seconds
+# by default; a run that hits the limit exits 3, unless a failure was already seen.
 #
 # The check never calls Azure or an external system. Logs are in .satt/state/. Process starts
 # are slow on Windows, so it uses shell builtins wherever it can.
@@ -77,6 +79,25 @@ done
 echo $$ > "$lock/pid"
 trap 'rm -rf "$lock"' EXIT
 reuse_last   # the run we waited for may have checked exactly these files
+
+# Each test command runs under GNU timeout (tools/check.cfg › [tests] timeout, default 600 seconds)
+# when it's available. A run that hits the limit makes the check exit 3 (couldn't finish), not 1,
+# unless a test already failed.
+timeout_cmd=""
+for candidate in timeout gtimeout; do   # GNU only: Windows' timeout.exe is something else
+  if "$candidate" --version 2>/dev/null | grep -qi coreutils; then timeout_cmd="$candidate"; break; fi
+done
+[ -n "$timeout_cmd" ] || echo "check: note: no GNU timeout found, so a hung test can't be cut short"
+# run_limited <log> <command…>: stdin closed, output to the log; status 124 means it hit the limit.
+run_limited() {
+  local log="$1"; shift
+  if [ -n "$timeout_cmd" ]; then
+    "$timeout_cmd" "$cfg_timeout" "$@" </dev/null >"$log" 2>&1
+  else
+    "$@" </dev/null >"$log" 2>&1
+  fi
+}
+timed_out() { echo "check: $1 ran past the $cfg_timeout-second limit (tools/check.cfg › [tests] timeout) and was stopped, so this isn't a pass"; }
 
 failed=0; unverified=0
 
@@ -163,8 +184,8 @@ infra_step
 # --- 4. project-specific steps --------------------------------------------------------------------
 if [ -f tools/check.local.sh ]; then
   echo "check: running tools/check.local.sh"
-  bash tools/check.local.sh
-  case $? in 0) ;; 3) echo "check: tools/check.local.sh couldn't run"; unverified=1 ;; *) echo "check: tools/check.local.sh failed"; failed=1 ;; esac
+  if [ -n "$timeout_cmd" ]; then "$timeout_cmd" "$cfg_timeout" bash tools/check.local.sh </dev/null; else bash tools/check.local.sh </dev/null; fi
+  case $? in 0) ;; 124) timed_out "tools/check.local.sh"; unverified=1 ;; 3) echo "check: tools/check.local.sh couldn't run"; unverified=1 ;; *) echo "check: tools/check.local.sh failed"; failed=1 ;; esac
 fi
 
 hook_file="$(git rev-parse --git-path hooks 2>/dev/null)/pre-commit"
