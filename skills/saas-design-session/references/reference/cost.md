@@ -17,6 +17,8 @@ A SaaS with one customer should cost close to nothing when idle, and grow with u
 
 The check's `cost-sku` rule fails Bicep that asks for a premium, isolated or dedicated SKU (`Premium*`, `Isolated*`, `EP1`-`EP3`, `P*v*` App Service plans) or provisioned Cosmos DB throughput. Each of those is an ADR that names the need and the expected monthly cost, plus an `Exception: cost-sku <path>` line.
 
+Private-only networking (`network.md`) costs more on one default: Service Bus private endpoints need the **Premium** tier, which `cost-sku` fails. A project that wants its namespace private-only records an ADR with the monthly cost and an `Exception: cost-sku <path>` line for that Bicep file. Cosmos DB serverless, Key Vault and Storage Standard LRS take private endpoints at their default tier.
+
 ## Guardrails
 - **A budget per environment** in Bicep, alerting the owner at 50%, 80% and 100% of a monthly amount that the human sets (a `PLACEHOLDER` until then).
 - **Log Analytics daily cap**, and sampling in `host.json`.

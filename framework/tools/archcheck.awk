@@ -5,7 +5,8 @@
 #
 # Run by tools/check.sh. Reads the layers from tools/check.cfg and applies the rules listed in
 # .satt/reference/README.md › What the check enforces to every source file in a layer, and the
-# secrets and cost-sku rules to every file. A violation is excused only by an
+# secrets, cost-sku and network-public rules to every file (network-public only when tools/check.cfg
+# › [rules] turns it on: absent means off). A violation is excused only by an
 #   - Exception: <rule> <path pattern>
 # line in an ADR (adr/ADR-<n>-*.md) whose status is accepted.
 # Prints the report as "check: …" lines (at most 60 violations; all of them go to the log), and
@@ -13,7 +14,7 @@
 # Portable awk only (BSD awk, mawk, gawk): no match() arrays, no {n} intervals, no ENDFILE.
 
 BEGIN {
-  rules = "layers domain-purity tenant-source tenant-branching secrets file-size host-size message-version cost-sku"
+  rules = "layers domain-purity tenant-source tenant-branching secrets file-size host-size message-version cost-sku network-public"
   split(rules, words, " "); for (i in words) known_rule[words[i]] = 1
   layers = "contracts domain application infrastructure integration host platform client tests"
   nlayers = split(layers, layer_list, " "); for (i in layer_list) known_layer[layer_list[i]] = 1
@@ -138,6 +139,8 @@ function read_cfg(   line, section, eq, key, value, n, parts, i) {
     } else if (section == "limits") {
       if (key == "max_lines" && value ~ /^[0-9]+$/) max_lines = value + 0
       else if (key == "host_max_lines" && value ~ /^[0-9]+$/) host_max_lines = value + 0
+    } else if (section == "rules") {
+      if (key == "network-public") net_on = (tolower(value) ~ /^(on|true|yes)$/)
     } else if (section == "scan" && key == "skip") {
       n = split(value, parts, "[ \t]+")
       for (i = 1; i <= n; i++) if (parts[i] != "") skip_re[++skip_n] = glob_re(parts[i])
@@ -390,17 +393,71 @@ function scan_proj(f, layer,   raw, n, inc, k, target) {
   close(f)
 }
 
-function scan_bicep(f,   raw, line, low, n) {
-  n = 0
+# One Bicep line without comments: line comments, and block comments that may span lines (bb), are cut,
+# and a // inside a 'string' is kept. Sets bc_line (the code) and bc_delta (its { minus } outside strings).
+function bicep_clean(raw,   i, n, c, d, out, q) {
+  n = length(raw); out = ""; q = 0; bc_delta = 0
+  for (i = 1; i <= n; i++) {
+    c = substr(raw, i, 1); d = substr(raw, i + 1, 1)
+    if (bb) { if (c == "*" && d == "/") { bb = 0; i++ }; continue }
+    if (q) { out = out c; if (c == "'") q = 0; continue }
+    if (c == "'") { q = 1; out = out c; continue }
+    if (c == "/" && d == "/") break
+    if (c == "/" && d == "*") { bb = 1; i++; out = out " "; continue }
+    if (c == "{") bc_delta++
+    else if (c == "}") bc_delta--
+    out = out c
+  }
+  bc_line = out
+}
+
+function scan_bicep(f,   raw, line, low, n, opened, depth, decl) {
+  n = 0; res_type = ""; bb = 0
   while ((getline raw < f) > 0) {
     n++
-    line = raw; sub(/\/\/.*$/, "", line); low = tolower(line)
+    bicep_clean(raw); line = bc_line; low = tolower(line)
     if (low ~ /["'](premium[a-z0-9_]*|isolated[a-z0-9_]*|ep[1-3]|p[0-9]+m?v[0-9])["']/ || low ~ /(^|[^a-z])throughput[ \t]*:/ || low ~ /autoscalesettings/)
       fail("cost-sku", f, n, "above the cost defaults (.satt/reference/cost.md): that's an ADR with the monthly cost")
+    if (net_on) {
+      if (res_type == "" && match(low, /(^|[ \t])resource[ \t]+[a-z0-9_]+[ \t]+'microsoft\.[^']*'/)) {
+        decl = substr(low, RSTART, RLENGTH)
+        res_type = decl; sub(/^.*'microsoft\./, "microsoft.", res_type); sub(/[@'].*$/, "", res_type)
+        res_line = n; res_text = ""; depth = 0; opened = 0
+        if (substr(low, RSTART + RLENGTH) ~ /^[ \t]+existing([^a-z0-9_]|$)/) res_type = ""
+      }
+      if (res_type != "") {
+        res_text = res_text " " low
+        depth += bc_delta
+        if (depth > 0) opened = 1
+        if (opened && depth <= 0) net_close(f)
+      }
+    }
   }
   close(f)
+  net_close(f)
   bicep_n++
   if (n > max_lines) fail("file-size", f, 0, n " lines, over " max_lines ": one module per resource")
+}
+
+# network-public: the resource just read, when it is a type the reference uses and Azure has the setting
+# for. Public network access must be 'Disabled' and local authentication off, with one exception: Service
+# Bus Standard has no private endpoints, so its public access is only required off on Premium (the
+# block names the literal 'Premium'; a SKU from a parameter reads as Standard). The block ends where its braces close.
+# reference/network.md › What the check enforces.
+function net_close(f,   need_public, auth) {
+  if (res_type == "") return
+  need_public = 1; auth = ""
+  if (res_type == "microsoft.servicebus/namespaces") { need_public = (res_text ~ /["']premium["']/); auth = "disable" }
+  else if (res_type == "microsoft.documentdb/databaseaccounts") auth = "disable"
+  else if (res_type == "microsoft.storage/storageaccounts") auth = "shared"
+  else if (res_type != "microsoft.keyvault/vaults") { res_type = ""; return }
+  if (need_public && res_text !~ /publicnetworkaccess[ 	]*:[ 	]*['"]disabled['"]/)
+    fail("network-public", f, res_line, res_type " must set publicNetworkAccess: 'Disabled' (.satt/reference/network.md): a private endpoint is the way in, or an ADR with the exception")
+  if (auth == "disable" && res_text !~ /disablelocalauth[ 	]*:[ 	]*true/)
+    fail("network-public", f, res_line, res_type " must set disableLocalAuth: true (.satt/reference/network.md): identity-based access only")
+  if (auth == "shared" && res_text !~ /allowsharedkeyaccess[ 	]*:[ 	]*false/)
+    fail("network-public", f, res_line, res_type " must set allowSharedKeyAccess: false (.satt/reference/network.md): identity-based access only")
+  res_type = ""
 }
 
 # git grep -n output: path:line:text. The text is never printed.
@@ -427,6 +484,7 @@ function report(   i, counts, unused, shown) {
   emit("check: architecture: " in_layer " source files in layers" (counts == "" ? "" : " (" counts ")") \
     (outside ? "; " outside " outside every layer, not checked" : "") (bicep_n ? "; " bicep_n " Bicep files" : ""))
   if (adr_n) emit("check: architecture: " adr_n " ADRs, " accepted_n + 0 " accepted; " exc_n + 0 " exceptions, " excused + 0 " violations excused")
+  if (bicep_n && !net_on) note("network-public is off: set network-public = on under [rules] in tools/check.cfg to fail Bicep that leaves public network access or local authentication on (.satt/reference/network.md)")
   for (i = 1; i <= exc_n; i++)
     if (!exc_used[i]) note(exc_adr[i] "'s exception '" exc_rule[i] " " exc_glob[i] "' excuses nothing now: once the deviation is gone, supersede the ADR or drop the line")
   unused = ""

@@ -18,6 +18,7 @@ Read only the topics the work touches.
 | `integrations.md` | enterprise integrations; Navision / Business Central first |
 | `infra.md` | Bicep, environments, delivery, deploys |
 | `cost.md` | the default SKUs and the cost guardrails |
+| `network.md` | the network posture: public access off, local authentication off, private endpoints, outbound-only integrations |
 | `observability.md` | logs, traces, health, alerts |
 | `stacks.md` | compatible backend stacks, the check's stack profiles, choosing a stack for an existing app |
 
@@ -29,7 +30,7 @@ Some things the reference deliberately doesn't settle, because they depend on th
 - per integration, how the external system is reached (`integrations.md`).
 
 ## What the check enforces
-`tools/archcheck.awk` runs these rules on every file in a layer (`tools/check.cfg` › `[layers]`), plus `secrets` and `cost-sku` on every file. Files outside every layer are counted, not checked: that's where an existing app's code waits until a roadmap item moves it into a layer.
+`tools/archcheck.awk` runs these rules on every file in a layer (`tools/check.cfg` › `[layers]`), plus `secrets` and `cost-sku` on every file, and `network-public` on every Bicep file when `tools/check.cfg` › `[rules]` turns it on. Files outside every layer are counted, not checked: that's where an existing app's code waits until a roadmap item moves it into a layer.
 
 | Rule | Fails when | Reference |
 |---|---|---|
@@ -42,6 +43,7 @@ Some things the reference deliberately doesn't settle, because they depend on th
 | `host-size` | a host or platform file is longer than `host_max_lines` | `layers.md` › Host |
 | `message-version` | a type in a contracts `events/` or `commands/` folder isn't named `…V<n>` | `messaging.md` › Versioning |
 | `cost-sku` | Bicep asks for a premium, isolated or dedicated SKU, or provisioned Cosmos DB throughput | `cost.md` › Defaults |
+| `network-public` | Bicep for a Service Bus namespace, Cosmos DB account, Key Vault or Storage account leaves public network access enabled or local authentication on (Service Bus Standard: local authentication only) | `network.md` › What the check enforces |
 
 The check reads text: comments are skipped, strings aren't. It's a strong net, not a proof; `review.md` covers what text can't show, such as a store that forgets the tenant in a query.
 

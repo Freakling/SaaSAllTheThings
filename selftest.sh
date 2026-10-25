@@ -659,6 +659,109 @@ fault "provisioned Cosmos DB throughput" infra/modules/cosmos.bicep "@resource c
   }
 }" '\[cost-sku\] infra/modules/cosmos.bicep:3'
 clean "the default Flex Consumption plan" infra/modules/plan.bicep "@resource plan 'Microsoft.Web/serverfarms@2024-04-01' = { name: 'asp', location: 'norwayeast', sku: { tier: 'FlexConsumption', name: 'FC1' } }"
+# network-public: public network access and local authentication in Bicep (reference/network.md).
+sb_bad="resource sb 'Microsoft.ServiceBus/namespaces@2024-01-01' = {
+  name: 'sb'
+  sku: { name: 'Standard', tier: 'Standard' }
+  properties: { publicNetworkAccess: 'Enabled' }
+}"
+sb_ok="resource sb 'Microsoft.ServiceBus/namespaces@2024-01-01' = {
+  name: 'sb'
+  sku: { name: 'Standard', tier: 'Standard' }
+  properties: { disableLocalAuth: true }
+}"
+cosmos_ok="resource db 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
+  name: 'db'
+  properties: {
+    publicNetworkAccess: 'Disabled'
+    disableLocalAuth: true
+  }
+}"
+fault "Cosmos DB with public access and keys left on" infra/modules/cosmos.bicep "@resource db 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
+  name: 'db'
+  properties: { databaseAccountOfferType: 'Standard' }
+}" '\[network-public\] infra/modules/cosmos.bicep:1: microsoft.documentdb/databaseaccounts must set publicNetworkAccess'
+fault "Cosmos DB with public access enabled" infra/modules/cosmos.bicep "@resource db 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
+  properties: { publicNetworkAccess: 'Enabled', disableLocalAuth: true }
+}" '\[network-public\] infra/modules/cosmos.bicep:1'
+fault "Cosmos DB with local authentication on" infra/modules/cosmos.bicep "@resource db 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
+  properties: { publicNetworkAccess: 'Disabled', disableLocalAuth: false }
+}" 'must set disableLocalAuth: true'
+fault "Service Bus Standard with local authentication on" infra/modules/bus.bicep "@$sb_bad" 'microsoft.servicebus/namespaces must set disableLocalAuth: true'
+fault "Premium Service Bus with public access on" infra/modules/bus.bicep "@resource sb 'Microsoft.ServiceBus/namespaces@2024-01-01' = {
+  sku: { name: 'Premium' }
+  properties: { disableLocalAuth: true }
+}" 'must set publicNetworkAccess'
+fault "a Key Vault with public access on" infra/modules/vault.bicep "@resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  properties: { publicNetworkAccess: 'Enabled' }
+}" '\[network-public\] infra/modules/vault.bicep:1: microsoft.keyvault/vaults must set publicNetworkAccess'
+fault "a storage account with shared keys on" infra/modules/storage.bicep "@resource st 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  properties: { publicNetworkAccess: 'Disabled' }
+}" 'must set allowSharedKeyAccess: false'
+clean "Cosmos DB with public access and keys off" infra/modules/cosmos.bicep "@$cosmos_ok"
+clean "Service Bus Standard with local authentication off" infra/modules/bus.bicep "@$sb_ok"
+clean "a Key Vault with public access off" infra/modules/vault.bicep "@resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  properties: { publicNetworkAccess: 'Disabled' }
+}"
+clean "a storage account with public access and shared keys off" infra/modules/storage.bicep "@resource st 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  properties: { publicNetworkAccess: 'Disabled', allowSharedKeyAccess: false }
+}"
+printf '# ADR-4 · Private bus
+
+- **Status:** accepted
+- Exception: cost-sku infra/modules/bus.bicep
+' > adr/ADR-4-private-bus.md
+clean "a correct Premium Service Bus namespace (its cost-sku excused by an ADR)" infra/modules/bus.bicep "@resource sb 'Microsoft.ServiceBus/namespaces@2024-01-01' = {
+  sku: { name: 'Premium' }
+  properties: { publicNetworkAccess: 'Disabled', disableLocalAuth: true }
+}"
+rm -f adr/ADR-4-private-bus.md
+clean "existing Key Vault and Storage references" infra/modules/refs.bicep "@resource kv 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
+  name: 'kv'
+}
+resource st 'Microsoft.Storage/storageAccounts@2023-05-01' existing = {
+  name: 'st'
+  scope: resourceGroup('other')
+}"
+fault "a bad storage account followed by a module that names the property" infra/modules/storage.bicep "@resource st 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  properties: { allowSharedKeyAccess: false }
+}
+module m './other.bicep' = { params: { publicNetworkAccess: 'Disabled' } }" 'storageaccounts must set publicNetworkAccess'
+clean "a good storage account followed by a module" infra/modules/storage.bicep "@resource st 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  properties: { publicNetworkAccess: 'Disabled', allowSharedKeyAccess: false }
+}
+module m './other.bicep' = { params: { tier: 'Standard' } }"
+clean "a property named in a block comment and a URL in a string" infra/modules/vault.bicep "@resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
+  /* publicNetworkAccess: 'Enabled' */
+  tags: { docs: 'https://example.com' }
+  properties: { publicNetworkAccess: 'Disabled' }
+}"
+clean "a function app, which stays the public surface" infra/modules/func.bicep "@resource fn 'Microsoft.Web/sites@2024-04-01' = {
+  properties: { publicNetworkAccess: 'Enabled' }
+}"
+clean "a type the rule doesn't cover, named in a comment" infra/modules/bus.bicep "@// publicNetworkAccess: 'Enabled' is never used
+resource t 'Microsoft.ServiceBus/namespaces/topics@2024-01-01' = { name: 'orders' }"
+# An accepted ADR excuses it, by rule and path.
+adr=adr/ADR-3-open-bus.md
+printf '# ADR-3 · Open bus\n\n- **Status:** accepted\n- Exception: network-public infra/modules/bus.bicep\n' > $adr
+change infra/modules/bus.bicep "@$sb_bad"
+out="$(arch)"; expect_status "an accepted ADR's network-public exception excuses the Bicep" 0 $? "$out"
+expect_output "and counts it" "1 exceptions, 1 violations excused" "$out"
+restore; rm -f $adr
+# Off, and absent, both mean the rule doesn't run (an upgraded app's own check.cfg has no key).
+grep -q '^network-public = on$' tools/check.cfg && ok "the example's check.cfg turns network-public on" || bad "the example's check.cfg has network-public = on"
+cp tools/check.cfg "$work/cfg-with-rule"
+change infra/modules/bus.bicep "@$sb_bad"
+sed 's/^network-public = on$/network-public = off/' "$work/cfg-with-rule" > tools/check.cfg
+out="$(arch)"; expect_status "network-public = off skips the rule" 0 $? "$out"
+expect_output "and says it is off" "network-public is off" "$out"
+grep -v '^network-public' "$work/cfg-with-rule" > tools/check.cfg
+out="$(arch)"; expect_status "an absent network-public key means off" 0 $? "$out"
+cp "$work/cfg-with-rule" tools/check.cfg
+out="$(arch)"; expect_status "and turning it back on fails the same file" 1 $? "$out"
+restore
+grep -q '^network-public = on$' "$src/project/tools/check.cfg" && ok "the seed check.cfg turns network-public on" || bad "project/tools/check.cfg has network-public = on"
+grep -q 'network-public' "$src/framework/.satt/reference/network.md" && grep -q 'Service Bus.*Premium' "$src/framework/.satt/reference/cost.md" && ok "network.md and cost.md say the posture and the Premium exception" || bad "network.md or cost.md lacks the posture or the Premium cost note"
 fault "an unknown layer in tools/check.cfg" tools/check.cfg "$(printf '[layers]\nweb = web/*')" "isn't a layer"
 
 # Exceptions come only from accepted ADRs.
