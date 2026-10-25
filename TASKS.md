@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T20 · B3 · R1
+**Next IDs:** T21 · B3 · R1
 
 ## Queue
+
+### T20 · A shipped CI workflow keeps the check's output as evidence · done · M · agent
+- Touches: framework/.satt/templates/check-workflow.yml (new), ONBOARDING.md, framework/.satt/procedures/release.md, selftest.sh, CHANGELOG.md
+- Done when: a GitHub Actions workflow template runs `bash tools/check.sh` on every pull request and push to main and uploads its output and logs as an artifact, with how long it's kept left to the app's setting; onboarding offers to install it for new and existing apps; the selftest checks the template's steps (check)
+- PRD: none
+- Source: Director-Driven-Development T170
 
 ### T19 · The check fails public network access and local authentication in Bicep · done · M · agent
 - Touches: framework/.satt/reference/network.md, framework/.satt/reference/README.md, framework/.satt/reference/cost.md, framework/tools/archcheck.awk, project/tools/check.cfg, ONBOARDING.md, skills/saas-design-session/references/, selftest.sh

@@ -1,0 +1,89 @@
+# SaaSAllTheThings check workflow · template, copied once by onboarding (when the human says yes)
+# to .github/workflows/check.yml, which the app then owns; edit freely.
+#
+# Why: the check runs on the developer's machine (pre-commit hook, stop hook) and its logs sit in the
+# gitignored .satt/state/. This workflow runs the same `bash tools/check.sh` on every pull request and
+# every push to main, and keeps its output as a build artifact, so a reviewer can find the result for a
+# commit. A failing check (exit 1) and a check that couldn't run (exit 3) both fail the job.
+#
+# How long the artifact is kept is not set here: no retention-days, so the repository's or the
+# organisation's setting (Settings > Actions > General) decides.
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# The job only reads the repository.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # Change to a self-hosted runner label if the app builds on its own runners.
+    runs-on: ubuntu-latest
+    steps:
+      # The check reads the working tree (git ls-files), so the default shallow clone is enough.
+      - uses: actions/checkout@v4
+
+      # --- Stack setup: keep the steps for the stack the app uses (tools/check.cfg > [project] stack)
+      # and delete the rest. Each step runs only when the app has that stack's files. Change the
+      # versions to the ones the app targets (the check needs the .NET SDK 8 or newer, Node.js 20
+      # or newer). Extra tools a stack needs (a global tool, a browser) are installed here too.
+      - name: Set up .NET
+        if: ${{ hashFiles('**/*.sln', '**/*.slnx', '**/*.csproj') != '' }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Set up Node.js
+        if: ${{ hashFiles('**/package.json') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Python
+        if: ${{ hashFiles('**/pyproject.toml', '**/requirements*.txt') != '' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The Bicep CLI (compiles infra/*.bicep in the check) and the Azure CLI come with GitHub's
+      # ubuntu runners. On a self-hosted runner, install the Bicep CLI, or the check skips infra/.
+
+      # Restores the stack's dependencies, as in a new clone (the pre-commit hook is skipped). Exit 3
+      # (a toolchain is missing) fails the job here, before the check.
+      - name: Restore dependencies
+        run: bash tools/setup-clone.sh --skip-hook
+
+      # The check itself. Its output goes to check-output/check.txt and to the job log. pipefail makes
+      # the step fail with the check's own exit code: 1 = failed, 3 = couldn't run.
+      - name: Run the check
+        run: |
+          set -o pipefail
+          mkdir -p check-output
+          bash tools/check.sh 2>&1 | tee check-output/check.txt
+
+      # Runs even when the check failed, since a failing run's logs are the ones a reviewer needs.
+      # Copies the check's logs (.satt/state/) next to its output. Hidden folders aren't uploaded, hence
+      # the copy. secrets.txt is left out: it holds the lines of any secret the scan matched, and an
+      # artifact is readable by everyone who can read the repository's runs.
+      - name: Collect the check's logs
+        if: always()
+        run: |
+          mkdir -p check-output/state
+          for f in .satt/state/*.log .satt/state/*.txt; do
+            [ -f "$f" ] || continue
+            case "$f" in */secrets.txt) continue ;; esac
+            cp "$f" check-output/state/
+          done
+
+      # No retention-days: the repository or organisation setting decides how long it is kept.
+      - name: Keep the check's output as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: check-${{ github.run_number }}-${{ github.run_attempt }}
+          path: check-output/
+          if-no-files-found: warn

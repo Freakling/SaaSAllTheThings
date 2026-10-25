@@ -148,18 +148,22 @@ If the capabilities aren't decided yet, leave the placeholders, and add an agent
 1. Run `bash tools/check.sh` and report the result. For an existing app, also report how many source files are outside every layer.
 2. Search for `{{` with `git grep -n "{{" -- '*.md' tools/check.cfg`. Only postponed template sections may remain, and only if an item exists for them. `git ls-files -o -i --exclude-standard -- '*.satt-new' | grep '\.satt-new$'` must print nothing (the grep drops nested clones, which `ls-files` lists as directories).
 3. Walk through the checks in `.satt/procedures/align.md`. Its fixes go into the install commit.
-4. List every file created, changed or deleted (`git status`).
-5. **Commit it all in one commit, after the human approves.**
+4. **Offer the check workflow** (a GitHub Actions run of `bash tools/check.sh`, with its output kept as an artifact).
+   - Ask once, in a first install and in an upgrade (Fast included): "Add a GitHub Actions workflow that runs the check on every pull request and push to main and keeps its output as an artifact? Today a passing check leaves no record off your machine; the artifact is evidence a reviewer can find. How long it's kept is your repository's or organisation's Actions setting." In an upgrade, offer it only if `.github/workflows/check.yml` doesn't exist yet.
+   - Only if the human says yes, copy `.satt/templates/check-workflow.yml` to `.github/workflows/check.yml`, then adjust the toolchain steps to the stack from step 3 (delete the others, set the versions the app targets). If the app builds on self-hosted runners, say what to change in the file's comments.
+   - Never overwrite an existing `.github/workflows/check.yml`: say it exists and leave it. If the human says no, copy nothing; they can ask for it later.
+5. List every file created, changed or deleted (`git status`).
+6. **Commit it all in one commit, after the human approves.**
    - Stage everything: `git add -A -- <those files>`.
    - Mark the scripts executable, listing only files that exist (`.claude/hooks` is there with the Claude adapter only): `git add --chmod=+x -- tools/*.sh tools/stacks/*.sh .githooks/pre-commit`, plus `.claude/hooks/*.sh`.
    - Use the message `chore: install SaaSAllTheThings <version>` (or `upgrade to`). The body names the mode, the stack, and anything you inferred.
-6. **The pre-commit hook.**
+7. **The pre-commit hook.**
    - If the check passes, run `bash tools/setup-clone.sh`, which installs it.
    - If the check fails or can't run, leave the hook off and add an item: "Install the pre-commit hook once the check passes (`bash tools/setup-clone.sh`)".
    - If setup-clone exits 4, tell the human what it printed (an existing hook or `core.hooksPath` needs a manual line).
-7. **A temporary clone from the skill:** delete it. **Manual install:** offer to delete the SaaSAllTheThings folder from the app. Deleting it is recommended, since upgrades come from a fresh download or the plugin. If the human keeps it, leave it in `.git/info/exclude`.
-8. **Offer a "Development" section for the app's README:** clone, then `bash tools/setup-clone.sh`, then the commands.
-9. **Tell the human:**
+8. **A temporary clone from the skill:** delete it. **Manual install:** offer to delete the SaaSAllTheThings folder from the app. Deleting it is recommended, since upgrades come from a fresh download or the plugin. If the human keeps it, leave it in `.git/info/exclude`.
+9. **Offer a "Development" section for the app's README:** clone, then `bash tools/setup-clone.sh`, then the commands.
+10. **Tell the human:**
    - what needs their confirmation (inferred PRD text, open questions, `Decide:` items, human items);
    - how to use it: "do the next task", "plan the next stage", "let's work out <capability>", "add the Navision integration", "which UI tech for the Windows client?", "research which Azure service fits…", "prepare an acceptance check", "process this feedback", "release to dev", "check the docs are aligned", "capture the screens" (in Claude Code also `/next-task`, `/roadmap`, `/design`, `/integrate`, `/architect`, `/research`, `/ui-design`, `/acceptance`, `/feedback`, `/release`, `/align`, `/tenant`, `/prune`, and `/drift-reset`, which only the human starts, when `/align` keeps finding the same conflict);
    - with the Claude adapter: to restart Claude Code, because skills, hooks and permissions load when a session starts;

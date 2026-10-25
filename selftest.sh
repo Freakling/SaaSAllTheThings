@@ -323,6 +323,34 @@ git -C "$src" grep -qrl $'\xe2\x80\x93\|\xe2\x80\x94' -- '*.md' '*.sh' '*.txt' '
   && bad "en/em dashes found in tracked text files: run the dash removal" \
   || ok "no en/em dashes in tracked text files"
 
+# --- check workflow template ----------------------------------------------------------------------
+echo "check workflow template"
+wf="$src/framework/.satt/templates/check-workflow.yml"
+if [ -f "$wf" ]; then
+  ok "the check workflow template exists"
+  wf_flat="$(grep -v '^[[:space:]]*#' "$wf" | tr '\n' ' ' | tr -s ' ')"   # comments dropped, one line
+  yaml_out="$(python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))' "$wf" 2>&1)"; yaml_status=$?
+  case "$yaml_out" in *"No module named"*|*"not found"*|*"was not found"*) ok "no YAML parser here: the grep checks below stand in" ;;
+    *) expect_status "the check workflow template is valid YAML" 0 "$yaml_status" "$yaml_out" ;; esac
+  expect_output "the workflow runs on pull_request" ' on: pull_request: ' " $wf_flat"
+  expect_output "the workflow runs on pushes to main" 'push: branches: \[main\]' "$wf_flat"
+  expect_output "the workflow has read-only contents permission" 'permissions: contents: read ' "$wf_flat"
+  expect_no_output "the workflow grants no write permission" '(contents|actions|id-token|packages): write' "$wf_flat"
+  expect_output "the workflow runs bash tools/check.sh and keeps its output" 'bash tools/check\.sh 2>&1 \| tee ' "$wf_flat"
+  expect_output "the workflow fails on the check's exit code (pipefail)" 'set -o pipefail' "$wf_flat"
+  expect_output "the workflow uploads with if: always()" 'if: always\(\) uses: actions/upload-artifact@v[0-9]+ ' "$wf_flat"
+  expect_output "the artifact name carries the run number" 'name: check-\$\{\{ github\.run_number \}\}' "$wf_flat"
+  expect_no_output "the workflow sets no retention-days" 'retention-days' "$wf_flat"
+  expect_no_output "every action is pinned to a major version tag" 'uses: [^@ ]+@([^v ]|v[0-9]+\.)' "$wf_flat"
+  expect_output "the workflow skips secrets.txt when it collects logs" 'secrets\.txt\) continue' "$wf_flat"
+else
+  bad "the check workflow template is missing: framework/.satt/templates/check-workflow.yml"
+fi
+onboarding_text="$(cat "$src/ONBOARDING.md")"
+expect_output "onboarding names the workflow template and its target path" '\.satt/templates/check-workflow\.yml.*\.github/workflows/check\.yml' "$onboarding_text"
+expect_output "onboarding never overwrites an existing check.yml" 'Never overwrite an existing `\.github/workflows/check\.yml`' "$onboarding_text"
+expect_output "release.md names the CI run and artifact as the check's record" 'CI run for the release commit' "$(cat "$src/framework/.satt/procedures/release.md")"
+
 # --- installer ----------------------------------------------------------------------------------
 echo "installer"
 app="$work/order-desk"
