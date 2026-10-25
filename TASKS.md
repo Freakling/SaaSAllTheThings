@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T16 · B3 · R1
+**Next IDs:** T17 · B3 · R1
 
 ## Queue
+
+### T16 · The README says a claim protects only its own worktree · done · XS · agent
+- Touches: README.md, CHANGELOG.md, TASKS.md
+- Done when: the README's sentence that an `in-progress` claim stops two sessions touching the same item says what `rules.md` says instead: a claim protects only its own worktree, and sessions that build at the same time each take a git worktree (check)
+- PRD: none
+- Source: Director-Driven-Development T179
 
 ### T15 · The Bash guard blocks hangs, and the check limits its test runs · done · M · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, framework/.satt/rules.md, framework/tools/check.sh, framework/tools/cfg.sh, framework/tools/stacks/dotnet.sh, framework/tools/stacks/typescript.sh, framework/tools/stacks/python.sh, project/tools/check.cfg, selftest.sh, CHANGELOG.md
