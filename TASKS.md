@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T22 · B3 · R1
+**Next IDs:** T23 · B3 · R1
 
 ## Queue
+
+### T22 · Dependency review and an SBOM in the shipped workflow · done · S · agent
+- Touches: framework/.satt/templates/check-workflow.yml, framework/.satt/reference/infra.md, skills/saas-design-session/references/ (bundle), selftest.sh, CHANGELOG.md
+- Done when: the shipped workflow reviews dependency changes on pull requests and exports an SPDX SBOM from GitHub's dependency graph as an artifact on each push to main, and the infra reference says what that covers and that vulnerability response stays the customer's process (check)
+- PRD: none
+- Source: Director-Driven-Development T172
 
 ### T21 · A compliance mapping table that review and align read · done · M · agent
 - Touches: project/compliance/mapping.md (new), framework/.satt/procedures/architect.md, framework/.satt/procedures/review.md, framework/.satt/procedures/align.md, ONBOARDING.md, skills/saas-design-session/references/ (bundle), selftest.sh, CHANGELOG.md

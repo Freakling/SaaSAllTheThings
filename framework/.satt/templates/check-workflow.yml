@@ -6,6 +6,11 @@
 # every push to main, and keeps its output as a build artifact, so a reviewer can find the result for a
 # commit. A failing check (exit 1) and a check that couldn't run (exit 3) both fail the job.
 #
+# Two more jobs sit beside the check: dependency-review reviews the dependencies a pull request
+# changes, and sbom exports the dependency graph as an SPDX document on each push to main. Both use
+# GitHub's dependency graph, which covers what the repository's packages declare; infra.md says
+# what they don't cover and that vulnerability response stays the customer's process.
+#
 # How long the artifact is kept is not set here: no retention-days, so the repository's or the
 # organisation's setting (Settings > Actions > General) decides.
 name: check
@@ -87,3 +92,45 @@ jobs:
           name: check-${{ github.run_number }}-${{ github.run_attempt }}
           path: check-output/
           if-no-files-found: warn
+
+  # Reviews the dependencies a pull request adds, changes or removes, against GitHub's advisory database.
+  # It needs the dependency graph enabled on the repository: on by default for public repositories;
+  # private repositories need GitHub Advanced Security, or the dependency graph switched on in the
+  # repository's settings. Without it the job fails, so delete the job rather than leave it red.
+  # It reads the pull request's diff through the API, so it needs no checkout and only contents: read.
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      # fail-on-severity: high is the app's choice. A pull request that adds a dependency with a high or
+      # critical advisory fails; moderate and low are reported but don't stop the merge. Lower it to
+      # moderate or low for a stricter gate. The job doesn't comment on the pull request, which would
+      # need pull-requests: write; its result is the job's own check.
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  # Exports the dependency graph as an SPDX document on each push to main, and keeps it as the artifact
+  # sbom-<run number>-<attempt>. The workflow's trigger already limits pushes to main. The endpoint is
+  # GET /repos/{owner}/{repo}/dependency-graph/sbom: it needs the dependency graph enabled (see
+  # dependency-review) and contents: read, which the job's GITHUB_TOKEN has. It answers with the document
+  # under an "sbom" key, which the step writes out and checks. It lists what the graph knows only.
+  sbom:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Export the SBOM
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/dependency-graph/sbom" --jq '.sbom' > sbom.spdx.json
+          # Fails the step when the answer isn't an SPDX document (for example, the graph is off).
+          grep -q '"spdxVersion"' sbom.spdx.json
+
+      # No retention-days, as for the check's artifact: the repository or organisation setting decides.
+      - name: Keep the SBOM as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.run_number }}-${{ github.run_attempt }}
+          path: sbom.spdx.json
