@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T14 · B3 · R1
+**Next IDs:** T15 · B3 · R1
 
 ## Queue
+
+### T14 · A screen is re-arranged by dragging its grey boxes · done · M · agent
+- Touches: framework/tools/ui/drawing.mjs, framework/.satt/procedures/ui-design.md, project/product/ui/README.md, examples/order-desk/product/ui/README.md, tests/ui-drawing, selftest.sh, CHANGELOG.md
+- Done when: the starter's grey boxes are unlocked, a dragged or resized one is read as a blue keep box for that element at its new place, the reader agrees with Godot-Director's byte for byte on the shared fixtures, and the selftest passes (check)
+- PRD: none
+- Source: Director-Driven-Development T183
 
 ### T13 · The screen-design README is organised by feature · done · S · agent
 - Touches: project/product/ui/README.md, examples/order-desk/product/ui/README.md, CHANGELOG.md
