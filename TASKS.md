@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T25 · B3 · R1
+**Next IDs:** T26 · B3 · R1
 
 ## Queue
+
+### T25 · A recurring security assessment validates what is built against the OWASP baseline · done · L · agent
+- Touches: framework/.satt/procedures/security.md (new), framework/.satt/reference/owasp.md (new), framework/.claude/skills/security/SKILL.md (new), framework/.satt/reference/README.md, framework/.satt/procedures/release.md, framework/.satt/procedures/next-task.md, framework/.satt/rules.md, project/tools/check.cfg, examples/order-desk/tools/check.cfg, ONBOARDING.md, README.md, skills/saas-design-session/SKILL.md, skills/saas-design-session/references/ (bundle), tests/security/ (new), selftest.sh, CHANGELOG.md
+- Done when: `/security` runs the tools first (each skipped with a note when not installed, never installed without asking), then a fresh-context reviewer through the OWASP Top 10 and API Security Top 10 checklist in `reference/owasp.md` citing file and line; findings become bug items with OWASP item, severity, evidence and a proposed fix, high first; people and process work goes to the director; the report is written to `assessment/security/YYYY-MM-DD.md` with a line per category (check) · it runs on request, in the release procedure before a release, and is proposed by `/next-task` every `[security] every` items, default 10 (check) · a tool passing never marks a category met, and the report says what a clean run doesn't prove (check) · the self-test proves the seeded vulnerable fixture is reported by the check's rules with their OWASP items and the clean twin isn't, with the dependency audits where installed (check) · the assessment updates the OWASP rows of `compliance/mapping.md` and flags the customer's rows a finding touches (check)
+- PRD: none
+- Source: Director-Driven-Development T201
 
 ### T24 · Onboarding and the assessment ask which compliance frameworks apply · done · M · agent
 - Touches: ONBOARDING.md, framework/.satt/reference/compliance-questions.md (new), framework/.satt/reference/README.md, framework/.satt/procedures/assess.md, framework/.satt/workshops/vision.md, framework/.satt/workshops/tenancy-identity.md, skills/saas-design-session/references/ (bundle), selftest.sh, CHANGELOG.md

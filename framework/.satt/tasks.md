@@ -27,7 +27,7 @@ Read this before adding or editing an item.
 - **`PRD:`.** The heading(s) the item implements, or `none` for items that aren't about the product (foundation, infrastructure, tooling).
 - **`ADR:`** (optional). The ADR the item implements or depends on.
 - **`UI:`** (optional). `product/ui/<screen>.md`, the screen spec, for an item that builds or changes a screen (`procedures/ui-design.md`). The item builds to the spec and names its elements as the spec does. A `UI:` item sized `L` or `XL` is split per screen.
-- **Bugs.** Instead of `Done when`, a bug has `Repro: steps → expected / actual` and `Found in:` (a validation file, an item ID or `ad hoc`). It's done when the repro no longer happens.
+- **Bugs.** Instead of `Done when`, a bug has `Repro: steps → expected / actual` and `Found in:` (a validation file, a security assessment report in `assessment/security/`, an item ID or `ad hoc`). It's done when the repro no longer happens.
 - **Research.** A research item (`R<n>`) answers one question and changes no code. It looks like this:
 
   ```
