@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T16 · B3 · R1
+**Next IDs:** T20 · B3 · R1
 
 ## Queue
+
+### T19 · The check fails public network access and local authentication in Bicep · done · M · agent
+- Touches: framework/.satt/reference/network.md, framework/.satt/reference/README.md, framework/.satt/reference/cost.md, framework/tools/archcheck.awk, project/tools/check.cfg, ONBOARDING.md, skills/saas-design-session/references/, selftest.sh
+- Done when: a new rule, named in reference/README.md › What the check enforces, archcheck.awk and selftest.sh, fails a Bicep resource that leaves public network access enabled or local authentication on, for the resource types the reference architecture uses where Azure offers the setting, and an accepted ADR with an exception for the rule and path excuses it (check) · the network topic gives the default posture, and cost.md says private-only needs Service Bus Premium, so an ADR with a `cost-sku` exception (check) · the rule is on for new apps and off on upgrade until the app turns it on in check.cfg, as the CHANGELOG's upgrade steps say (check)
+- PRD: none
+- Source: Director-Driven-Development T169
 
 ### T15 · The Bash guard blocks hangs, and the check limits its test runs · done · M · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, framework/.satt/rules.md, framework/tools/check.sh, framework/tools/cfg.sh, framework/tools/stacks/dotnet.sh, framework/tools/stacks/typescript.sh, framework/tools/stacks/python.sh, project/tools/check.cfg, selftest.sh, CHANGELOG.md
