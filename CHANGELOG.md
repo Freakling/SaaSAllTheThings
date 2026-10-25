@@ -2,7 +2,7 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
-## Unreleased
+## 0.11.0 (2026-10-25)
 
 - **A screen is re-arranged by dragging its grey boxes.** The grey numbered boxes of the starter drawing are no longer locked. Drag or resize one and the reader takes it as a blue keep box for that element, named after it, at its new place, with any keys you typed into it. A grey box you don't touch is ignored, and a blue box named after the element still works. The reader notes an element claimed twice, a grey box with no map entry and a frame with no element map. The README and the `ui-design` procedure say so, and the reader agrees with Godot-Director's byte for byte on the shared fixtures.
   - **Upgrade steps:** `product/ui/README.md` is an app-owned seed the installer leaves alone; replace it with the source's `project/product/ui/README.md`, carrying over any notes. Recapture the screens so the starters are regenerated unlocked.
