@@ -6,7 +6,7 @@ using Shop.Application.Orders;
 namespace Shop.Functions.Orders;
 
 // SEEDED (tests/security/README.md): the tenant is read from a request header instead of the
-// validated token (A01, API1), and the customer filter goes to the store unvalidated (A03).
+// validated token (A01, API1), and the customer filter goes to the store unvalidated (A05).
 public sealed class ListOrdersFunction(IOrderStore store)
 {
     [Function("ListOrders")]

@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T26 · B3 · R1
+**Next IDs:** T27 · B3 · R1
 
 ## Queue
+
+### T26 · The OWASP baseline moves to the Top 10 (2025) · done · M · agent
+- Touches: framework/.satt/rules.md, framework/.satt/reference/owasp.md, framework/.satt/procedures/security.md, framework/.satt/procedures/review.md, framework/.satt/procedures/align.md, project/compliance/mapping.md, ONBOARDING.md, README.md, selftest.sh, CHANGELOG.md
+- Done when: the baseline, the checklist and the seed mapping rows use the OWASP Top 10:2025 categories and names, SSRF sits under A01, A03 covers supply chain checks, A10 Mishandling of Exceptional Conditions is added, and the CHANGELOG maps each 2021 row to its 2025 row (test)
+- PRD: none
+- Source: Director-Driven-Development T203
 
 ### T25 · A recurring security assessment validates what is built against the OWASP baseline · done · L · agent
 - Touches: framework/.satt/procedures/security.md (new), framework/.satt/reference/owasp.md (new), framework/.claude/skills/security/SKILL.md (new), framework/.satt/reference/README.md, framework/.satt/procedures/release.md, framework/.satt/procedures/next-task.md, framework/.satt/rules.md, project/tools/check.cfg, examples/order-desk/tools/check.cfg, ONBOARDING.md, README.md, skills/saas-design-session/SKILL.md, skills/saas-design-session/references/ (bundle), tests/security/ (new), selftest.sh, CHANGELOG.md

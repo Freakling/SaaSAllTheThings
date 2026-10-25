@@ -1456,17 +1456,20 @@ for i in 01 02 03 04 05 06 07 08 09 10; do
   [ -n "$name" ] && grep -qF "| OWASP A$i $name (baseline: keep) |" "$map" || wired="$wired A$i"
 done
 for i in 1 2 3 4 5 6 7 8 9 10; do grep -q "^### API$i .* (row A[01][0-9])$" "$owasp" || wired="$wired API$i"; done
-unmarked="$(awk '/^## OWASP Top 10 \(2021\)$/ { on = 1 } /^## Severity$/ { on = 0 } on && /^- / && !/^- `(code|config|people)` / { n++ } END { print n + 0 }' "$owasp")"
+unmarked="$(awk '/^## OWASP Top 10 \(2025\)$/ { on = 1 } /^## Severity$/ { on = 0 } on && /^- / && !/^- `(code|config|people)` / { n++ } END { print n + 0 }' "$owasp")"
 [ "$unmarked" = 0 ] || wired="$wired $unmarked-unmarked-checks"
 for s in 'access reviews' 'incident response' 'on call' 'rotation' 'ASVS' 'nothing here is copied' 'A tool passing never verifies a check on its own'; do
   grep -qi "$s" "$owasp" || wired="$wired owasp.md($s)"
 done
-grep -qF '| `secrets` (the check) | A02 |' "$owasp" && grep -qF '| `tenant-source` (the check) | A01, API1 |' "$owasp" \
-  && grep -qF '| `network-public` (the check) | A05, API8 |' "$owasp" \
-  && grep -qF '| `dotnet list package --vulnerable --include-transitive`, `npm audit --omit=dev`, `pip-audit` | A06 |' "$owasp" \
+grep -qF '| `secrets` (the check) | A04 |' "$owasp" && grep -qF '| `tenant-source` (the check) | A01, API1 |' "$owasp" \
+  && grep -qF '| `network-public` (the check) | A02, API8 |' "$owasp" \
+  && grep -qF '| `dotnet list package --vulnerable --include-transitive`, `npm audit --omit=dev`, `pip-audit` | A03 |' "$owasp" \
   || wired="$wired owasp.md(tools table)"
 grep -q 'a tenant isolation break (always high)' "$owasp" || wired="$wired owasp.md(severity)"
-grep -q '^## OWASP API Security Top 10 (2023)$' "$owasp" && grep -q 'OWASP Top 10 (2021)' "$satt/rules.md" || wired="$wired editions"
+for s in '### A03 Software Supply Chain Failures' '### A10 Mishandling of Exceptional Conditions' 'dead-letter' 'fail closed' 'Lockfiles are committed' 'local files under `infra/modules/`' 'Server-side request forgery'; do
+  grep -qF -- "$s" "$owasp" || wired="$wired owasp.md(2025: $s)"
+done
+grep -q '^## OWASP API Security Top 10 (2023)$' "$owasp" && grep -q 'OWASP Top 10 (2025)' "$satt/rules.md" || wired="$wired editions"
 for s in 'Where the tenant comes from' 'partition key starts with the `TenantId`' "registry's active tenants" 'cache keys start with the `TenantId`' "tenant's stamp"; do
   grep -qF "$s" "$owasp" || wired="$wired owasp.md(A01: $s)"
 done
@@ -1531,10 +1534,10 @@ sed "s|SEEDED_ACCOUNT_KEY|$fake_key|" "$settings_json" > "$work/security-setting
 for v in vulnerable clean; do (cd "$work/security-$v" && git init -q && git config core.autocrlf false && git add -A) >/dev/null 2>&1; done
 out="$(cd "$work/security-vulnerable" && bash tools/check.sh --architecture 2>&1)"
 expect_status "the check fails the vulnerable fixture" 1 $? "$out"
-expect_output "secrets (A02) finds the seeded key" '\[secrets\] src/Shop\.Functions/appsettings\.json:2' "$out"
+expect_output "secrets (A04) finds the seeded key" '\[secrets\] src/Shop\.Functions/appsettings\.json:2' "$out"
 expect_no_output "and never prints it" "q2Vh4dN0k3sRm7" "$out"
 expect_output "tenant-source (A01, API1) finds the tenant read from a header" '\[tenant-source\] src/Shop\.Functions/Orders/ListOrdersFunction\.cs:16' "$out"
-expect_output "network-public (A05) finds the public Service Bus" '\[network-public\] infra/modules/bus\.bicep' "$out"
+expect_output "network-public (A02) finds the public Service Bus" '\[network-public\] infra/modules/bus\.bicep' "$out"
 out="$(cd "$work/security-clean" && bash tools/check.sh --architecture 2>&1)"
 expect_status "the check passes the clean twin" 0 $? "$out"
 expect_no_output "and reports none of the seeded faults" '\[(secrets|tenant-source|network-public)\]' "$out"
@@ -1545,7 +1548,7 @@ if command -v npm >/dev/null 2>&1; then
   if [[ $out =~ $offline ]]; then
     echo "  note  npm audit skipped: the advisory database didn't answer"
   else
-    expect_status "npm audit (A06) fails the vulnerable fixture" 1 "$status" "$out"
+    expect_status "npm audit (A03) fails the vulnerable fixture" 1 "$status" "$out"
     expect_output "and names the seeded package" 'lodash' "$out"
     out="$(cd "$work/security-clean/clients/web" && COREPACK_ENABLE_NETWORK=0 COREPACK_ENABLE_DOWNLOAD_PROMPT=0 npm audit --omit=dev 2>&1 </dev/null)"
     expect_status "npm audit passes the clean twin" 0 $? "$out"
@@ -1563,7 +1566,7 @@ if [ "$dotnet_sdk" -eq 1 ]; then
     if [[ $out =~ $offline ]]; then
       echo "  note  dotnet list package --vulnerable skipped: the advisory source didn't answer"
     else
-      expect_output "dotnet list package --vulnerable (A06) names the seeded package" 'Newtonsoft\.Json' "$out"
+      expect_output "dotnet list package --vulnerable (A03) names the seeded package" 'Newtonsoft\.Json' "$out"
       out="$(dotnet list "$clean_proj" package --vulnerable --include-transitive 2>&1 </dev/null)"
       expect_output "and finds nothing in the clean twin" 'has no vulnerable packages' "$out"
     fi
