@@ -19,6 +19,7 @@ Read only the topics the work touches.
 | `infra.md` | Bicep, environments, delivery, deploys |
 | `cost.md` | the default SKUs and the cost guardrails |
 | `network.md` | the network posture: public access off, local authentication off, private endpoints, outbound-only integrations |
+| `owasp.md` | the OWASP checklist: each Top 10 and API Security Top 10 category as checks in code, configuration or people and process, where to look, and severity |
 | `compliance-questions.md` | the questions that find the security framework and the regulations, and where the answers go |
 | `observability.md` | logs, traces, health, alerts |
 | `stacks.md` | compatible backend stacks, the check's stack profiles, choosing a stack for an existing app |

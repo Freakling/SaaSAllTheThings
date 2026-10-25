@@ -16,12 +16,13 @@ The request can be:
 1. **Find items without reading the whole file.** `grep -n '^### ' TASKS.md` lists every heading; then read only the candidates.
 2. **Is the tree clean?** If uncommitted changes from another item are in the working tree, don't start a new one. Ask the human whether to finish that item, commit it, or set it aside with `git stash push -- <paths>`.
 3. **Does the check pass now?** Run `bash tools/check.sh --if-changed`; it's instant after a passing commit. If it fails, say so, and offer the items that would fix it. Build others only if the human says to, telling the builder the failure was there before. A research item changes no code, so skip this for one.
-4. **Items already `in-progress`:**
+4. **Security assessment due?** With no report in `assessment/security/` yet, it's due. Otherwise count the items done since the newest report (`git log -1 --format=%h -- assessment/security/`): the commits since then whose subject ends with an item ID, also when a squash merge adds its pull request after it (`feat: x (T12) (#34)`), `git log --format=%s <that commit>..HEAD | grep -cE '\((T|B)[0-9]+\)( \(#[0-9]+\))?$'`. In a shallow clone (`git rev-parse --is-shallow-repository` says `true`) the count may be low: say so. When it's due, or the count reaches `tools/check.cfg` › `[security] every` (a whole number above 0; 10 when the key is absent or isn't one), propose `security.md` before picking: say how many items are done since the last report. The human runs it now or later; when they decline, or in a run of several items, carry on picking and name it in the final report.
+5. **Items already `in-progress`:**
    - **Claimed today:** another session may be working on it right now, so ask before touching it.
    - **Older:** a session probably ended mid-task. Read its `Note:`, look at `git status` and `git diff`, then resume it or set it back to `todo`, and say which.
-5. **Candidates** are `agent` items with status `todo` whose `Depends on` items are all `done`, research items included. IDs missing from TASKS.md are in `TASKS-archive.md`.
-6. **Order:** `high` bugs first, then everything else in file order. File order is the human's priority, so don't reorder.
-7. **Nothing ready?** Report what's blocked and on what (dependencies, `human` items, open questions, proposed ADRs), and stop. If the current stage has no items left, offer `roadmap.md` for the next one.
+6. **Candidates** are `agent` items with status `todo` whose `Depends on` items are all `done`, research items included. IDs missing from TASKS.md are in `TASKS-archive.md`.
+7. **Order:** `high` bugs first, then everything else in file order. File order is the human's priority, so don't reorder.
+8. **Nothing ready?** Report what's blocked and on what (dependencies, `human` items, open questions, proposed ADRs), and stop. If the current stage has no items left, offer `roadmap.md` for the next one.
 
 ## 2. Claim
 Set the item to `in-progress YYYY-MM-DD` (today).

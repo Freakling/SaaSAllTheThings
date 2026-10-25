@@ -16,6 +16,7 @@ These rules apply to any AI assistant working in this project. For each of these
 - **feedback.md:** new feedback report, process a feedback report.
 - **ui-design.md:** capture the screens (`/ui-design`): a PNG per screen, state and size of the web client on this machine or in dev (never prod), as test users of seeded test tenants, with an element map, a numbered map image, layout lint and a starter drawing; process the director's Excalidraw drawing of a screen into a screen spec and items; verify a built screen against its spec and write compare images; list the screens in the catalog.
 - **release.md:** deploy to an environment.
+- **security.md:** a security assessment (`/security`): validate what is built against the OWASP baseline with the checklist in `reference/owasp.md`, file findings as bug items, list the people and process work for the director, and write a dated report in `assessment/security/`. `release.md` runs it before a release; `next-task.md` proposes it every `tools/check.cfg` › `[security] every` items.
 - **align.md:** check the docs and tasks are aligned.
 - **drift-reset.md:** a design drift reset, only when the director asks for one: align often, reset when you have to. `drift-reset postmortem` runs after its rebuild.
 - **prune.md:** prune the task list.
@@ -50,7 +51,7 @@ In Claude Code these are also slash commands, and builds, reviews and research r
 | The director's screen drawings | `director/ui/` (Excalidraw files; read-only for you) |
 | How an external system is integrated | `integrations/<system>/contract.md` |
 | Work, bugs, research, milestones | `TASKS.md` (format: `.satt/tasks.md`; done items: `TASKS-archive.md`) |
-| Assessments and workshop notes | `assessment/`: snapshots. What they decide is recorded in the PRD, ADRs, contracts and TASKS.md (`assess.md` › Process workshop notes). |
+| Assessments and workshop notes | `assessment/`: snapshots, security assessments in `assessment/security/`. What they decide is recorded in the PRD, ADRs, contracts and TASKS.md (`assess.md` › Process workshop notes). |
 | Design drift resets | `resets/YYYY-MM-DD/`: snapshots (as built, interpretations, the design before, postmortem). What they decide is recorded in the PRD, `decisions.md`, ADRs and TASKS.md (`drift-reset.md`). |
 | Settings per environment | `infra/env/<env>.bicepparam` (never secrets) |
 | Settings per tenant | the tenant registry: data, never code or repository files |
@@ -72,7 +73,7 @@ Read the reference topics an item touches (`reference/README.md` lists them). Ev
 - **Screens.** Every screen of a web client has an entry in the screen catalog, `tools/ui/screens.mjs`; add or update it whenever you add or change a screen. Elements a screen spec names get a `data-testid` (`order-list`) that the spec, element maps and tests share. Build layouts with flex or grid, never pixel positions. The catalog opens a tenant's screen as a test user of a seeded test tenant and seeds data through the public API, as a client does: never a real tenant, account, token or customer's data.
 - **The tenant comes from the validated token** (for messages: the envelope), never from a header, route, query or request body. Tenants differ only by registry data and plans; no code names a tenant.
 - **Contracts are versioned.** Events and commands are named `…V<n>`; a version only ever changes additively.
-- **OWASP is the baseline.** The OWASP Top 10, and the OWASP API Security Top 10 for anything that serves an API, is the security baseline every app meets. It is framework-owned: no project setting or `tools/check.cfg` key switches it off, and no ADR removes it as a whole. An accepted ADR may deviate from a single item, naming the item and why; review reports any other deviation as a finding.
+- **OWASP is the baseline.** The OWASP Top 10 (2021), and the OWASP API Security Top 10 (2023) for anything that serves an API, is the security baseline every app meets. It is framework-owned: no project setting or `tools/check.cfg` key switches it off, and no ADR removes it as a whole. An accepted ADR may deviate from a single item, naming the item and why; review reports any other deviation as a finding. `security.md` validates what is built against it, category by category (`reference/owasp.md`).
 - **No secrets** in the repository, config files or client apps: managed identities and federated credentials instead.
 - **Undecided values** (limits, quotas, retry counts, prices) get a default marked `PLACEHOLDER` next to it, naming its `Q<n>` if one exists. They're never hand-picked as final.
 

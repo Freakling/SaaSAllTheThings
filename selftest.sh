@@ -1433,6 +1433,145 @@ EOF
   rm -rf product/ui/captures product/ui/clean.md uifixture tools/ui/node_modules tools/ui/.auth clients/web
 fi
 
+# --- security assessment ---------------------------------------------------------------------------
+echo "security assessment"
+sec="$satt/procedures/security.md"; owasp="$satt/reference/owasp.md"; map="$src/project/compliance/mapping.md"
+missing=""
+for file in framework/.satt/procedures/security.md framework/.satt/reference/owasp.md framework/.claude/skills/security/SKILL.md \
+    tests/security/README.md tests/security/vulnerable/tools/check.cfg tests/security/clean/tools/check.cfg \
+    tests/security/vulnerable/src/Shop.Functions/Shop.Functions.csproj.fixture tests/security/clean/src/Shop.Functions/Shop.Functions.csproj.fixture \
+    tests/security/vulnerable/clients/web/package-lock.fixture.json tests/security/clean/clients/web/package-lock.fixture.json \
+    tests/security/vulnerable/clients/web/package.fixture.json tests/security/clean/clients/web/package.fixture.json; do
+  [ -f "$src/$file" ] || missing="$missing $file"
+done
+[ -z "$missing" ] && ok "the security assessment's files exist" || bad "security assessment files missing:$missing"
+manifests="$(cd "$src/tests/security" && git ls-files -co --exclude-standard -- '*package.json' '*package-lock.json' '*.csproj')"
+[ -z "$manifests" ] && ok "the fixture's manifests carry .fixture names, so the repository's dependency graph doesn't read them" \
+  || bad "real manifest names under tests/security:" "$manifests"
+# The checklist: each Top 10 category under the name of its baseline row, each API Security Top 10 category under
+# the row it belongs to, every check marked code, config or people, the tools table and the severity rubric.
+wired=""
+for i in 01 02 03 04 05 06 07 08 09 10; do
+  name="$(sed -n "s/^### A$i \(.*\)$/\1/p" "$owasp")"
+  [ -n "$name" ] && grep -qF "| OWASP A$i $name (baseline: keep) |" "$map" || wired="$wired A$i"
+done
+for i in 1 2 3 4 5 6 7 8 9 10; do grep -q "^### API$i .* (row A[01][0-9])$" "$owasp" || wired="$wired API$i"; done
+unmarked="$(awk '/^## OWASP Top 10 \(2021\)$/ { on = 1 } /^## Severity$/ { on = 0 } on && /^- / && !/^- `(code|config|people)` / { n++ } END { print n + 0 }' "$owasp")"
+[ "$unmarked" = 0 ] || wired="$wired $unmarked-unmarked-checks"
+for s in 'access reviews' 'incident response' 'on call' 'rotation' 'ASVS' 'nothing here is copied' 'A tool passing never verifies a check on its own'; do
+  grep -qi "$s" "$owasp" || wired="$wired owasp.md($s)"
+done
+grep -qF '| `secrets` (the check) | A02 |' "$owasp" && grep -qF '| `tenant-source` (the check) | A01, API1 |' "$owasp" \
+  && grep -qF '| `network-public` (the check) | A05, API8 |' "$owasp" \
+  && grep -qF '| `dotnet list package --vulnerable --include-transitive`, `npm audit --omit=dev`, `pip-audit` | A06 |' "$owasp" \
+  || wired="$wired owasp.md(tools table)"
+grep -q 'a tenant isolation break (always high)' "$owasp" || wired="$wired owasp.md(severity)"
+grep -q '^## OWASP API Security Top 10 (2023)$' "$owasp" && grep -q 'OWASP Top 10 (2021)' "$satt/rules.md" || wired="$wired editions"
+for s in 'Where the tenant comes from' 'partition key starts with the `TenantId`' "registry's active tenants" 'cache keys start with the `TenantId`' "tenant's stamp"; do
+  grep -qF "$s" "$owasp" || wired="$wired owasp.md(A01: $s)"
+done
+[ -z "$wired" ] && ok "reference/owasp.md covers the ten Top 10 rows by name and the API Security Top 10, marks every check, files each tool under its OWASP item and has the severity rubric" \
+  || bad "reference/owasp.md is missing:$wired"
+# The procedure: tools first (never installed without asking), a fresh-context reviewer, findings as bug items, the
+# director's list, the dated report, never met from a tool alone, and the mapping update.
+wired=""
+for s in 'Never install a tool without asking' 'skipped' 'bash tools/check.sh --architecture' 'dotnet list <target> package --vulnerable --include-transitive' \
+    'npm audit --omit=dev' 'pip-audit' 'p/owasp-top-ten' 'gh run' 'fresh context' 'read and search tools only' 'file:line' \
+    'a tenant isolation break is always high' 'proposed fix' 'Found in: assessment/security/YYYY-MM-DD.md' 'High first' \
+    'what to do, and why' 'never add one without asking' 'Commit:' 'Skipped:' 'verified / findings' 'not checkable here' \
+    'not applicable' 'A tool passing never marks a category met' "What a clean run doesn't prove" 'compliance/mapping.md' \
+    'Never `direct` from a tool alone' "customer's own framework" 'OWASP A01` to `OWASP A10' \
+    'pip-audit --disable-pip --no-deps -r requirements.txt' 'pinned with `==`' 'COREPACK_ENABLE_NETWORK=0 COREPACK_ENABLE_DOWNLOAD_PROMPT=0' \
+    "couldn't run" 'path:line:col:rule id' '--emacs-output=.satt/state/semgrep.txt' 'Never print, read or quote the two files otherwise' \
+    'the target the check builds' 'never blindly in the root' 'A tool is clean only when it exits 0' 'A timeout (exit 124)' \
+    'Never quote a secret' 'only `file:line` and the kind of secret' 'Never delete a row' 'Keep an existing Met by entry' \
+    "customer's own framework** stay unchanged" '(medium is `med` in the heading)' 'skipping `node_modules/`' 'report its audit as information' \
+    'where `timeout` is available'; do
+  grep -qF -- "$s" "$sec" || wired="$wired [$s]"
+done
+grep -q 'security\.md' "$satt/procedures/release.md" \
+  && grep -q 'Whether or not it runs, an open `high` bug that names an OWASP item blocks the release' "$satt/procedures/release.md" \
+  && grep -q 'unless an accepted ADR deviates from that item' "$satt/procedures/release.md" || wired="$wired release.md"
+grep -q 'security\.md' "$satt/procedures/next-task.md" && grep -qF '`[security] every`' "$satt/procedures/next-task.md" \
+  && grep -q '10 when the key is absent' "$satt/procedures/next-task.md" \
+  && grep -qF 'With no report in `assessment/security/` yet, it'"'"'s due' "$satt/procedures/next-task.md" \
+  && grep -q 'is-shallow-repository' "$satt/procedures/next-task.md" || wired="$wired next-task.md"
+# The count next-task.md gives counts item commits, squash-merged ones too, and nothing else.
+count_re="$(sed -n "s/.*grep -cE '\([^']*\)'.*/\1/p" "$satt/procedures/next-task.md" | head -n 1)"
+n="$(printf '%s\n' 'feat: a (T12)' 'fix: b (B3) (#34)' 'docs: c (R2)' 'chore: d' 'feat: e (T7) extra' | grep -cE "$count_re")"
+{ [ -n "$count_re" ] && [ "$n" = 2 ]; } || wired="$wired next-task.md(count: $n)"
+grep -q '^- \*\*security\.md:\*\*' "$satt/rules.md" && grep -q 'assessment/security/' "$satt/rules.md" || wired="$wired rules.md"
+grep -q '^| `owasp\.md` |' "$satt/reference/README.md" || wired="$wired reference/README.md"
+grep -q 'reference/owasp\.md' "$satt/procedures/review.md" || wired="$wired review.md"
+grep -q 'a security assessment report in `assessment/security/`' "$satt/tasks.md" || wired="$wired tasks.md"
+grep -q 'and the security assessment (`.satt/procedures/security.md`) does, for the OWASP rows' "$map" || wired="$wired mapping.md"
+grep -q 'on main at the release commit (never on a detached tag)' "$satt/procedures/release.md" || wired="$wired release.md(main)"
+grep -q 'procedures/security\.md' "$src/framework/.claude/skills/security/SKILL.md" \
+  && ! grep -q 'disable-model-invocation' "$src/framework/.claude/skills/security/SKILL.md" || wired="$wired SKILL.md"
+for f in project/tools/check.cfg examples/order-desk/tools/check.cfg; do
+  awk '/^\[security\]$/ { s = 1; next } /^\[/ { s = 0 } s && /^every = 10$/ { found = 1 } END { exit !found }' "$src/$f" || wired="$wired $f"
+done
+grep -q '/security' "$src/ONBOARDING.md" && grep -qF '[security] every' "$src/ONBOARDING.md" && grep -q '/security' "$src/README.md" \
+  || wired="$wired ONBOARDING.md/README.md"
+[ -f "$src/skills/saas-design-session/references/reference/owasp.md" ] && [ ! -e "$src/skills/saas-design-session/references/procedures/security.md" ] \
+  && grep -q 'security\.md' "$src/skills/saas-design-session/SKILL.md" || wired="$wired saas-design-session"
+[ -z "$wired" ] && ok "/security is wired into the procedure, release, next-task, the rules, the reference, the skill, the setting and the docs" \
+  || bad "/security isn't wired into:$wired"
+# The tool step on the fixture: the check's rules fire on the seeded faults and not on the clean twin.
+for v in vulnerable clean; do
+  d="$work/security-$v"; rm -rf "$d"; cp -R "$src/tests/security/$v" "$d"
+  cp "$src/framework/tools/check.sh" "$src/framework/tools/archcheck.awk" "$src/framework/tools/cfg.sh" "$d/tools/"
+  mv "$d/clients/web/package.fixture.json" "$d/clients/web/package.json"
+  mv "$d/clients/web/package-lock.fixture.json" "$d/clients/web/package-lock.json"
+  mv "$d/src/Shop.Functions/Shop.Functions.csproj.fixture" "$d/src/Shop.Functions/Shop.Functions.csproj"
+done
+fake_key="Account""Key=q2Vh4dN0k3sRm7Yy1PzT8wLx6Jc9Bf5Ga0Hu2Ie4Kd7Ms="
+settings_json="$work/security-vulnerable/src/Shop.Functions/appsettings.json"
+sed "s|SEEDED_ACCOUNT_KEY|$fake_key|" "$settings_json" > "$work/security-settings" && cp "$work/security-settings" "$settings_json"
+for v in vulnerable clean; do (cd "$work/security-$v" && git init -q && git config core.autocrlf false && git add -A) >/dev/null 2>&1; done
+out="$(cd "$work/security-vulnerable" && bash tools/check.sh --architecture 2>&1)"
+expect_status "the check fails the vulnerable fixture" 1 $? "$out"
+expect_output "secrets (A02) finds the seeded key" '\[secrets\] src/Shop\.Functions/appsettings\.json:2' "$out"
+expect_no_output "and never prints it" "q2Vh4dN0k3sRm7" "$out"
+expect_output "tenant-source (A01, API1) finds the tenant read from a header" '\[tenant-source\] src/Shop\.Functions/Orders/ListOrdersFunction\.cs:16' "$out"
+expect_output "network-public (A05) finds the public Service Bus" '\[network-public\] infra/modules/bus\.bicep' "$out"
+out="$(cd "$work/security-clean" && bash tools/check.sh --architecture 2>&1)"
+expect_status "the check passes the clean twin" 0 $? "$out"
+expect_no_output "and reports none of the seeded faults" '\[(secrets|tenant-source|network-public)\]' "$out"
+# The dependency audits, where the tool is installed and the advisory database answers.
+offline='ENOTFOUND|ETIMEDOUT|EAI_AGAIN|ECONNREFUSED|ECONNRESET|audit endpoint returned an error|Unable to load the service index|NU1301|No such host'
+if command -v npm >/dev/null 2>&1; then
+  out="$(cd "$work/security-vulnerable/clients/web" && COREPACK_ENABLE_NETWORK=0 COREPACK_ENABLE_DOWNLOAD_PROMPT=0 npm audit --omit=dev 2>&1 </dev/null)"; status=$?
+  if [[ $out =~ $offline ]]; then
+    echo "  note  npm audit skipped: the advisory database didn't answer"
+  else
+    expect_status "npm audit (A06) fails the vulnerable fixture" 1 "$status" "$out"
+    expect_output "and names the seeded package" 'lodash' "$out"
+    out="$(cd "$work/security-clean/clients/web" && COREPACK_ENABLE_NETWORK=0 COREPACK_ENABLE_DOWNLOAD_PROMPT=0 npm audit --omit=dev 2>&1 </dev/null)"
+    expect_status "npm audit passes the clean twin" 0 $? "$out"
+  fi
+else
+  echo "  note  npm audit skipped: npm isn't installed"
+fi
+if [ "$dotnet_sdk" -eq 1 ]; then
+  vuln_proj="$work/security-vulnerable/src/Shop.Functions/Shop.Functions.csproj"
+  clean_proj="$work/security-clean/src/Shop.Functions/Shop.Functions.csproj"
+  if ! dotnet restore "$vuln_proj" >/dev/null 2>&1 </dev/null || ! dotnet restore "$clean_proj" >/dev/null 2>&1 </dev/null; then
+    echo "  note  dotnet list package --vulnerable skipped: restore failed (no network?)"
+  else
+    out="$(dotnet list "$vuln_proj" package --vulnerable --include-transitive 2>&1 </dev/null)"
+    if [[ $out =~ $offline ]]; then
+      echo "  note  dotnet list package --vulnerable skipped: the advisory source didn't answer"
+    else
+      expect_output "dotnet list package --vulnerable (A06) names the seeded package" 'Newtonsoft\.Json' "$out"
+      out="$(dotnet list "$clean_proj" package --vulnerable --include-transitive 2>&1 </dev/null)"
+      expect_output "and finds nothing in the clean twin" 'has no vulnerable packages' "$out"
+    fi
+  fi
+else
+  echo "  note  dotnet list package --vulnerable skipped: no .NET SDK on this machine"
+fi
+
 # --- .NET, where the SDK is installed -----------------------------------------------------------
 if [ "$dotnet_sdk" -eq 1 ]; then
   echo ".NET"
