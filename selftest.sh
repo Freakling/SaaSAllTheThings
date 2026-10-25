@@ -110,7 +110,7 @@ done
 [ -z "$missing" ] && ok "every procedure has a skill (except build and review, which are subagents)" || bad "procedures without skills:$missing"
 # Every .md a rule, procedure or reference topic names: one awk pass prints "doc<TAB>ref" pairs.
 missing=""
-other=" contract.md prd.md director-brief.md decisions.md as-built.md interpretations.md prd-before.md postmortem.md README.md TEMPLATE.md ONBOARDING.md CHANGELOG.md AGENTS.md CLAUDE.md TASKS.md TASKS-archive.md adr.md integration-contract.md "
+other=" mapping.md contract.md prd.md director-brief.md decisions.md as-built.md interpretations.md prd-before.md postmortem.md README.md TEMPLATE.md ONBOARDING.md CHANGELOG.md AGENTS.md CLAUDE.md TASKS.md TASKS-archive.md adr.md integration-contract.md "
 while IFS="$(printf '\t')" read -r doc ref; do
   case "$ref" in
     reference/*) [ -f "$src/framework/.satt/$ref" ] || missing="$missing ${doc##*/}→$ref" ;;
@@ -791,6 +791,20 @@ restore
 grep -q '^network-public = on$' "$src/project/tools/check.cfg" && ok "the seed check.cfg turns network-public on" || bad "project/tools/check.cfg has network-public = on"
 grep -q 'network-public' "$src/framework/.satt/reference/network.md" && grep -q 'Service Bus.*Premium' "$src/framework/.satt/reference/cost.md" && ok "network.md and cost.md say the posture and the Premium exception" || bad "network.md or cost.md lacks the posture or the Premium cost note"
 fault "an unknown layer in tools/check.cfg" tools/check.cfg "$(printf '[layers]\nweb = web/*')" "isn't a layer"
+
+# The compliance mapping: seeded, and read by the procedures that keep it true.
+map="$src/project/compliance/mapping.md"
+{ [ -f "$map" ] && grep -q '^| Control | Requirement | Met by | Label | Evidence |$' "$map" \
+  && grep -q 'framework.s name never marks a control met' "$map" && grep -q 'EXAMPLE' "$map" \
+  && grep -q '`direct`' "$map" && grep -q '`partial`' "$map" && grep -q '`interpretive`' "$map" && grep -q '`unverified`' "$map"; } \
+  && ok "the seed compliance/mapping.md has the header, the columns, the four labels and an example row" || bad "project/compliance/mapping.md lacks its header, columns, labels or example"
+missing=""
+for p in architect review align; do grep -q 'compliance/mapping.md' "$src/framework/.satt/procedures/$p.md" || missing="$missing $p"; done
+[ -z "$missing" ] && ok "architect, review and align name compliance/mapping.md" || bad "procedures that don't name compliance/mapping.md:$missing"
+grep -q 'compliance/mapping.md' "$src/ONBOARDING.md" && ok "onboarding names compliance/mapping.md" || bad "ONBOARDING.md doesn't name compliance/mapping.md"
+grep -q 'Never add a `direct` row without naming what meets it' "$src/framework/.satt/procedures/architect.md" \
+  && grep -q "labelled \`direct\` whose Met by is \`none yet\`" "$src/framework/.satt/procedures/align.md" \
+  && ok "architect forbids a direct row with no evidence and align reports one" || bad "architect or align lacks the direct-row rule"
 
 # Exceptions come only from accepted ADRs.
 adr=adr/ADR-3-legacy-clock.md

@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T21 · B3 · R1
+**Next IDs:** T22 · B3 · R1
 
 ## Queue
+
+### T21 · A compliance mapping table that review and align read · done · M · agent
+- Touches: project/compliance/mapping.md (new), framework/.satt/procedures/architect.md, framework/.satt/procedures/review.md, framework/.satt/procedures/align.md, ONBOARDING.md, skills/saas-design-session/references/ (bundle), selftest.sh, CHANGELOG.md
+- Done when: a seeded table with control id, requirement, met by (rule, ADR or test), label (direct, partial, interpretive or unverified) and evidence location; architecture sessions add or update rows as ADRs are accepted, review flags a change to a mapped rule, ADR or test that leaves its row stale, and align reports rows whose rule, ADR or test no longer exists; nothing marks a control met from a framework's name (check)
+- PRD: none
+- Source: Director-Driven-Development T171
 
 ### T20 · A shipped CI workflow keeps the check's output as evidence · done · M · agent
 - Touches: framework/.satt/templates/check-workflow.yml (new), ONBOARDING.md, framework/.satt/procedures/release.md, selftest.sh, CHANGELOG.md

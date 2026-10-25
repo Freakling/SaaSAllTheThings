@@ -10,6 +10,7 @@ Comes from: a build reporting `blocked: architecture`, a review finding, a "Deci
 2. Read any requirements documents that bear on this decision:
    - **Product requirements** (user stories, feature specs): files in `product/requirements/` if present.
    - **Security and compliance requirements**: files in `compliance/` if present; also the PRD › Data and Compliance section.
+   - **The compliance mapping**: `compliance/mapping.md` if present, the table of which rule, ADR or test meets each control, so a decision starts from what is already claimed.
    Note any constraint or acceptance criterion an option must satisfy, and flag any conflict between a requirement and the reference architecture.
 3. Classify it:
    - **An open choice:** the reference lists it in `reference/README.md` › Choices left open. Every option is within the architecture.
@@ -36,6 +37,7 @@ Comes from: a build reporting `blocked: architecture`, a review finding, a "Deci
 5. **TASKS.md:** the items the decision creates, with `ADR: ADR-<n>`. A "Decide:" item it answers becomes `done`.
 6. **AGENTS.md:** a decision that changes Layout or Project facts (the stack, a client's UI tech) is reflected there in the same change.
 7. **Rejected:** if the human chooses to comply, either write no ADR (for a deviation that was only asked about) or record it with `Status: rejected` when the question is likely to come back.
+8. **The compliance mapping.** When an accepted ADR meets or deviates from a requirement in `compliance/`, add or update that requirement's row in `compliance/mapping.md`: the control as the customer's framework names it, Met by (the ADR, and the rule or test), the label and where the evidence is. A deviation gets a row too, labelled `partial` or `unverified`, naming the ADR. Never add a `direct` row without naming what meets it, and never mark a control met because a framework is named. Only the human confirms an `interpretive` or `direct` label.
 
 ## Finish
 Run `bash tools/check.sh --architecture` to confirm the exceptions match what they should. Commit the ADR and the records as `docs: ADR-<n> <title>` after the human approves.
