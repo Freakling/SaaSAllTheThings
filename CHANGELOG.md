@@ -2,6 +2,11 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## Unreleased
+
+- **The screen-design README is organised by feature.** `product/ui/README.md` now runs in the order you meet things: the workflow, setting up capture (Node 18 or newer, the catalog, the capture settings and the test tenants' sign-ins), what a capture gives you, boxes, colours, containment, patch or replace, re-arranging a screen, other states and sizes, processing and verifying, Excalidraw, and a table of the files. The grey boxes stay locked and re-arranging is a blue box named after the element. The example's copy is the same file.
+  - **Upgrade steps:** `product/ui/README.md` is an app-owned seed the installer leaves alone; replace it with the source's `project/product/ui/README.md`, carrying over any notes.
+
 ## 0.10.0 (2026-10-23)
 
 - **The repository ignores OS metadata files.** `.gitignore` keeps `.DS_Store`, `Thumbs.db`, `desktop.ini` and `__MACOSX/` out of the repository, as the Claude plugin directory's scanner asks.

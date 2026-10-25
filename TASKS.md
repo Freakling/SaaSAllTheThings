@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T13 · B3 · R1
+**Next IDs:** T14 · B3 · R1
 
 ## Queue
+
+### T13 · The screen-design README is organised by feature · done · S · agent
+- Touches: project/product/ui/README.md, examples/order-desk/product/ui/README.md, CHANGELOG.md
+- Done when: `product/ui/README.md` follows Godot-Director's section order (workflow, setting up capture, what a capture gives you, boxes, colours, containment, patch or replace, re-arranging, states and sizes, processing, Excalidraw, files), keeps the grey boxes locked and re-arranging as a blue box, and the example's copy is identical (check)
+- PRD: none
+- Source: Director-Driven-Development T182
 
 ### T12 · The repository ignores OS metadata files · done · XS · agent
 - Touches: .gitignore, CHANGELOG.md
