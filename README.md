@@ -239,7 +239,7 @@ The orchestrator (main session) and the builder (builder subagent) are deliberat
 - A question that needs facts nobody has checked goes to a `researcher` subagent, which reads the project's records and the web in its own fresh context and returns a note. The main session writes the note to `product/research/`, so a long search never fills its context, and later sessions reuse the note. It has `Read`, `Grep`, `Glob`, `WebSearch` and `WebFetch`: no edit, write or shell tool. Confidential project text never goes into a public search query.
 
 **Parallel sessions (design + coding)**
-- Two sessions can run at once against separate git worktrees, one designing, one building. Each reads from the same project files, and the `in-progress` claim in TASKS.md prevents them from touching the same item.
+- Two sessions can run at once, one designing and one building, and sessions that build at the same time each take a git worktree. A claim in TASKS.md protects only its own worktree, so only one session per project picks items; the others name the item they work on.
 
 ```mermaid
 sequenceDiagram
