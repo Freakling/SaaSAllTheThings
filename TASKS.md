@@ -14,6 +14,12 @@ Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by mov
 - PRD: none
 - Source: Director-Driven-Development T169
 
+### T16 · The README says a claim protects only its own worktree · done · XS · agent
+- Touches: README.md, CHANGELOG.md, TASKS.md
+- Done when: the README's sentence that an `in-progress` claim stops two sessions touching the same item says what `rules.md` says instead: a claim protects only its own worktree, and sessions that build at the same time each take a git worktree (check)
+- PRD: none
+- Source: Director-Driven-Development T179
+
 ### T15 · The Bash guard blocks hangs, and the check limits its test runs · done · M · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, framework/.satt/rules.md, framework/tools/check.sh, framework/tools/cfg.sh, framework/tools/stacks/dotnet.sh, framework/tools/stacks/typescript.sh, framework/tools/stacks/python.sh, project/tools/check.cfg, selftest.sh, CHANGELOG.md
 - Done when: the guard blocks an empty Python heredoc, a sleep loop without a `timeout` of 280 seconds or less, a loop reading a task's output without its end marker, and a lone sleep over 280 seconds, with messages that give the form that works, and passes the forms that work (test) · `rules.md` gives every long command a time limit, `run_in_background` and no empty-heredoc probes (check) · `tools/check.sh` runs test commands under GNU timeout (`[tests] timeout`, default 600) and exits 3 on a timeout (check)
