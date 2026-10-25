@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T23 · B3 · R1
+**Next IDs:** T24 · B3 · R1
 
 ## Queue
+
+### T23 · OWASP is a non-negotiable baseline · done · M · agent
+- Touches: framework/.satt/rules.md, framework/.satt/procedures/architect.md, framework/.satt/procedures/review.md, framework/.satt/procedures/align.md, project/compliance/mapping.md, ONBOARDING.md, skills/saas-design-session/references/ (bundle), selftest.sh, CHANGELOG.md
+- Done when: `rules.md` states the OWASP Top 10 (and the API Security Top 10 for anything that serves an API) as a framework-owned baseline that no setting turns off, `architect.md` makes every option state its effect on it, `review.md` checks the listed kinds of change against it and reports the OWASP item, and a deviation is only an accepted ADR naming the item (check) · the seed `compliance/mapping.md` carries the ten OWASP Top 10 rows marked as the baseline, each with an honest label and none `direct`, and align reports a removed baseline row (check)
+- PRD: none
+- Source: Director-Driven-Development T198
 
 ### T22 · Dependency review and an SBOM in the shipped workflow · done · S · agent
 - Touches: framework/.satt/templates/check-workflow.yml, framework/.satt/reference/infra.md, skills/saas-design-session/references/ (bundle), selftest.sh, CHANGELOG.md
