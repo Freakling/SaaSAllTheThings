@@ -817,6 +817,17 @@ grep -q 'Never add a `direct` row without naming what meets it' "$src/framework/
   && grep -q "labelled \`direct\` whose Met by is \`none yet\`" "$src/framework/.satt/procedures/align.md" \
   && ok "architect forbids a direct row with no evidence and align reports one" || bad "architect or align lacks the direct-row rule"
 
+# OWASP is a non-negotiable baseline.
+grep -q 'OWASP is the baseline' "$src/framework/.satt/rules.md" && grep -q 'OWASP API Security Top 10' "$src/framework/.satt/rules.md"   && grep -q 'no project setting' "$src/framework/.satt/rules.md" && grep -q 'An accepted ADR may deviate from a single item' "$src/framework/.satt/rules.md"   && ok "rules.md states the OWASP baseline as framework-owned, with an ADR as the only way to deviate from an item" || bad "rules.md lacks the OWASP baseline rule"
+n=$(grep -c '^| OWASP A[01][0-9] .*(baseline: keep) |' "$map"); [ "$n" = 10 ] && ok "the seed mapping has the ten OWASP baseline rows" || bad "the seed mapping has $n OWASP baseline rows, expected 10"
+for i in 01 02 03 04 05 06 07 08 09 10; do grep -q "^| OWASP A$i " "$map" || bad "the seed mapping lacks OWASP A$i"; done
+grep '^| OWASP' "$map" | grep -q '| direct |' && bad "an OWASP baseline row says direct" || ok "no OWASP baseline row says direct"
+missing=""
+for p in architect review align; do grep -q 'OWASP' "$src/framework/.satt/procedures/$p.md" || missing="$missing $p"; done
+[ -z "$missing" ] && ok "architect, review and align name the OWASP baseline" || bad "procedures that don't name the OWASP baseline:$missing"
+grep -q 'removed baseline row' "$src/framework/.satt/procedures/align.md" && ok "align reports a removed baseline row" || bad "align lacks the removed baseline row report"
+grep -q 'OWASP' "$src/ONBOARDING.md" && ok "onboarding names the OWASP baseline" || bad "ONBOARDING.md doesn't name the OWASP baseline"
+
 # Exceptions come only from accepted ADRs.
 adr=adr/ADR-3-legacy-clock.md
 printf '\nnamespace OrderDesk.Domain.Orders; public static class LegacyClock { public static DateTime Now => DateTime.Now; }\n' > src/OrderDesk.Domain/Orders/LegacyClock.cs
