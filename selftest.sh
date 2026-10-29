@@ -292,9 +292,16 @@ else
   ok "the check and setup-clone never run the capture tools (they would need Node)"
 fi
 _pw_range() { sed -n 's/.*"playwright"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$1"; }
-[ "$(_pw_range "$src/framework/tools/ui/package.json")" = "$(_pw_range "$src/tests/ui-web/package.json")" ] \
-  && ok "the selftest's Playwright is the version range capture asks for" \
+pw_tool="$(_pw_range "$src/framework/tools/ui/package.json")"
+pw_test="$(_pw_range "$src/tests/ui-web/package.json")"
+[ "$pw_tool" = "$pw_test" ] \
+  && ok "the selftest's Playwright is the version capture asks for" \
   || bad "framework/tools/ui/package.json and tests/ui-web/package.json ask for different Playwright versions"
+# One exact version, not a range: no lock file ships, so the pin is what fixes the installed tree (framework/tools/ui/.npmrc).
+pw_exact='^[0-9]+\.[0-9]+\.[0-9]+$'
+[[ $pw_tool =~ $pw_exact && $pw_test =~ $pw_exact ]] \
+  && ok "Playwright is pinned to one exact version in both package.json files (no ^ or ~)" \
+  || bad "Playwright is a range in framework/tools/ui/package.json or tests/ui-web/package.json (pin one exact version: no lock file ships)"
 grep -qF "drift-reset.md" "$src/framework/.satt/procedures/align.md" \
   && ok "align.md recommends a drift reset for recurring or cross-cutting conflicts" \
   || bad "align.md doesn't point to drift-reset.md"

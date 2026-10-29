@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T27 · B3 · R1
+**Next IDs:** T28 · B3 · R1
 
 ## Queue
+
+### T27 · The screen-capture tooling pins Playwright to one exact version · done · XS · agent
+- Touches: framework/tools/ui/package.json, framework/tools/ui/.npmrc, tests/ui-web/package.json, selftest.sh, CHANGELOG.md
+- Done when: `framework/tools/ui/package.json` and `tests/ui-web/package.json` pin `playwright` to `1.64.1` with no `^` or `~`, and `framework/tools/ui/.npmrc` keeps `package-lock=false` and says why (check) · the selftest fails when either pin is a range (check)
+- PRD: none
+- Source: Director-Driven-Development T219
 
 ### T26 · The OWASP baseline moves to the Top 10 (2025) · done · M · agent
 - Touches: framework/.satt/rules.md, framework/.satt/reference/owasp.md, framework/.satt/procedures/security.md, framework/.satt/procedures/review.md, framework/.satt/procedures/align.md, project/compliance/mapping.md, ONBOARDING.md, README.md, selftest.sh, CHANGELOG.md
