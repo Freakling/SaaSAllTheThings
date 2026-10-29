@@ -292,9 +292,16 @@ else
   ok "the check and setup-clone never run the capture tools (they would need Node)"
 fi
 _pw_range() { sed -n 's/.*"playwright"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$1"; }
-[ "$(_pw_range "$src/framework/tools/ui/package.json")" = "$(_pw_range "$src/tests/ui-web/package.json")" ] \
-  && ok "the selftest's Playwright is the version range capture asks for" \
+pw_tool="$(_pw_range "$src/framework/tools/ui/package.json")"
+pw_test="$(_pw_range "$src/tests/ui-web/package.json")"
+[ "$pw_tool" = "$pw_test" ] \
+  && ok "the selftest's Playwright is the version capture asks for" \
   || bad "framework/tools/ui/package.json and tests/ui-web/package.json ask for different Playwright versions"
+# One exact version, not a range: no lock file ships, so the pin is what fixes the installed tree (framework/tools/ui/.npmrc).
+pw_exact='^[0-9]+\.[0-9]+\.[0-9]+$'
+[[ $pw_tool =~ $pw_exact && $pw_test =~ $pw_exact ]] \
+  && ok "Playwright is pinned to one exact version in both package.json files (no ^ or ~)" \
+  || bad "Playwright is a range in framework/tools/ui/package.json or tests/ui-web/package.json (pin one exact version: no lock file ships)"
 grep -qF "drift-reset.md" "$src/framework/.satt/procedures/align.md" \
   && ok "align.md recommends a drift reset for recurring or cross-cutting conflicts" \
   || bad "align.md doesn't point to drift-reset.md"
@@ -1212,7 +1219,11 @@ else
     [ -x "$_dir/node" ] || [ -x "$_dir/node.exe" ] || _no_node_path="${_no_node_path:+$_no_node_path:}$_dir"
   done
   out="$(PATH="$_no_node_path" bash tools/ui_capture.sh --all 2>&1)"; expect_status "exits 3 without Node" 3 $? "$out"
-  expect_output "and says it needs Node 18" "needs Node 18 or newer" "$out"
+  expect_output "and says it needs Node 20" "needs Node 20 or newer" "$out"
+  # The floor is Node 20, the lowest that Playwright 1.64.1 declares: a Node 19 is refused, not run.
+  mkdir -p "$work/node19" && printf '#!/bin/sh\ncase "$1" in -p) echo 19 ;; --version) echo v19.9.0 ;; esac\n' > "$work/node19/node" && chmod +x "$work/node19/node"
+  out="$(PATH="$work/node19:$PATH" bash tools/ui_capture.sh --all 2>&1)"; expect_status "exits 3 on Node 19, below the floor" 3 $? "$out"
+  expect_output "and says it needs Node 20 or newer, and which Node it found" "needs Node 20 or newer; this is v19.9.0" "$out"
   [ ! -e product/ui/captures ] && ok "writes nothing when it can't run" || bad "writes nothing when it can't run" "$(ls product/ui/captures)"
   out="$(PATH="$_no_node_path" bash tools/check.sh 2>&1)"; expect_status "the check passes without Node" 0 $? "$out"
   fingerprint="$(bash tools/check.sh --fingerprint)"

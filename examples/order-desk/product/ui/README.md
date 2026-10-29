@@ -9,7 +9,7 @@ This folder holds your drawings of the screens and the agent's records of them. 
 4. **Process.** Ask the agent to process it (`/ui-design process <screen>`). After the build, `/ui-design verify <screen>` checks the built screen against the spec.
 
 ## Setting up capture
-Capture opens your web client in a headless browser on this machine. It needs Node 18 or newer, once: `cd tools/ui && npm install && npx playwright install chromium`. The screens it captures are listed in `tools/ui/screens.mjs`; the app to open, the sizes and the test tenants are in `tools/ui_capture.cfg`. Each screen opens as a test user of a seeded test tenant, never a real one. If a saved sign-in is missing, capture names the file and the tenant and stops: sign in once as that test user and save it. The agent can set this up with you.
+Capture opens your web client in a headless browser on this machine. It needs Node 20 or newer, once: `cd tools/ui && npm install && npx playwright install chromium`. The screens it captures are listed in `tools/ui/screens.mjs`; the app to open, the sizes and the test tenants are in `tools/ui_capture.cfg`. Each screen opens as a test user of a seeded test tenant, never a real one. If a saved sign-in is missing, capture names the file and the tenant and stops: sign in once as that test user and save it. The agent can set this up with you.
 
 ## What a capture gives you
 For each screen the capture writes `product/ui/captures/<screen>.starter.excalidraw`: the screenshot, locked inside a frame named after the screen. Beside it is the `.map.png`. In the starter you also get:
