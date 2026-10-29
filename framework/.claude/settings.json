@@ -53,7 +53,11 @@
       "Bash(git commit --no-verify *)",
       "Bash(git commit -n *)",
       "Bash(azd down *)",
-      "Bash(az group delete *)"
+      "Bash(az group delete *)",
+      "Bash(git *--output*)",
+      "Bash(git *--no-index*)",
+      "Bash(git *--ext-diff*)",
+      "Bash(git commit *--file*)"
     ]
   },
   "hooks": {
