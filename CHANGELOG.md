@@ -2,7 +2,7 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
-## Unreleased
+## 0.14.1 (2026-10-29)
 
 - **The screen-capture tooling pins Playwright to one exact version.** `framework/tools/ui/package.json`, and the selftest's copy of it in `tests/ui-web/package.json`, asked for `^1.50.0`, so an install took the newest Playwright in that range, and with it the Chromium that `npx playwright install chromium` downloads. Both now pin `1.64.1`. Playwright pins its only dependency, `playwright-core`, to the same version, and that package has no dependencies of its own, so the installed tree is fixed without a lock file; `tools/ui/.npmrc` says why there is none. `selftest.sh` fails when either manifest asks for a range.
   - **Upgrade steps:** none; the files are framework-owned and arrive with the upgrade. An app that installed the capture tools earlier keeps the Playwright it installed until it runs `cd tools/ui && npm install` again, which installs the pin.
