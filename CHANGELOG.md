@@ -6,6 +6,8 @@ Each entry lists what changed. An entry that requires changes to an app's own fi
 
 - **The screen-capture tooling pins Playwright to one exact version.** `framework/tools/ui/package.json`, and the selftest's copy of it in `tests/ui-web/package.json`, asked for `^1.50.0`, so an install took the newest Playwright in that range, and with it the Chromium that `npx playwright install chromium` downloads. Both now pin `1.64.1`. Playwright pins its only dependency, `playwright-core`, to the same version, and that package has no dependencies of its own, so the installed tree is fixed without a lock file; `tools/ui/.npmrc` says why there is none. `selftest.sh` fails when either manifest asks for a range.
   - **Upgrade steps:** none; the files are framework-owned and arrive with the upgrade. An app that installed the capture tools earlier keeps the Playwright it installed until it runs `cd tools/ui && npm install` again, which installs the pin.
+- **The screen-capture tooling asks for Node 20, as Playwright does.** Playwright 1.64.1 declares `node >=20`, but `framework/tools/ui/package.json` and `framework/tools/ui_capture.sh` asked for Node 18, so a Node 18 machine passed the check and then failed the install. They now ask for Node 20 or newer, and the capture's message, the `ui-design` procedure, the onboarding and the selftest say so too, and the selftest refuses a Node 19. The check never needs Node.
+  - **Upgrade steps:** an app on Node 18 or 19 installs Node 20 or newer before `bash tools/ui_capture.sh` captures, from nodejs.org or its version manager. Nothing else changes: the files are framework-owned and arrive with the upgrade, and the check never needs Node.
 
 ## 0.14.0 (2026-10-25)
 

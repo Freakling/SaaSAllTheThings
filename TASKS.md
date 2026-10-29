@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T28 · B3 · R1
+**Next IDs:** T29 · B3 · R1
 
 ## Queue
+
+### T28 · The screen-capture tooling asks for Node 20, as Playwright does · done · XS · agent
+- Touches: framework/tools/ui/package.json, framework/tools/ui/capture.mjs, framework/tools/ui_capture.sh, framework/.satt/procedures/ui-design.md, examples/order-desk/product/ui/README.md, project/product/ui/README.md, ONBOARDING.md, selftest.sh, CHANGELOG.md
+- Done when: `engines.node` in `framework/tools/ui/package.json`, the Node check in `framework/tools/ui_capture.sh` and the message in `framework/tools/ui/capture.mjs` say Node 20 or newer, the lowest Node that `playwright` 1.64.1 declares (`npm view playwright@1.64.1 engines`) (check) · the docs, onboarding and selftest name Node 20 everywhere they named the old floor, and the selftest refuses a Node 19 with that wording (check)
+- PRD: none
+- Source: Director-Driven-Development T220
 
 ### T27 · The screen-capture tooling pins Playwright to one exact version · done · XS · agent
 - Touches: framework/tools/ui/package.json, framework/tools/ui/.npmrc, tests/ui-web/package.json, selftest.sh, CHANGELOG.md

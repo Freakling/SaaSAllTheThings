@@ -21,7 +21,7 @@ Tenants and data:
 - **Saving a test user's sign-in** is the director's or a developer's step, once per clone, and again when it expires: with the app running, in `tools/ui`, `npx playwright codegen --save-storage=.auth/<auth>.json <base_url>` (or the `dev_url`, for dev: a sign-in is saved per address), then sign in as that test user. Never ask for a password or a token in the conversation.
 - **A saved sign-in keeps cookies and `localStorage`, not `sessionStorage`.** For it to work, the web client must keep its sign-in there: with MSAL, `cacheLocation: "localStorage"` in the builds capture opens, or a test sign-in the local build offers. A saved sign-in that doesn't hold shows as a screen sent off to sign in.
 
-`tools/ui_capture.sh` runs Node and Playwright, kept apart from the app in `tools/ui/` (its own `package.json`). It needs Node 18 or newer, and once per clone: `cd tools/ui && npm install && npx playwright install chromium`. The app's own check never needs them.
+`tools/ui_capture.sh` runs Node and Playwright, kept apart from the app in `tools/ui/` (its own `package.json`). It needs Node 20 or newer, and once per clone: `cd tools/ui && npm install && npx playwright install chromium`. The app's own check never needs them.
 
 Capture opens the product on this machine (the web client, with the backend on the local Functions host and emulators): `tools/ui_capture.cfg` › `[web] base_url` (or `baseUrl` in the catalog), which must be `localhost`, `127.0.0.1` or a name for this machine in `[web] allow_hosts` (each must resolve to a loopback or private address). `[web] start_command` starts the app when nothing answers (its output goes to `.satt/state/ui_app.log`), and capture stops it afterwards; if a capture was killed before it could, the next capture stops that app first. A product with no web client leaves `base_url` empty.
 
@@ -34,7 +34,7 @@ It may also open the dev environment, and nothing else hosted: `[web] dev_url` n
 
 ## capture
 1. Run `bash tools/ui_capture.sh <screen>`, or `--all`. `--state <name>` narrows it; `--size <W>x<H>` captures one size, listed in `tools/ui_capture.cfg` or not. Chromium runs headless, so no display is needed.
-   - Exit 3: say capture couldn't run and why, and stop. The causes: no Node 18, Playwright or Chromium not installed in `tools/ui` (it prints the command), no web client to open (`base_url` empty), a host that isn't this machine, the app that didn't start, or a test user's sign-in that isn't saved (it names the file and the test tenant; ask the director to save it, as The catalog says). It wrote nothing.
+   - Exit 3: say capture couldn't run and why, and stop. The causes: no Node 20 or newer, Playwright or Chromium not installed in `tools/ui` (it prints the command), no web client to open (`base_url` empty), a host that isn't this machine, the app that didn't start, or a test user's sign-in that isn't saved (it names the file and the test tenant; ask the director to save it, as The catalog says). It wrote nothing.
    - Exit 1: something failed, and the run went on with everything else. The causes, each named in a `FAIL` line:
      - a screen's page threw an error (it is still captured, with the error at the top of its `.lint.txt`), its route answered with an error, its state threw, or it didn't finish within `[capture] setup_timeout` seconds (the error is its whole `.lint.txt`);
      - a screen answered 401 or 403, or sent the browser off this machine (usually to sign in): it needs a test tenant and its test user's sign-in, or the saved sign-in has expired;
