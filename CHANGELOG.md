@@ -2,7 +2,7 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
-## Unreleased
+## 0.14.4 (2026-10-30)
 
 - **The guard and the Read rules block reads of .env, .pem and .key files.** The settings template now denies the Read tool `.env`, `**/.env`, `*.pem`, `**/*.pem`, `*.key` and `**/*.key`, and the guard hook (`guard-commands.sh`) blocks a shell `cat`, `head`, `tail`, `less`, `more` or `strings` of such a file, quoted or not, from the current folder or one below it (`cat .env`, `head ./.env`, `cat "certs/server.pem"`, `less deploy.key`, `head '.env'`). A prompt injected from a fetched page could otherwise put a live secret into the conversation, where it has to be treated as compromised and rotated. Names that only look like one pass, such as `.env.example`, `README.md` and `docs/keys.md`. Like the credential-store check, the guard matches the command text, so a read by another command (`grep`, `sed`, a script) isn't caught, and the rules cover `.env` itself, not variants such as `.env.local`.
   - **Upgrade steps:** the hook and `.claude/settings.json` are framework-owned and arrive with the upgrade (if you edited `.claude/settings.json`, merge its `.satt-new` file). Restart Claude Code so the new deny rules load.
