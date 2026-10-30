@@ -556,13 +556,15 @@ git_deny_missing() { # git_deny_missing <settings file>: the deny rules it lacks
     done
   fi
 }
-# The credential stores: the Read tool may not open the gh CLI's token file, git's credentials or
-# ~/.ssh, so each of these five Read rules has to be in the deny list, named exactly.
-read_deny_missing() { # read_deny_missing <settings file>: the credential-store Read rules it doesn't deny
+# The credential stores and the secret files: the Read tool may not open the gh CLI's token file, git's
+# credentials, ~/.ssh, or a .env, *.pem or *.key file, so each of these eleven Read rules has to be in the
+# deny list, named exactly (the docs repo's item T248 adds the last six).
+read_deny_missing() { # read_deny_missing <settings file>: the Read rules it doesn't deny
   local rule deny
   deny="$(sed -n '/"deny": *\[/,/\]/p' "$1")"
   for rule in 'Read(~/.ssh/**)' 'Read(~/.git-credentials)' 'Read(~/.config/git/credentials)' \
-      'Read(~/.config/gh/**)' 'Read(~/AppData/Roaming/GitHub CLI/**)'; do
+      'Read(~/.config/gh/**)' 'Read(~/AppData/Roaming/GitHub CLI/**)' \
+      'Read(.env)' 'Read(**/.env)' 'Read(*.pem)' 'Read(**/*.pem)' 'Read(*.key)' 'Read(**/*.key)'; do
     printf '%s\n' "$deny" | grep -qF "\"$rule\"" || printf '%s\n' "$rule"
   done
 }
@@ -574,11 +576,11 @@ else
   ok "the settings template denies git's file-writing, file-reading and external-command flags next to its wildcard git rules"
 fi
 if [ ! -f "$settings" ]; then
-  bad "the settings template is missing, so its credential-store Read rules can't be checked"
+  bad "the settings template is missing, so its credential-store and secret-file Read rules can't be checked"
 elif [ -n "$(read_deny_missing "$settings")" ]; then
-  bad "the settings template lets the Read tool open the credential stores (the gh CLI's, git's credentials, ~/.ssh):" "$(read_deny_missing "$settings")"
+  bad "the settings template lets the Read tool open the credential stores (the gh CLI's, git's credentials, ~/.ssh) or the secret files (.env, *.pem, *.key):" "$(read_deny_missing "$settings")"
 else
-  ok "the settings template denies the Read tool the gh CLI's, git's and SSH credential stores"
+  ok "the settings template denies the Read tool the gh CLI's, git's and SSH credential stores, and the .env, *.pem and *.key files"
 fi
 # The check is tested on planted settings, so a change that stops it flagging a missing rule fails here.
 git_planted=""
@@ -599,14 +601,18 @@ printf '{\n  "permissions": {\n    "allow": [\n      "Bash(git grep *)"\n    ],\
 [ -z "$(git_deny_missing "$work/git-deny-grep-all.json")" ] || git_planted="$git_planted grep-all"
 [ -z "$git_planted" ] && ok "the git deny check flags each missing deny rule, and passes settings with no wildcard git rule" \
   || bad "the git deny check misses a planted case:$git_planted"
-# The same for the credential stores' Read rules, on planted settings.
+# The same for the Read rules, on planted settings.
 read_planted=""
-[ "$(read_deny_missing "$work/git-deny-none.json" | wc -l | tr -d ' ')" = 5 ] || read_planted="$read_planted none"
-printf '{\n  "permissions": {\n    "deny": [\n      "Read(~/.ssh/**)",\n      "Read(~/.git-credentials)",\n      "Read(~/.config/git/credentials)",\n      "Read(~/.config/gh/**)"\n    ]\n  }\n}\n' > "$work/read-deny-four.json"
+printf '{\n  "permissions": {\n    "allow": [\n      "Bash(git status)"\n    ]\n  }\n}\n' > "$work/read-deny-none.json"
+[ "$(read_deny_missing "$work/read-deny-none.json" | wc -l | tr -d ' ')" = 11 ] || read_planted="$read_planted none"
+printf '{\n  "permissions": {\n    "deny": [\n      "Read(~/.ssh/**)",\n      "Read(~/.git-credentials)",\n      "Read(~/.config/git/credentials)",\n      "Read(~/.config/gh/**)",\n      "Read(.env)",\n      "Read(**/.env)",\n      "Read(*.pem)",\n      "Read(**/*.pem)",\n      "Read(*.key)",\n      "Read(**/*.key)"\n    ]\n  }\n}\n' > "$work/read-deny-four.json"
 [ "$(read_deny_missing "$work/read-deny-four.json")" = 'Read(~/AppData/Roaming/GitHub CLI/**)' ] || read_planted="$read_planted four"
-printf '{\n  "permissions": {\n    "deny": [\n      "Read(~/.ssh/**)",\n      "Read(~/.git-credentials)",\n      "Read(~/.config/git/credentials)",\n      "Read(~/.config/gh/**)",\n      "Read(~/AppData/Roaming/GitHub CLI/**)"\n    ]\n  }\n}\n' > "$work/read-deny-all.json"
+printf '{\n  "permissions": {\n    "deny": [\n      "Read(~/.ssh/**)",\n      "Read(~/.git-credentials)",\n      "Read(~/.config/git/credentials)",\n      "Read(~/.config/gh/**)",\n      "Read(~/AppData/Roaming/GitHub CLI/**)",\n      "Read(.env)",\n      "Read(**/.env)",\n      "Read(*.pem)",\n      "Read(**/*.pem)",\n      "Read(*.key)",\n      "Read(**/*.key)"\n    ]\n  }\n}\n' > "$work/read-deny-all.json"
 [ -z "$(read_deny_missing "$work/read-deny-all.json")" ] || read_planted="$read_planted all"
-[ -z "$read_planted" ] && ok "the Read deny check flags each missing credential-store rule, and passes settings that deny all five" \
+# A secret file written in a shorter form doesn't count: this one lacks Read(**/*.pem) and nothing else.
+printf '{\n  "permissions": {\n    "deny": [\n      "Read(~/.ssh/**)",\n      "Read(~/.git-credentials)",\n      "Read(~/.config/git/credentials)",\n      "Read(~/.config/gh/**)",\n      "Read(~/AppData/Roaming/GitHub CLI/**)",\n      "Read(.env)",\n      "Read(**/.env)",\n      "Read(*.pem)",\n      "Read(*.key)",\n      "Read(**/*.key)"\n    ]\n  }\n}\n' > "$work/read-deny-no-recursive-pem.json"
+[ "$(read_deny_missing "$work/read-deny-no-recursive-pem.json")" = 'Read(**/*.pem)' ] || read_planted="$read_planted recursive-pem"
+[ -z "$read_planted" ] && ok "the Read deny check flags each missing credential-store and secret-file rule, and passes settings that deny all eleven" \
   || bad "the Read deny check misses a planted case:$read_planted"
 guard() { # guard <expected exit> <command>
   local escaped="${2//\\/\\\\}"
@@ -736,6 +742,27 @@ for cmd in \
     'ls ~/.ssh' \
     'gh auth status' \
     'git commit -m "docs: gh auth token prints the stored token"'; do
+  guard 0 "$cmd"
+done
+# The secret files: .env, *.pem and *.key read by the shell, relative, from a folder or quoted (the docs
+# repo's item T248, as App-Director's guard blocks them). Names that only look like one pass.
+for cmd in \
+    'cat .env' \
+    'head ./.env' \
+    'cat "certs/server.pem"' \
+    'less deploy.key' \
+    "head '.env'" \
+    'tail -n 5 config/.env' \
+    'cat "deploy keys/prod.key"' \
+    'strings "C:\certs\server.pem"'; do
+  guard 2 "$cmd"
+done
+for cmd in \
+    'cat .env.example' \
+    'cat README.md' \
+    'cat docs/keys.md' \
+    'ls .env' \
+    'cat x.env'; do
   guard 0 "$cmd"
 done
 

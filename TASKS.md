@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T31 · B3 · R1
+**Next IDs:** T32 · B3 · R1
 
 ## Queue
+
+### T31 · The guard and the Read rules block reads of .env, .pem and .key files · done · S · agent
+- Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, selftest.sh, CHANGELOG.md
+- Done when: the template's settings deny the Read tool `.env`, `*.pem` and `*.key` files (`.env`, `**/.env`, `*.pem`, `**/*.pem`, `*.key`, `**/*.key`), and the guard hook blocks shell reads of them with `cat`, `head`, `tail`, `less`, `more` or `strings`, quoted paths included, and passes `.env.example`, `README.md` and `docs/keys.md` (check) · `selftest.sh` runs each case through the guard, and fails when the settings template lacks any of the six Read rules (check)
+- PRD: none
+- Source: Director-Driven-Development T248
 
 ### T30 · The guard closes the git grep pager, the credential stores and the unscanned commits · done · M · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, framework/.githooks/pre-commit, framework/tools/check.sh, README.md, selftest.sh, CHANGELOG.md
