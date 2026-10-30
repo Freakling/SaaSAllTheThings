@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T32 · B3 · R1
+**Next IDs:** T33 · B3 · R1
 
 ## Queue
+
+### T32 · The guard and the Read rules block reads of .env.local and the other .env.<suffix> files · done · S · agent
+- Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, selftest.sh, CHANGELOG.md
+- Done when: the template's settings deny the Read tool `.env.local`, `.env.production`, `.env.development`, `.env.staging` and `.env.test` in their plain and `**/` forms, and `.env.*.local`, and the guard hook blocks shell reads of any `.env.<suffix>` file with `cat`, `head`, `tail`, `less`, `more` or `strings`, quoted paths and several files on one line included, and passes `.env.example`, `.env.sample`, `.env.template` and `.env.dist` (check) · `selftest.sh` runs each case through the guard, and fails when the settings template lacks any of the twelve Read rules (check)
+- PRD: none
+- Source: Director-Driven-Development T253
 
 ### T31 · The guard and the Read rules block reads of .env, .pem and .key files · done · S · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, selftest.sh, CHANGELOG.md
