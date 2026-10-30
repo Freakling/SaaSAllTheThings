@@ -4,6 +4,7 @@
 # The single definition of "it works":
 #   bash tools/check.sh                  run the check
 #   bash tools/check.sh --architecture   only the architecture rules: seconds, no toolchain needed
+#   bash tools/check.sh --secrets        only the secrets rule (step 1's), for the pre-commit hook to run on every commit
 #   bash tools/check.sh --if-changed     repeat the last result at once if these exact files were checked
 #   bash tools/check.sh --fingerprint    print the fingerprint of the current files (for hooks)
 # Exit codes: 0 = pass · 1 = fail · 3 = couldn't run (a toolchain is missing)
@@ -41,8 +42,60 @@ fingerprint() {
     | git hash-object --stdin
 }
 
+# What counts as a secret, for step 1 and for --secrets.
+secret_patterns=(
+  -e 'AccountKey=[A-Za-z0-9+/]{30,}'
+  -e 'SharedAccessKey=[A-Za-z0-9+/]{30,}'
+  -e '-----BEGIN ([A-Z]+ )*PRIVATE KEY-----'
+  -e '[A-Za-z0-9_~.-]{3}[0-9]Q~[A-Za-z0-9_~.-]{31,}'
+  -e '(sig|SharedAccessSignature)=[A-Za-z0-9%+/=]{40,}'
+  -e '(password|pwd)=[^;"'"'"'<>{}$[:space:]]{6,}'
+  -e '"(password|pwd|secret|client_?secret|api_?key|access_?key)"[[:space:]]*:[[:space:]]*"[^"<>{}$[:space:]]{6,}"'
+  -e 'AKIA[0-9A-Z]{16}'
+  -e 'gh[pousr]_[A-Za-z0-9]{36}'
+  -e 'xox[abprs]-[A-Za-z0-9-]{10,}'
+)
+# scan_secrets <file>: the working tree's lines that match a pattern, as path:line:text (the text is
+# never printed). The check's own files hold the patterns, so they're left out.
+scan_secrets() {
+  git -c core.quotePath=false grep -n -I -i -E --untracked "${secret_patterns[@]}" -- . \
+    ':(exclude)tools/check.sh' ':(exclude)tools/archcheck.awk' > "$1" 2>/dev/null
+}
+# list_adrs <file>: the ADRs, for the exceptions that excuse a violation.
+list_adrs() {
+  local f
+  : > "$1"
+  for f in adr/ADR-*.md; do [ -f "$f" ] && printf '%s\n' "$f" >> "$1"; done
+}
+
 if [ "$mode" = "--fingerprint" ]; then fingerprint; exit 0; fi
 [ -d "$state" ] || mkdir -p "$state" || exit 3
+
+# --secrets: only the secrets rule of step 1, with the same patterns, [scan] skip folders, public
+# emulator keys and accepted ADR exceptions, over the whole working tree. The pre-commit hook runs it
+# on every commit, because it runs the whole check only for a commit that stages more than documentation.
+# It only reads, so it takes no lock and no fingerprint. Other violations are the full check's to report.
+if [ "$mode" = "--secrets" ]; then
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "check: note: not a git repository, so secrets aren't scanned"
+    exit 0
+  fi
+  found="$state/secrets-scan.txt"; adrs="$state/secrets-adrs.txt"; log="$state/secrets-scan.log"
+  list_adrs "$adrs"; : > "$log"
+  scan_secrets "$found"
+  awk -v cfg=tools/check.cfg -v adrs="$adrs" -v secrets="$found" -v logfile="$log" -f tools/archcheck.awk >/dev/null
+  [ $? -le 1 ] || { echo "check: secrets: awk couldn't run the rules"; exit 3; }
+  count=0
+  while IFS= read -r line; do
+    case "$line" in "  [secrets] "*) printf '%s\n' "$line"; count=$((count + 1)) ;; esac
+  done < "$log"
+  if [ "$count" -gt 0 ]; then
+    echo "check: secrets: FAIL: $count (if it's real it's exposed: rotate it, remove it; only an accepted ADR in adr/ excuses one)"
+    exit 1
+  fi
+  echo "check: secrets: PASS"
+  exit 0
+fi
 . tools/cfg.sh
 
 before=""
@@ -102,29 +155,16 @@ timed_out() { echo "check: $1 ran past the $cfg_timeout-second limit (tools/chec
 failed=0; unverified=0
 
 # --- 1. architecture ------------------------------------------------------------------------------
-secret_patterns=(
-  -e 'AccountKey=[A-Za-z0-9+/]{30,}'
-  -e 'SharedAccessKey=[A-Za-z0-9+/]{30,}'
-  -e '-----BEGIN ([A-Z]+ )*PRIVATE KEY-----'
-  -e '[A-Za-z0-9_~.-]{3}[0-9]Q~[A-Za-z0-9_~.-]{31,}'
-  -e '(sig|SharedAccessSignature)=[A-Za-z0-9%+/=]{40,}'
-  -e '(password|pwd)=[^;"'"'"'<>{}$[:space:]]{6,}'
-  -e '"(password|pwd|secret|client_?secret|api_?key|access_?key)"[[:space:]]*:[[:space:]]*"[^"<>{}$[:space:]]{6,}"'
-  -e 'AKIA[0-9A-Z]{16}'
-  -e 'gh[pousr]_[A-Za-z0-9]{36}'
-  -e 'xox[abprs]-[A-Za-z0-9-]{10,}'
-)
 architecture() {
-  local list="$state/files.txt" adrs="$state/adrs.txt" secrets="$state/secrets.txt" f
-  : > "$adrs"; : > "$secrets"
+  local list="$state/files.txt" adrs="$state/adrs.txt" secrets="$state/secrets.txt"
+  : > "$secrets"
   if git -c core.quotePath=false ls-files -c -o --exclude-standard > "$list" 2>/dev/null; then
-    git -c core.quotePath=false grep -n -I -i -E --untracked "${secret_patterns[@]}" -- . \
-      ':(exclude)tools/check.sh' ':(exclude)tools/archcheck.awk' > "$secrets" 2>/dev/null
+    scan_secrets "$secrets"
   else
     "$FIND" . -type f ! -path './.git/*' ! -path "./$state/*" | sed 's|^\./||' > "$list"
     echo "check: note: not a git repository, so secrets aren't scanned"
   fi
-  for f in adr/ADR-*.md; do [ -f "$f" ] && printf '%s\n' "$f" >> "$adrs"; done
+  list_adrs "$adrs"
   awk -v cfg=tools/check.cfg -v files="$list" -v adrs="$adrs" -v secrets="$secrets" \
     -v logfile="$state/architecture.log" -f tools/archcheck.awk || failed=1
 }

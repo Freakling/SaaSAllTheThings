@@ -188,7 +188,7 @@ your-app/
 ├── tools/check.sh, archcheck.awk, cfg.sh, stacks/   the check, and one profile per backend stack
 ├── tools/setup-clone.sh        per clone: toolchain, dependencies, the pre-commit hook
 ├── tools/ui_capture.sh, tools/ui/  screen capture, element map, layout lint, drawing reader, compare and verify (Node and Playwright)
-├── .githooks/pre-commit        runs the check before commits that touch more than docs
+├── .githooks/pre-commit        scans for secrets on every commit, and runs the check before commits that touch more than docs
 ├── validation/README.md        how acceptance checks and feedback reports work
 │
 │  the framework's, Claude Code adapter: updated on upgrade

@@ -10,9 +10,16 @@
 # starts no other processes (it runs on every Bash call).
 #
 # It also blocks the git flags that write a file, read a file outside the repository or run a
-# configured command (--output, --no-index, --ext-diff, commit -F and --file), because the allow
-# rules in settings.json let `git diff *`, `git log *`, `git show *` and `git commit *` run with
-# any flag. See the section "git: flags that write a file" below.
+# configured command (--output, --no-index, --ext-diff, commit -F and --file, grep -O and
+# --open-files-in-pager), because the allow rules in settings.json let `git diff *`, `git log *`,
+# `git show *`, `git commit *` and `git grep *` run with any flag. See the section "git: flags that
+# write a file" below.
+#
+# And shell commands that read the credential stores (~/.ssh, git's credentials files, the gh CLI's
+# hosts.yml) and the commands that print a stored credential (gh auth token, gh auth status -t, git
+# credential fill or get). See the section "credential stores" below. This is a guardrail, not a
+# guarantee: complex pipelines or indirect reads are not detected. The Read-tool deny rules in
+# settings.json cover the Read tool.
 
 IFS= read -r -d '' input || true
 re='"command"[[:space:]]*:[[:space:]]*"(([^"\\]|\\.)*)"'
@@ -72,12 +79,41 @@ while [[ $rest =~ $sl ]]; do
   rest="${rest#*"${BASH_REMATCH[0]}"}"
 done
 
-[[ $raw =~ (^|[^[:alnum:]_./-])(git|az|azd)([[:space:]]|$) ]] || exit 0
-
 block() {
   echo "SaaSAllTheThings: blocked: $1. If it's really needed, ask the human to run it." >&2
   exit 2
 }
+
+# --- credential stores ----------------------------------------------------------------------------
+# Block direct shell reads of the credential stores: ~/.ssh (any key, known_hosts too), git's credentials
+# files, and the gh CLI's hosts.yml (.config/gh, or AppData's GitHub CLI). A path is blocked when it is
+# one of those or sits inside one, however it is written: ~/, $HOME/, ${HOME}/, /c/Users/<name>/,
+# C:\Users\<name>\ or relative. The commands that print a stored credential are blocked as well (gh auth
+# token, gh auth status -t, git credential fill or get). These files may hold live credentials, and any
+# credential read in a conversation has to be treated as compromised and rotated. This is a best-effort
+# check on the command text; indirect reads are not detected. settings.json denies the Read tool the
+# same stores.
+cred_end="([[:space:]\"';&|)]|\$)"
+cred_store_re='\.ssh([/\\]|'"$cred_end"')|\.git-credentials|\.config[/\\]git[/\\]credentials|\.config[/\\]gh([/\\]|'"$cred_end"')|GitHub CLI([/\\]|'"$cred_end"')'
+reads_cred_store() {
+  # The command as the shell reads it: JSON escapes undone (\\ is one backslash, so C:\Users\V
+  # works) and the \n that separates commands becomes ;. Bash expansions only, so no process starts.
+  local cmd="${raw//\\\\/$'\x01'}" bs='\'
+  cmd="${cmd//\\\"/\"}"; cmd="${cmd//\\n/;}"; cmd="${cmd//$'\x01'/$bs}"
+  # A store read: the command word, then a path that is a store, or has one after a character that
+  # isn't part of a name, so ~/.ssh, $HOME/.ssh and "C:\...\.ssh" match, and x.ssh doesn't.
+  local store_read_re='(^|[[:space:]|;&(])(cat|head|tail|less|more|strings)[[:space:]]+([^;&|]*[^[:alnum:]_.-])?('"$cred_store_re"')'
+  [[ $cmd =~ $store_read_re ]]
+}
+reads_cred_store && block "reading a credential store (~/.ssh, git's credentials files, the gh CLI's hosts.yml) puts live credentials in the conversation, where they have to be treated as compromised and rotated"
+# Matched on code (the command with its quoted text blanked), so a commit message that names them isn't blocked.
+gh_print_re='(^|[^[:alnum:]_./-])gh[[:space:]]+auth[[:space:]]+(token([[:space:]]|$|[;&|)])|status[^;&|]*[[:space:]](-[[:alpha:]]*t[[:alpha:]]*|--show-token)([[:space:]]|$|[;&|)]))'
+git_print_re='(^|[^[:alnum:]_./-])git[[:space:]]+([^;&|]*[[:space:]])?credential[[:space:]]+(fill|get)([[:space:]]|$|[;&|)])'
+[[ $code =~ $gh_print_re ]] && block "gh auth token and gh auth status -t print the gh CLI's stored token"
+[[ $code =~ $git_print_re ]] && block "git credential fill and get print a credential from git's credential store"
+
+[[ $raw =~ (^|[^[:alnum:]_./-])(git|az|azd)([[:space:]]|$) ]] || exit 0
+
 seg='[^;&|]*'   # stays within one command of a compound command line
 
 # --- git ------------------------------------------------------------------------------------------
@@ -96,13 +132,14 @@ shopt -u nocasematch
 [[ $code =~ branch${seg}[[:space:]]-D([[:space:]]|$) ]] && block "git branch -D deletes unmerged work"
 
 # --- git: flags that write a file, read outside the repository or run a configured command --------
-# settings.json allows `git diff *`, `git log *`, `git show *` and `git commit *` without a prompt, so
-# every flag after them runs without one too. These turn them into a file write (--output), a read of
-# any file on the machine (--no-index; a `git diff` of a path outside the repository, which git treats
-# as --no-index; commit -F and --file) or the run of a configured command (--ext-diff). The command
-# is read as the shell hands it to git: '--output=x', "--output"=x and --out\put=x are the flag, while
-# a flag named inside a quoted message or a heredoc body is not. Variables and command substitutions
-# outside quotes are not expanded, so this is a text match like the rest.
+# settings.json allows `git diff *`, `git log *`, `git show *`, `git commit *` and `git grep *` without a
+# prompt, so every flag after them runs without one too. These turn them into a file write (--output), a
+# read of any file on the machine (--no-index; a `git diff` of a path outside the repository, which git
+# treats as --no-index; commit -F and --file) or the run of a configured command (--ext-diff; grep -O,
+# which runs its argument as the pager). The command is read as the shell hands it to git:
+# '--output=x', "--output"=x and --out\put=x are the flag, while a flag named inside a quoted message or
+# a heredoc body is not. Variables and command substitutions outside quotes are not expanded, so this
+# is a text match like the rest.
 lf=$'\n'; bs='\'; sq1="'"
 cmdsub='$'"("; bt=$'\x60'   # built here so this file holds no command substitution of its own
 real="${raw//\\\\/$'\x01'}"; real="${real//\\\"/\"}"; real="${real//\\n/$lf}"
@@ -157,9 +194,10 @@ gitflag '--output([[:space:]=;&|]|$)' && block "--output writes a file to any pa
 gitflag '--no-index([[:space:]=;&|]|$)' && block "--no-index reads any file on the machine"
 gitflag '--ext' && block "--ext-diff runs a configured external command"
 
-# Per command: git commit -F and --file read any file (the message may come from stdin: -F -), and a
-# git diff of a path outside the repository reads it too. The subcommand is the first word after git
-# that isn't an option, so `git log --grep commit -F` is not a commit.
+# Per command: git commit -F and --file read any file (the message may come from stdin: -F -), a git
+# diff of a path outside the repository reads it too, and git grep -O and --open-files-in-pager run a
+# command as the pager. The subcommand is the first word after git that isn't an option, so
+# `git log --grep commit -F` is not a commit.
 outre='^(/|~|[A-Za-z]:|\$[A-Za-z_{])|(^|/)\.\.(/|$)'
 brackets=$'[(){}\x60]'
 IFS=';&|' read -r -d '' -a gsegs <<<"$gcode" || true
@@ -186,6 +224,28 @@ for gs in "${gsegs[@]}"; do
       for ((k++; k < n; k++)); do
         [[ ${w[k]} == -* ]] && continue
         [[ ${w[k]} =~ $outre ]] && block "git diff of a path outside the repository reads any file on the machine"
+      done ;;
+    grep)
+      # -O takes its command attached (-Ovim; -O alone runs the configured pager), and git reads it inside a
+      # cluster too (-iO, -nOvim). -e -f -A -B -C -m take the rest of the word, or the next word, as their
+      # value, so a -O after them is a value (-eO is the pattern O). After -- come paths. --open-files-in-pager
+      # may be shortened to any prefix git accepts, --op and longer.
+      for ((k++; k < n; k++)); do
+        a="${w[k]}"
+        [[ $a == -- ]] && break
+        if [[ $a == --* ]]; then
+          name="${a%%=*}"
+          [[ $name == --op* && --open-files-in-pager == "$name"* ]] && block "git grep --open-files-in-pager runs a command as the pager"
+        elif [[ $a == -* ]]; then
+          cl="${a#-}"
+          while [[ -n $cl ]]; do
+            c="${cl:0:1}"; cl="${cl:1}"
+            case $c in
+              O) block "git grep -O runs a command as the pager" ;;
+              [efABCm]) [[ -n $cl ]] || ((k++)); break ;;
+            esac
+          done
+        fi
       done ;;
   esac
 done

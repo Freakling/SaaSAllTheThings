@@ -4,9 +4,15 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T30 · B3 · R1
+**Next IDs:** T31 · B3 · R1
 
 ## Queue
+
+### T30 · The guard closes the git grep pager, the credential stores and the unscanned commits · done · M · agent
+- Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, framework/.githooks/pre-commit, framework/tools/check.sh, README.md, selftest.sh, CHANGELOG.md
+- Done when: the guard hook blocks `git grep -O` and `--open-files-in-pager` in every short, combined and abbreviated spelling, and the shell reads of `~/.ssh`, git's credentials files and the gh CLI's `hosts.yml` in any spelling of the path, and `gh auth token`, `gh auth status -t` and `git credential fill|get`, and passes the plain forms the procedures use (check) · the settings template denies `Bash(git grep *--open*)`, `Bash(git grep *-O*)` and the Read tool the five credential stores, and `selftest.sh` fails when it allows `git grep *` without the two Bash rules or lacks any of the five Read rules (check) · the pre-commit hook runs the check's secrets rule (`bash tools/check.sh --secrets`) on every commit, so a Markdown-only commit holding a secret is blocked without running the whole check (check)
+- PRD: none
+- Source: Director-Driven-Development T242
 
 ### T29 · The guard blocks the git flags that write or read any file · done · M · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, selftest.sh, CHANGELOG.md

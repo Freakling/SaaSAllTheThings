@@ -2,8 +2,10 @@
 # SaaSAllTheThings pre-commit hook · framework-owned: replaced on upgrade.
 # `bash tools/setup-clone.sh` installs a small hook in .git/hooks that runs this file.
 #
-# Runs the project check when the commit includes anything but documentation (Markdown outside
-# adr/). It checks the working tree, so commit what you checked.
+# On every commit, whatever is staged, it scans for secrets (the check's secrets rule, run alone as
+# `bash tools/check.sh --secrets`), so a token pasted into a page, a script or a record is caught
+# before it enters history. When the commit includes anything but documentation (Markdown outside
+# adr/), it also runs the project check. The check covers the working tree, so commit what you checked.
 
 # ls-files also lists a nested repository in an ignored folder (such as a clone) as a
 # directory, so keep only the paths that really end in .satt-new.
@@ -14,6 +16,21 @@ if [ -n "$pending" ]; then
   exit 1
 fi
 [ -f tools/check.sh ] || exit 0
+
+# The secrets scan doesn't wait for the check: the filter below skips most Markdown, and a pass the
+# check reuses (--if-changed) never looked at a Markdown file. The scan takes a second.
+echo "pre-commit: scanning for secrets"
+secrets_out="$(bash tools/check.sh --secrets 2>&1)"
+status=$?
+if [ "$status" -ne 0 ]; then
+  printf '%s\n' "$secrets_out"
+  if [ "$status" -eq 1 ]; then
+    echo "pre-commit: a secret was found; commit blocked."
+  else
+    echo "pre-commit: the secrets scan couldn't run; commit blocked."
+  fi
+  exit 1
+fi
 
 if git -c core.quotePath=false diff --cached --name-only -z --diff-filter=ACMRD | tr '\0' '\n' \
     | awk 'NF && (!/\.md$/ || /^adr\//) { found = 1 } END { exit !found }'; then
