@@ -2,7 +2,7 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
-## Unreleased
+## 0.14.5 (2026-10-30)
 
 - **The guard and the Read rules block reads of .env.local and the other .env.<suffix> files.** The settings template now denies the Read tool `.env.local`, `.env.production`, `.env.development`, `.env.staging` and `.env.test`, each in its plain and `**/` form, and `.env.*.local`, which covers the other local variants. The guard hook (`guard-commands.sh`) blocks a shell `cat`, `head`, `tail`, `less`, `more` or `strings` of any `.env.<suffix>` file, quoted or not, and every such file named after one of those commands on the same line (`tail -n 20 .env.local`, `cat .env.example .env.local`). The committed templates `.env.example`, `.env.sample`, `.env.template` and `.env.dist` stay readable, and so does a command that doesn't read the file, such as `ls .env.local`. The Read rules name the common suffixes rather than `.env.*`, because a pattern such as `.env.*` would also deny the templates. Another suffix, such as `.env.custom`, can still be opened with the Read tool; the guard covers it only for a shell read.
   - **Upgrade steps:** the hook and `.claude/settings.json` are framework-owned and arrive with the upgrade (if you edited `.claude/settings.json`, merge its `.satt-new` file). Restart Claude Code so the new deny rules load.
