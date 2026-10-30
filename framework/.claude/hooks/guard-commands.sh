@@ -16,10 +16,10 @@
 # write a file" below.
 #
 # And shell commands that read the credential stores (~/.ssh, git's credentials files, the gh CLI's
-# hosts.yml) and the commands that print a stored credential (gh auth token, gh auth status -t, git
-# credential fill or get). See the section "credential stores" below. This is a guardrail, not a
-# guarantee: complex pipelines or indirect reads are not detected. The Read-tool deny rules in
-# settings.json cover the Read tool.
+# hosts.yml), shell reads of .env, *.pem and *.key files, and the commands that print a stored
+# credential (gh auth token, gh auth status -t, git credential fill or get). See the section "credential
+# stores and secret files" below. This is a guardrail, not a guarantee: complex pipelines or indirect
+# reads are not detected. The Read-tool deny rules in settings.json cover the Read tool.
 
 IFS= read -r -d '' input || true
 re='"command"[[:space:]]*:[[:space:]]*"(([^"\\]|\\.)*)"'
@@ -84,7 +84,7 @@ block() {
   exit 2
 }
 
-# --- credential stores ----------------------------------------------------------------------------
+# --- credential stores and secret files -----------------------------------------------------------
 # Block direct shell reads of the credential stores: ~/.ssh (any key, known_hosts too), git's credentials
 # files, and the gh CLI's hosts.yml (.config/gh, or AppData's GitHub CLI). A path is blocked when it is
 # one of those or sits inside one, however it is written: ~/, $HOME/, ${HOME}/, /c/Users/<name>/,
@@ -93,19 +93,29 @@ block() {
 # credential read in a conversation has to be treated as compromised and rotated. This is a best-effort
 # check on the command text; indirect reads are not detected. settings.json denies the Read tool the
 # same stores.
+#
+# .env, *.pem and *.key files hold secrets too, so a shell read of one (cat, head, tail, less, more or
+# strings) is blocked the same way, whether its path is relative, starts with ./ or names a folder, or is
+# quoted. .env.example and docs/keys.md are not such files and pass. settings.json denies the Read tool
+# these as well.
 cred_end="([[:space:]\"';&|)]|\$)"
 cred_store_re='\.ssh([/\\]|'"$cred_end"')|\.git-credentials|\.config[/\\]git[/\\]credentials|\.config[/\\]gh([/\\]|'"$cred_end"')|GitHub CLI([/\\]|'"$cred_end"')'
+# The command as the shell reads it: JSON escapes undone (\\ is one backslash, so C:\Users\V
+# works) and the \n that separates commands becomes ;. Bash expansions only, so no process starts.
+shell_cmd="${raw//\\\\/$'\x01'}" bs='\'
+shell_cmd="${shell_cmd//\\\"/\"}"; shell_cmd="${shell_cmd//\\n/;}"; shell_cmd="${shell_cmd//$'\x01'/$bs}"
 reads_cred_store() {
-  # The command as the shell reads it: JSON escapes undone (\\ is one backslash, so C:\Users\V
-  # works) and the \n that separates commands becomes ;. Bash expansions only, so no process starts.
-  local cmd="${raw//\\\\/$'\x01'}" bs='\'
-  cmd="${cmd//\\\"/\"}"; cmd="${cmd//\\n/;}"; cmd="${cmd//$'\x01'/$bs}"
   # A store read: the command word, then a path that is a store, or has one after a character that
   # isn't part of a name, so ~/.ssh, $HOME/.ssh and "C:\...\.ssh" match, and x.ssh doesn't.
   local store_read_re='(^|[[:space:]|;&(])(cat|head|tail|less|more|strings)[[:space:]]+([^;&|]*[^[:alnum:]_.-])?('"$cred_store_re"')'
-  [[ $cmd =~ $store_read_re ]]
+  [[ $shell_cmd =~ $store_read_re ]]
 }
 reads_cred_store && block "reading a credential store (~/.ssh, git's credentials files, the gh CLI's hosts.yml) puts live credentials in the conversation, where they have to be treated as compromised and rotated"
+# A secret file: .env, or a name ending in .pem or .key, ending a word. A quoted path counts: "certs/server.pem"
+# and '.env' match, while .env.example, docs/keys.md and x.env don't.
+secret_end="([[:space:]\"';&|()<>]|\$)"
+secret_file_re='(^|[[:space:]|;&(])(cat|head|tail|less|more|strings)[[:space:]]+([^;&|]*[^[:alnum:]_.-])?([^[:space:];&|]*\.(pem|key)|\.env)'"$secret_end"
+[[ $shell_cmd =~ $secret_file_re ]] && block "reading a .env, .pem or .key file puts live secrets in the conversation, where they have to be treated as compromised and rotated"
 # Matched on code (the command with its quoted text blanked), so a commit message that names them isn't blocked.
 gh_print_re='(^|[^[:alnum:]_./-])gh[[:space:]]+auth[[:space:]]+(token([[:space:]]|$|[;&|)])|status[^;&|]*[[:space:]](-[[:alpha:]]*t[[:alpha:]]*|--show-token)([[:space:]]|$|[;&|)]))'
 git_print_re='(^|[^[:alnum:]_./-])git[[:space:]]+([^;&|]*[[:space:]])?credential[[:space:]]+(fill|get)([[:space:]]|$|[;&|)])'
