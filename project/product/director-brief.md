@@ -16,7 +16,7 @@ product owner can fill it in too.
   agent builds against them.
 - If you update it later, tell the agent ("my product brief changed") and it brings the PRD in line,
   again showing what it inferred.
-- The latest version of this template is at https://raw.githubusercontent.com/Freakling/SaaSAllTheThings/v0.14.4/project/product/director-brief.md
+- The latest version of this template is at https://raw.githubusercontent.com/Freakling/SaaSAllTheThings/v0.14.5/project/product/director-brief.md
 -->
 
 # Product Brief: [App Name]

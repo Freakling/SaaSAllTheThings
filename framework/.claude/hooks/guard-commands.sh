@@ -16,10 +16,10 @@
 # write a file" below.
 #
 # And shell commands that read the credential stores (~/.ssh, git's credentials files, the gh CLI's
-# hosts.yml), shell reads of .env, *.pem and *.key files, and the commands that print a stored
-# credential (gh auth token, gh auth status -t, git credential fill or get). See the section "credential
-# stores and secret files" below. This is a guardrail, not a guarantee: complex pipelines or indirect
-# reads are not detected. The Read-tool deny rules in settings.json cover the Read tool.
+# hosts.yml), shell reads of .env and .env.<suffix>, *.pem and *.key files, and the commands that print a
+# stored credential (gh auth token, gh auth status -t, git credential fill or get). See the section
+# "credential stores and secret files" below. This is a guardrail, not a guarantee: complex pipelines or
+# indirect reads are not detected. The Read-tool deny rules in settings.json cover the Read tool.
 
 IFS= read -r -d '' input || true
 re='"command"[[:space:]]*:[[:space:]]*"(([^"\\]|\\.)*)"'
@@ -96,8 +96,9 @@ block() {
 #
 # .env, *.pem and *.key files hold secrets too, so a shell read of one (cat, head, tail, less, more or
 # strings) is blocked the same way, whether its path is relative, starts with ./ or names a folder, or is
-# quoted. .env.example and docs/keys.md are not such files and pass. settings.json denies the Read tool
-# these as well.
+# quoted. The .env.<suffix> files (.env.local, .env.production and the rest) hold values too and are blocked
+# alike, except the committed templates .env.example, .env.sample, .env.template and .env.dist, which pass,
+# as does docs/keys.md. settings.json denies the Read tool these as well.
 cred_end="([[:space:]\"';&|)]|\$)"
 cred_store_re='\.ssh([/\\]|'"$cred_end"')|\.git-credentials|\.config[/\\]git[/\\]credentials|\.config[/\\]gh([/\\]|'"$cred_end"')|GitHub CLI([/\\]|'"$cred_end"')'
 # The command as the shell reads it: JSON escapes undone (\\ is one backslash, so C:\Users\V
@@ -116,6 +117,24 @@ reads_cred_store && block "reading a credential store (~/.ssh, git's credentials
 secret_end="([[:space:]\"';&|()<>]|\$)"
 secret_file_re='(^|[[:space:]|;&(])(cat|head|tail|less|more|strings)[[:space:]]+([^;&|]*[^[:alnum:]_.-])?([^[:space:];&|]*\.(pem|key)|\.env)'"$secret_end"
 [[ $shell_cmd =~ $secret_file_re ]] && block "reading a .env, .pem or .key file puts live secrets in the conversation, where they have to be treated as compromised and rotated"
+# A .env.<suffix> file (.env.local, ./.env.production, "config/.env.staging", tail -n 20 .env.local): each read
+# command in the line, and each .env.<suffix> among its arguments, is tested. A suffix of example, sample,
+# template or dist is a committed template with no values and passes; any other suffix is blocked. Bash
+# regexes have no negative lookahead, so the path is matched first and its suffix tested after.
+env_cmd_re="(^|[[:space:]|;&(])(cat|head|tail|less|more|strings)[[:space:]]+([^;&|]*)"
+env_arg_re="(^|[[:space:]\"'/])\.env\.([^[:space:]\"';&|<>()/]+)"
+env_rest="$shell_cmd"
+while [[ $env_rest =~ $env_cmd_re ]]; do
+  env_args="${BASH_REMATCH[3]}"
+  env_rest="${env_rest#*"${BASH_REMATCH[0]}"}"
+  while [[ $env_args =~ $env_arg_re ]]; do
+    case ${BASH_REMATCH[2]} in
+      example|sample|template|dist) ;;
+      *) block "reading a .env.<suffix> file (.env.local, .env.production) puts live secrets in the conversation, where they have to be treated as compromised and rotated" ;;
+    esac
+    env_args="${env_args#*"${BASH_REMATCH[0]}"}"
+  done
+done
 # Matched on code (the command with its quoted text blanked), so a commit message that names them isn't blocked.
 gh_print_re='(^|[^[:alnum:]_./-])gh[[:space:]]+auth[[:space:]]+(token([[:space:]]|$|[;&|)])|status[^;&|]*[[:space:]](-[[:alpha:]]*t[[:alpha:]]*|--show-token)([[:space:]]|$|[;&|)]))'
 git_print_re='(^|[^[:alnum:]_./-])git[[:space:]]+([^;&|]*[[:space:]])?credential[[:space:]]+(fill|get)([[:space:]]|$|[;&|)])'
