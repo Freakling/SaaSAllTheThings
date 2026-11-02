@@ -158,16 +158,16 @@ If the capabilities aren't decided yet, leave the placeholders, and add an agent
 5. List every file created, changed or deleted (`git status`).
 6. **Commit it all in one commit, after the human approves.**
    - Stage everything: `git add -A -- <those files>`.
-   - Mark the scripts executable, listing only files that exist (`.claude/hooks` is there with the Claude adapter only): `git add --chmod=+x -- tools/*.sh tools/stacks/*.sh .githooks/pre-commit`, plus `.claude/hooks/*.sh`.
+   - Mark the scripts executable, listing only files that exist (`.claude/hooks` is there with the Claude adapter only): `git add --chmod=+x -- tools/*.sh tools/stacks/*.sh .githooks/pre-commit .githooks/pre-push`, plus `.claude/hooks/*.sh`.
    - Use the message `chore: install SaaSAllTheThings <version>` (or `upgrade to`). The body names the mode, the stack, and anything you inferred.
-7. **The pre-commit hook.**
-   - If the check passes, run `bash tools/setup-clone.sh`, which installs it.
-   - If the check fails or can't run, leave the hook off and add an item: "Install the pre-commit hook once the check passes (`bash tools/setup-clone.sh`)".
+7. **The pre-commit and pre-push hooks.**
+   - If the check passes, run `bash tools/setup-clone.sh`, which installs them.
+   - If the check fails or can't run, leave the hooks off and add an item: "Install the pre-commit and pre-push hooks once the check passes (`bash tools/setup-clone.sh`)".
    - If setup-clone exits 4, tell the human what it printed (an existing hook or `core.hooksPath` needs a manual line).
 8. **A temporary clone from the skill:** delete it. **Manual install:** offer to delete the SaaSAllTheThings folder from the app. Deleting it is recommended, since upgrades come from a fresh download or the plugin. If the human keeps it, leave it in `.git/info/exclude`.
 9. **Offer a "Development" section for the app's README:** clone, then `bash tools/setup-clone.sh`, then the commands.
 10. **Tell the human:**
    - what needs their confirmation (inferred PRD text, unconfirmed user stories, open questions, `Decide:` items, human items);
-   - how to use it: "do the next task", "plan the next stage", "let's work out <capability>", "validate the user stories", "add the Navision integration", "which UI tech for the Windows client?", "research which Azure service fits…", "prepare an acceptance check", "process this feedback", "release to dev", "run a security assessment", "check the docs are aligned", "capture the screens" (in Claude Code also `/next-task`, `/roadmap`, `/design`, `/integrate`, `/architect`, `/research`, `/ui-design`, `/acceptance`, `/feedback`, `/release`, `/security`, `/align`, `/tenant`, `/prune`, and `/drift-reset`, which only the human starts, when `/align` keeps finding the same conflict);
+   - how to use it: "do the next task", "plan the next stage", "let's work out <capability>", "validate the user stories", "let me try … in a prototype", "add the Navision integration", "which UI tech for the Windows client?", "research which Azure service fits…", "prepare an acceptance check", "process this feedback", "release to dev", "run a security assessment", "check the docs are aligned", "capture the screens" (in Claude Code also `/next-task`, `/roadmap`, `/design`, `/prototype`, `/integrate`, `/architect`, `/research`, `/ui-design`, `/acceptance`, `/feedback`, `/release`, `/security`, `/align`, `/tenant`, `/prune`, and `/drift-reset`, which only the human starts, when `/align` keeps finding the same conflict);
    - with the Claude adapter: to restart Claude Code, because skills, hooks and permissions load when a session starts;
    - that every new clone needs `bash tools/setup-clone.sh`.

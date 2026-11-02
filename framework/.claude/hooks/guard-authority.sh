@@ -5,7 +5,7 @@
 # The architecture is framework-owned, and only the human accepts an ADR (.satt/rules.md ›
 # Who decides). For those this hook doesn't block: it makes Claude Code ask the human to confirm
 # when the assistant is about to
-#   - edit a framework-owned file: .satt/, the check and its stack profiles, the git hook,
+#   - edit a framework-owned file: .satt/, the check and its stack profiles, the prototype script, the git hooks,
 #     or these hooks;
 #   - write "Status: accepted" into an ADR in adr/.
 # It blocks any write into director/ at the project root, the director's own workspace, screen
@@ -48,7 +48,7 @@ ask() {
 
 case "/$path" in
   */.satt/state/*) exit 0 ;;
-  */.satt/*|*/tools/check.sh|*/tools/archcheck.awk|*/tools/cfg.sh|*/tools/setup-clone.sh|*/tools/stacks/*|*/.githooks/*|*/.claude/hooks/*)
+  */.satt/*|*/tools/check.sh|*/tools/archcheck.awk|*/tools/cfg.sh|*/tools/setup-clone.sh|*/tools/prototype.sh|*/tools/stacks/*|*/.githooks/*|*/.claude/hooks/*)
     ask "SaaSAllTheThings: this file is framework-owned, and holds the architecture's authority. Change it upstream in SaaSAllTheThings, or record a deviation as an ADR. Approve only if you mean to diverge locally." ;;
 esac
 case "/$path" in

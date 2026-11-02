@@ -112,6 +112,7 @@ Only the framework's own files are replaced, and your edits to them are kept. Wh
 | "Which open questions block development?" (`/design questions`) | Ranks the open product questions by what they unblock, with options and a recommendation for each. |
 | "Let's work out {capability}" (`/design {topic}`) | A design session. Your decisions become PRD text, decision-log lines, user stories and task items. |
 | "Validate the user stories" (`/design validate the stories`) | You confirm, correct or drop each user story the recently built items served, and each one still unconfirmed. `/next-task` proposes it every 10 built items (`tools/check.cfg` › `[stories] every`); you can decline. |
+| "Prototype {idea}", "Let me try {change} quickly" (`/prototype {name}`, then `/prototype harvest {name}`) | Tries a change fast, before it's built against the product: a new git worktree beside your app on a `proto/{name}` branch, where you open a second session that is outside the loop (no items, records, reviews or check on its commits; the guard and the secrets scan stay on, it runs on your machine and deploys nowhere, dev included, and nothing is pushed or merged: a pre-push hook refuses a `proto/` branch). You keep notes on what you tried and how it felt in its `PROTOTYPE.md`, and with a web client, `/ui-design` captures before and after let you compare. The harvest, back in your main session, is a product session on the prototype's diff and your notes: you decide what becomes decisions, user stories and items, which are built from main with the check and reviews, and anything that went against the reference architecture goes through `/architect` and an ADR you accept; the prototype's code is never merged. Then it offers to remove the worktree; deleting the branch is yours to run (`git branch -D`). `/prototype list` shows the prototypes. |
 | "Which UI tech for the Windows client?", "Can we use SQL instead?" (`/architect`) | An architecture session: options with "comply" first, then an ADR that you accept. |
 | "Research which Azure service fits {need}", "What does our security framework require for {topic}?" (`/research {question}`) | A read-only researcher looks into one question in a fresh context and saves a dated note in `product/research/`: the conclusion, the options, the sources with a confidence, and a recommendation, with an ADR-ready summary for an architecture question. It informs; you decide. Product and architecture sessions ask it for facts they don't have, and you can queue a research item (`R1`, `R2`, ...) for later. |
 | "Capture the screens", "Redesign the orders screen", "Process my drawing", "Verify the orders screen" (`/ui-design`) | Opens your web client on this machine in headless Chromium (Node and Playwright, installed once in `tools/ui/`; the check never needs them), signed in as test users of seeded test tenants, and captures each screen at each size, with a numbered map of its elements and a layout lint (squeezed text, off-screen or unreachable controls, a dialog without focus), and writes a starter drawing per screen. You draw over it in Excalidraw (free, no account) and save it in `director/ui/`; `process` reads exactly what you drew, asks about what it can't tell, and records the layout once in `product/ui/<screen>.md`; the build follows that spec, and `verify` captures the built screen, lists its deviations and writes a compare image of your drawing's screenshot beside the result. Data is seeded through the API, never a real tenant's, and capture opens only this machine, or the dev environment you name, never prod. Drawing is optional; capture and lint work without it. Native Windows and mobile clients get capture later. |
@@ -180,7 +181,7 @@ your-app/
 │  the framework's, tool-neutral: updated on upgrade
 ├── .satt/rules.md              the workflow rules, loaded through AGENTS.md
 ├── .satt/reference/            the reference architecture, one topic per file (the authority)
-├── .satt/procedures/           next-task · build · assess · roadmap · design · architect · research · integrate ·
+├── .satt/procedures/           next-task · build · assess · roadmap · design · prototype · architect · research · integrate ·
 │                               ui-design · tenant · acceptance · feedback · release · align · drift-reset · prune · review
 ├── .satt/research-domain.md    what the researcher adds for SaaS on Azure: Azure guidance, the reference architecture,
 │                               the customer's security framework, ADR-ready summaries
@@ -188,10 +189,12 @@ your-app/
 ├── .satt/workshops/            the workshop playbook: one file per workshop, agendas and methods
 ├── .satt/tasks.md              the TASKS.md item format
 ├── tools/check.sh, archcheck.awk, cfg.sh, stacks/   the check, and one profile per backend stack
-├── tools/setup-clone.sh        per clone: toolchain, dependencies, the pre-commit hook
+├── tools/setup-clone.sh        per clone: toolchain, dependencies, the pre-commit and pre-push hooks
 ├── tools/stories.sh            whether the user stories are due for validation
+├── tools/prototype.sh          a prototype's git steps: its worktree, branch and notes; list, harvest, remove
 ├── tools/ui_capture.sh, tools/ui/  screen capture, element map, layout lint, drawing reader, compare and verify (Node and Playwright)
-├── .githooks/pre-commit        scans for secrets on every commit, and runs the check before commits that touch more than docs
+├── .githooks/pre-commit        scans for secrets on every commit (a scan that can't run blocks it), and runs the check before commits that touch more than docs (not in a prototype)
+├── .githooks/pre-push          refuses to push a prototype's proto/ branch, or its commits under another name
 ├── validation/README.md        how acceptance checks and feedback reports work
 │
 │  the framework's, Claude Code adapter: updated on upgrade

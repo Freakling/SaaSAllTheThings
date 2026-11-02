@@ -1,7 +1,7 @@
 <!-- SaaSAllTheThings · framework-owned: replaced on upgrade. -->
 # Product session
 
-Work out a capability, rank and answer open product questions, change how part of the product works, or validate the user stories (Validate the stories, below). Write down only what the human decides. Your job is to make the human's decisions fast and well informed, never to make them.
+Work out a capability, rank and answer open product questions, change how part of the product works, validate the user stories (Validate the stories, below), or harvest a prototype (Harvest a prototype, below). Write down only what the human decides. Your job is to make the human's decisions fast and well informed, never to make them.
 
 A question about how the system is built (a data store, a client's UI tech, a deviation from the reference) isn't a product call: hand it to `architect.md`.
 
@@ -64,3 +64,10 @@ A question about how the system is built (a data store, a client's UI tech, a de
 
    A story the human doesn't answer stays as it is; an unconfirmed one comes back next time.
 3. **Record.** Set the header's Last validated to today and `git rev-parse --short HEAD`, as in ``**Last validated:** 2026-11-14 at `4e1f0c2` ``. Commit `product/user-stories.md` (and the PRD, items or Open Questions it changed) as `docs: validate the user stories`, after the human approves.
+
+## Harvest a prototype
+`prototype.md` › Harvest brings a prototype here: its notes (`PROTOTYPE.md`: what was tried, how it felt, what to keep) and its diff against main. It shows how a change feels; it decides nothing, and its code is never merged or cherry-picked.
+1. **Context.** Show the notes in the human's words, then what the prototype changes as a user or customer would see it, area by area from the diff rather than the code, with the PRD sections, stories and decisions it touches, as Prepare says. Name what it skipped that a real build needs: tests, tenant isolation, the layers in `reference/layers.md` and the rest of the reference architecture (the check wasn't run on it), and anything the OWASP baseline asks.
+2. **Architecture.** List each place the diff goes against the reference architecture: a layer crossed, the tenant taken from the request, a data store or a client's UI tech the reference doesn't name, a secret. None of these is a product call. Each goes to `architect.md`, with "comply" first, and ends in an ADR that only the human accepts; until then the real build complies with the reference, whatever the prototype did.
+3. **Options,** as For each question says. They are usually to build it as tried, a variant the notes point to, or to leave it, and each says what it would take to build from main, within the reference.
+4. **Record** what the human chooses, as Record each decision in one change says (the capability in the PRD, `decisions.md`, Open Questions, `product/user-stories.md` and TASKS.md), naming the prototype in each: the decision's `why` ends with `(prototype: proto/<name>)`; a story it adds or changes gets the line `US-<n> came from the prototype proto/<name> on <date>.` under its area's table; and each item gets `- Prototype: proto/<name>` (`.satt/tasks.md`). The items are built from main like any other, with the check and reviews. Nothing is filed without the human's answer: a part they don't answer stays out, and leaving the prototype files nothing. Unlike Record step 5, a drafted story the human doesn't answer stays out too. Commit as Finish says, as `docs: harvest the <name> prototype`.
