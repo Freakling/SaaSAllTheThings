@@ -9,6 +9,7 @@ Read this before adding or editing an item.
 - Touches: src/OrderDesk.Application/Orders/PlaceOrderHandler.cs (new), src/OrderDesk.Functions/Orders/PlaceOrderFunction.cs (new), tests/OrderDesk.Application.Tests/Orders/PlaceOrderHandlerTests.cs (new)
 - Done when: an order without lines is rejected (test) · OrderPlacedV1 is saved with the order (test) · POST /api/v1/orders answers 201 in dev (demo)
 - PRD: Capabilities › Orders
+- Stories: US-1
 ```
 
 - **Heading.** It reads `ID · title · status · size · owner`, and a bug adds `· high|med|low`. New IDs (`T<n>`, `B<n>`, `R<n>`) come from the `Next IDs` line, which you then bump. If the line has no `R` counter yet, add `· R1`. IDs are never reused.
@@ -25,6 +26,7 @@ Read this before adding or editing an item.
 - **`Touches`.** The files expected to change. Mark new files `(new)`, and contract or schema fields `(+field)`.
 - **`Done when`.** 1-3 observable outcomes, each tagged `(test)`, `(check)` or `(demo)` (see `rules.md` › Doing the work). Naming `Q<n>` means an open question gates the real behaviour.
 - **`PRD:`.** The heading(s) the item implements, or `none` for items that aren't about the product (foundation, infrastructure, tooling).
+- **`Stories:`.** The user stories the item serves (`US-2, US-5`, from `product/user-stories.md`), or `none` for foundation, tooling and infrastructure, which change nothing a user does. A feature item names at least one; one with no story yet gets one drafted before it is built (`procedures/design.md` › User stories). A bug names the story whose behaviour it restores, or `none`. A research item has no `Stories:` line.
 - **`ADR:`** (optional). The ADR the item implements or depends on.
 - **`UI:`** (optional). `product/ui/<screen>.md`, the screen spec, for an item that builds or changes a screen (`procedures/ui-design.md`). The item builds to the spec and names its elements as the spec does. A `UI:` item sized `L` or `XL` is split per screen.
 - **Bugs.** Instead of `Done when`, a bug has `Repro: steps → expected / actual` and `Found in:` (a validation file, a security assessment report in `assessment/security/`, an item ID or `ad hoc`). It's done when the repro no longer happens.

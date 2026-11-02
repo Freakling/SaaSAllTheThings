@@ -1,7 +1,7 @@
 <!-- SaaSAllTheThings · framework-owned: replaced on upgrade. -->
 # Acceptance check
 
-Prepare or process an acceptance check: a human verifies, item by item, that built behaviour works in a running app. Feedback asks whether the product helps; an acceptance check asks whether each built rule works. `(test)` outcomes are proven by tests and `(check)` outcomes by commands the agent ran, so an acceptance check covers the rest: `(demo)` outcomes, and bug fixes that have no regression test.
+Prepare or process an acceptance check: a human verifies, item by item, that built behaviour works in a running app, and whether the user stories behind it are still right. Feedback asks whether the product helps; an acceptance check asks whether each built rule works. `(test)` outcomes are proven by tests and `(check)` outcomes by commands the agent ran, so an acceptance check covers the rest: `(demo)` outcomes, and bug fixes that have no regression test.
 
 The request is `prepare` (the default), `process`, or `all` (a full regression round).
 
@@ -20,11 +20,14 @@ The request is `prepare` (the default), `process`, or `all` (a full regression r
    ## Orders
    - **T12** Placing an order shows it in the list with its total. *How:* Windows client, signed in as a Tenant.User of the test tenant.
      - [ ] Works   - [ ] Broken / missing
+     - **US-1** As a sales clerk I place an order for a customer while they wait, so they hear it's confirmed before they hang up.
+       - [ ] Still right   - [ ] Needs a change
      - Notes:
    ```
    - Group items by PRD section.
    - Write each item as what the user sees, and on which client.
    - Add a *How:* hint: which client, which role, which test tenant. For tenant isolation, include "signed in as the second test tenant, the first one's data isn't visible".
+   - Under each item's ticks, the stories its `Stories:` names, word for word from `product/user-stories.md`, each with its own ticks. A story that several items in the round serve appears once, under the first. An item with `Stories: none` gets none, and a story that's no longer in the file is left out.
    - Leave nothing for the tester to copy or format.
    - The entry for a done `UI:` item asks the human to judge the screen against their drawing, and links the compare image:
      ```
@@ -37,8 +40,12 @@ The request is `prepare` (the default), `process`, or `all` (a full regression r
 ## Process
 1. **Works:** nothing to record; the ticked file is the record.
 2. **Broken:** make a `B` item.
-   - Take the repro from the notes, and set `Found in:` to the file.
+   - Take the repro from the notes, set `Found in:` to the file, and take `Stories:` from the item it was found under.
    - Judge the severity from the notes: `high` if it loses data, shows another tenant's data, fails sign-in or blocks work; `low` if it's cosmetic; `med` otherwise.
    - If the notes say the rule itself should change, it's a product question instead: offer options (`design.md`), or add an Open Question.
 3. **Not ticked:** leave it. It comes back in the next round.
-4. **Finish:** under the header, add `**Processed:** YYYY-MM-DD → B7, Q9`. Commit the file and the new items as `docs: process acceptance check YYYY-MM-DD` after the human approves.
+4. **Stories** (`product/user-stories.md`):
+   - **Still right:** set its Confirmed to the check's date.
+   - **Needs a change:** rewrite the story from the notes and date it. If you had to interpret the notes, show your reading to the human and keep it `unconfirmed` until they confirm it. If the notes say the built behaviour should change too, it's a product question, as for Broken.
+   - **Not ticked:** leave it as it is.
+5. **Finish:** under the header, add `**Processed:** YYYY-MM-DD → B7, Q9, US-1` (the new items and questions, and the corrected stories). Commit the file, the new items and the stories as `docs: process acceptance check YYYY-MM-DD` after the human approves.

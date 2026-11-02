@@ -6,6 +6,8 @@
   the human decided.
 - Refer to sections by heading ("PRD › Orders"), never by number.
 - How the system is built lives in .satt/reference/ and adr/, not here.
+- Why each capability is built lives in the user stories (product/user-stories.md); the capability
+  says who does it and names the stories it serves.
 -->
 
 ## Pitch
@@ -21,22 +23,28 @@ A multi-tenant order desk for wholesalers: sales staff place customer orders on 
 - Plans: a pilot plan for now; its limits are Q2.
 
 ## Personas and Roles
-- **Sales** (`Tenant.User`): places orders at the counter or on the phone.
-- **Warehouse** (`Tenant.User`): sees orders to pick.
+- **Sales clerk** (`Tenant.User`): places orders at the counter or on the phone.
+- **Picker** (`Tenant.User`): picks orders in the warehouse.
 - **Admin** (`Tenant.Admin`): manages the tenant's settings and Navision connection.
+
+What each persona does in the product, and why, is in the [user stories](user-stories.md).
 
 ## Capabilities
 ### Place an order
-Sales picks a customer and adds lines (item, quantity, unit price). An order needs a customer and at least one line; every line needs an item, a quantity above zero and a price that isn't negative. The total is the sum of quantity × unit price. Customer numbers are the Navision customer numbers, which Navision stores in capitals. Prices: Q1.
+The sales clerk picks a customer and adds lines (item, quantity, unit price). An order needs a customer and at least one line; every line needs an item, a quantity above zero and a price that isn't negative. The total is the sum of quantity × unit price. Customer numbers are the Navision customer numbers, which Navision stores in capitals. Prices: Q1.
+
+Stories: US-1, US-2
 
 ### Pick an order
-Warehouse sees placed orders for today and marks lines picked. (Not designed yet.)
+The picker sees placed orders for today and marks lines picked. (Not designed yet.)
+
+Stories: US-5
 
 ## Clients
 ### Windows
-Sales, at the counter, all day. Placing orders is the main job. Online only.
+Sales clerks, at the counter, all day. Placing orders is the main job. Online only.
 ### Mobile
-Warehouse staff on handhelds. Offline: Q3.
+Pickers on handhelds. Offline: Q3.
 
 ## Integrations
 ### Navision

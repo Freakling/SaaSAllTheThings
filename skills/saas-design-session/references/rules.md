@@ -5,9 +5,9 @@ only through an accepted ADR (see Who decides). -->
 
 These rules apply to any AI assistant working in this project. For each of these requests, follow the procedure in `.satt/procedures/`:
 - **next-task.md:** do the next task(s), or a named item (T12, B3, R2). The build itself is `build.md`.
-- **assess.md:** assess the app for the move to SaaS (readiness, roadmap, the workshops and how to run them), or process workshop notes.
+- **assess.md:** assess the app for the move to SaaS (readiness, the user stories it serves today, roadmap, the workshops and how to run them), or process workshop notes.
 - **roadmap.md:** plan the next stage of the roadmap to SaaS, or replan.
-- **design.md:** a product session: capabilities, plans, clients, open questions.
+- **design.md:** a product session: capabilities, plans, clients, open questions, validating the user stories.
 - **architect.md:** an architecture choice the reference leaves open, or a deviation from it.
 - **research.md:** research a question in a fresh context and save a dated note in `product/research/`, for a product or architecture call. It informs; the human decides. Domain reference: `.satt/research-domain.md`.
 - **integrate.md:** add or change an enterprise integration (Navision / Business Central first).
@@ -41,6 +41,7 @@ In Claude Code these are also slash commands, and builds, reviews and research r
 | Fact | Only in |
 |---|---|
 | What the product should do | `product/prd.md`. List its sections with `grep -n "^#" product/prd.md` and read only the ones you need. |
+| Why each feature is built, for which persona | `product/user-stories.md`: the value for each persona in PRD › Personas and Roles, and their stories (`US-<n>`), each confirmed by the human or `unconfirmed` (`procedures/design.md` › User stories) |
 | What's undecided | PRD › Open Questions (`Q<n>`) |
 | Why a product decision was made | `product/decisions.md` (append-only) |
 | The reference architecture | `.satt/reference/`, one topic per file (framework-owned) |
@@ -51,7 +52,7 @@ In Claude Code these are also slash commands, and builds, reviews and research r
 | The director's screen drawings | `director/ui/` (Excalidraw files; read-only for you) |
 | How an external system is integrated | `integrations/<system>/contract.md` |
 | Work, bugs, research, milestones | `TASKS.md` (format: `.satt/tasks.md`; done items: `TASKS-archive.md`) |
-| Assessments and workshop notes | `assessment/`: snapshots, security assessments in `assessment/security/`. What they decide is recorded in the PRD, ADRs, contracts and TASKS.md (`assess.md` › Process workshop notes). |
+| Assessments and workshop notes | `assessment/`: snapshots, security assessments in `assessment/security/`. What they decide is recorded in the PRD, the user stories, ADRs, contracts and TASKS.md (`assess.md` › Process workshop notes). |
 | Design drift resets | `resets/YYYY-MM-DD/`: snapshots (as built, interpretations, the design before, postmortem). What they decide is recorded in the PRD, `decisions.md`, ADRs and TASKS.md (`drift-reset.md`). |
 | Settings per environment | `infra/env/<env>.bicepparam` (never secrets) |
 | Settings per tenant | the tenant registry: data, never code or repository files |
@@ -81,7 +82,8 @@ The check enforces what can be checked mechanically; `reference/README.md` › W
 
 ## Doing the work
 - **Where work comes from.** `TASKS.md`, or straight from the human. A direct request that won't be finished this session, or that turns up follow-up work, gets a TASKS.md item. Work you discover always becomes a new item; never do it silently as part of another.
-- **Read what the work needs:** the item's `Touches`, the AGENTS.md › Architecture rows involved, the PRD sections it names and the reference topics it touches. Read by heading or line range, not whole files. Quote only the relevant lines of logs; the full check logs are in `.satt/state/`.
+- **Why it's built.** A feature item names the user stories it serves (`Stories:` in `.satt/tasks.md`). One with no story gets one drafted first, as `design.md` › User stories says, for the human to confirm.
+- **Read what the work needs:** the item's `Touches`, the AGENTS.md › Architecture rows involved, the PRD sections and stories it names and the reference topics it touches. Read by heading or line range, not whole files. Quote only the relevant lines of logs; the full check logs are in `.satt/state/`.
 - **Stay inside the item.** Prefer the smallest change, and delete dead code. Match existing patterns; a new pattern needs a reason in the commit message.
 - **Tests.** Domain and application rules get unit tests, with in-memory fakes for the ports. Integrations get contract tests against recorded fixtures. Every store gets a tenant-isolation test (one tenant can't read another's data). A fixed bug gets a regression test when it can have one. Tests never call the network, Azure or an external system.
 - **Outcome tags.** Each outcome in `Done when` is tagged:
@@ -94,7 +96,7 @@ The check enforces what can be checked mechanically; `reference/README.md` › W
 - **Two failed attempts.** After two failed attempts at the same problem, stop and report instead of guessing further.
 
 ## Git and Azure
-- **One item, one commit.** The message is `<type>: <summary> (T12)`, with a body saying why; types are `feat fix refactor test docs infra chore`. The item's paths are its code, tests, infrastructure, and the records the item changed (TASKS.md, AGENTS.md, and the PRD, decisions and ADRs for a decision made during the item). `git add` the new ones, then commit only those paths, `git commit -m "…" -- <paths>`, so another session's staged work stays out.
+- **One item, one commit.** The message is `<type>: <summary> (T12)`, with a body saying why; types are `feat fix refactor test docs infra chore`. The item's paths are its code, tests, infrastructure, and the records the item changed (TASKS.md, AGENTS.md, `product/user-stories.md` when a story was drafted for it, and the PRD, decisions and ADRs for a decision made during the item). `git add` the new ones, then commit only those paths, `git commit -m "…" -- <paths>`, so another session's staged work stays out.
 - **Approval.** Commit only with the human's approval. An approval prompt from your tool counts; otherwise ask in the conversation, unless Project rules say otherwise. A run the human asked for (`next-task.md` › Several items) approves its commits in advance, not pushes, deploys or changes to cloud resources. Push only when asked. Never get around the hooks (`--no-verify`, `core.hooksPath`).
 - **Destructive commands.** Anything that discards uncommitted work or rewrites history needs the human. For a history cleanup they ask for, note the current tip first, and use non-interactive forms only.
 - **Azure and other shared systems.** Deploying, and changing cloud resources, app registrations, role assignments or a tenant's data, need the human's approval each time, following `release.md`; deleting them is the human's to do. Production is the human's to deploy. Never read a secret's value into the session, and never create a client secret: use a federated credential.

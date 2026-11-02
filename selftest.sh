@@ -110,7 +110,7 @@ done
 [ -z "$missing" ] && ok "every procedure has a skill (except build and review, which are subagents)" || bad "procedures without skills:$missing"
 # Every .md a rule, procedure or reference topic names: one awk pass prints "doc<TAB>ref" pairs.
 missing=""
-other=" mapping.md contract.md prd.md director-brief.md decisions.md as-built.md interpretations.md prd-before.md postmortem.md README.md TEMPLATE.md ONBOARDING.md CHANGELOG.md AGENTS.md CLAUDE.md TASKS.md TASKS-archive.md adr.md integration-contract.md "
+other=" mapping.md contract.md prd.md director-brief.md decisions.md user-stories.md as-built.md interpretations.md prd-before.md postmortem.md README.md TEMPLATE.md ONBOARDING.md CHANGELOG.md AGENTS.md CLAUDE.md TASKS.md TASKS-archive.md adr.md integration-contract.md "
 while IFS="$(printf '\t')" read -r doc ref; do
   case "$ref" in
     reference/*) [ -f "$src/framework/.satt/$ref" ] || missing="$missing ${doc##*/}→$ref" ;;
@@ -230,6 +230,130 @@ assess_line="$(grep -n '^### Assess first' "$src/README.md" | head -n 1 | cut -d
   && grep -qF "$brief_link" "$src/examples/order-desk/product/director-brief.md" \
   && ok "the README's Start here step links the brief template at v$version, and the template's header carries the same link" \
   || bad "the README's Start here step or the template header doesn't link the brief at v$version"
+# User stories: the seed and the example's file have the header line, the sections and stories in the story
+# format, whose roles are listed under Roles (and in the example, are personas of its PRD); the item format,
+# the TASKS.md seed and the example carry Stories:; the check.cfg seeds have the cadence; the PRD links the
+# file; and the rules, the procedures, the workshops, the assessment, the settings, the skills and the docs
+# name them. tools/stories.sh --due is tested under "user stories".
+stories_seed="$src/project/product/user-stories.md"
+stories_example="$src/examples/order-desk/product/user-stories.md"
+# stories_faults <file> [prd]: what a user stories file gets wrong, read in one pass with builtins; nothing when it holds.
+stories_faults() {
+  local line section="" next="" faults="" ids="|" roles="|" values="|" stories="" story id r found
+  local header=0 value=0 rolesec=0
+  local next_re='^[*][*]Next ID:[*][*] US-([0-9]+) · [*][*]Last validated:[*][*] never$'
+  local role_re='^- [*][*]([^*:]+)[*][*]$'
+  local value_re='^- [*][*]([^*:]+):[*][*] .+'
+  local persona_re='^- [*][*]([^*:]+)[*][*] [(]'
+  local row_re='^[|] US-([0-9]+) [|] As an? (.+ I [^|]+, so [^|]+[.]) [|] ([0-9]{4}-[0-9]{2}-[0-9]{2}|unconfirmed) [|]$'
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    case "$line" in
+      '## The value in one paragraph per role') section=value; value=1; continue ;;
+      '## Roles') section=roles; rolesec=1; continue ;;
+      '## '*) section=table; continue ;;
+      '| ID | Story | Confirmed |') header=1; continue ;;
+    esac
+    if [[ $line =~ $next_re ]]; then next="${BASH_REMATCH[1]}"
+    elif [ "$section" = roles ] && [[ $line =~ $role_re ]]; then roles="$roles${BASH_REMATCH[1]}|"
+    elif [ "$section" = value ] && [[ $line =~ $value_re ]]; then values="$values${BASH_REMATCH[1]}|"
+    elif [[ $line =~ $row_re ]]; then
+      id="${BASH_REMATCH[1]}"
+      case "$ids" in *"|$id|"*) faults="$faults US-$id(twice)" ;; esac
+      ids="$ids$id|"; stories="$stories${BASH_REMATCH[2]}"$'\n'
+    else
+      case "$line" in '| US-'*) faults="$faults row(not | US-<n> | As a <role> I ..., so ... | <date> or unconfirmed |)" ;; esac
+    fi
+  done < "$1"
+  [ -n "$next" ] || faults="$faults Next-ID-and-Last-validated"
+  [ "$value" -eq 1 ] && [ "$rolesec" -eq 1 ] && [ "$header" -eq 1 ] && [ -n "$stories" ] || faults="$faults sections"
+  local IFS='|'
+  for id in ${ids#|}; do [ -n "$next" ] && [ "$id" -lt "$next" ] || faults="$faults US-$id(not below Next ID)"; done
+  for r in ${roles#|}; do case "$values" in *"|$r|"*) ;; *) faults="$faults role($r has no value paragraph)" ;; esac; done
+  if [ -n "${2:-}" ]; then
+    local personas="|" in_personas=0
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line%$'\r'}"
+      case "$line" in '## Personas and Roles') in_personas=1; continue ;; '## '*) in_personas=0; continue ;; esac
+      [ "$in_personas" -eq 1 ] && [[ $line =~ $persona_re ]] && personas="$personas${BASH_REMATCH[1]}|"
+    done < "$2"
+    for r in ${roles#|}; do case "$personas" in *"|$r|"*) ;; *) faults="$faults role($r isn't a persona in the PRD)" ;; esac; done
+  fi
+  IFS=$'\n'
+  shopt -s nocasematch
+  for story in $stories; do
+    found=0
+    local IFS='|'
+    for r in ${roles#|}; do [[ $story == "$r I "* ]] && { found=1; break; }; done
+    IFS=$'\n'
+    [ "$found" -eq 1 ] || faults="$faults story(its role isn't under Roles: ${story%% I *})"
+  done
+  shopt -u nocasematch
+  printf '%s' "$faults"
+}
+wired=""
+[ -f "$stories_seed" ] && [ -f "$stories_example" ] && [ -f "$src/framework/tools/stories.sh" ] || wired="$wired files"
+grep -q '^# User stories: {{PROJECT_NAME}}$' "$stories_seed" || wired="$wired seed(title)"
+grep -q '^# User stories: Order Desk$' "$stories_example" || wired="$wired example(title)"
+faults="$(stories_faults "$stories_seed")"; [ -z "$faults" ] || wired="$wired seed:$faults"
+faults="$(stories_faults "$stories_example" "$src/examples/order-desk/product/prd.md")"; [ -z "$faults" ] || wired="$wired example:$faults"
+# The example: every agent item other than research has a Stories: line, every capability in its PRD names its
+# stories, and every story ID an item or a capability names is in its file.
+faults="$(awk '
+  FNR == 1 { if (file == 2 && id != "" && agent && !st) print "item(" id " has no Stories:)"; st = 0; file++ }
+  file == 1 { if ($0 ~ /^[|] US-[0-9]+ [|]/) { split($0, c, " "); have[c[2]] = 1 }; next }
+  file == 2 && /^### / { if (id != "" && agent && !st) print "item(" id " has no Stories:)"; id = $2; st = 0
+    agent = ($0 ~ / · agent$/ || $0 ~ / · agent · /) && id !~ /^R/ }
+  file == 3 && /^## / { if (cap != "" && !st) print "capability(" cap " has no Stories:)"; cap = ""; caps = ($0 == "## Capabilities") }
+  file == 3 && caps && /^### / { if (cap != "" && !st) print "capability(" cap " has no Stories:)"; cap = substr($0, 5); st = 0 }
+  /^(- )?Stories: / { st = 1; n = split($0, w, /[ ,]+/)
+    for (i = 1; i <= n; i++) if (w[i] ~ /^US-[0-9]+$/ && !(w[i] in have)) print FILENAME ": " w[i] " is not in the stories" }
+  END { if (cap != "" && !st) print "capability(" cap " has no Stories:)" }
+' "$stories_example" "$src/examples/order-desk/TASKS.md" "$src/examples/order-desk/product/prd.md")"
+[ -z "$faults" ] || wired="$wired example($faults)"
+grep -q '^- Stories: US-[0-9]' "$satt/tasks.md" && grep -q '^- \*\*`Stories:`\.\*\* .* or `none` for foundation, tooling and infrastructure' "$satt/tasks.md" || wired="$wired tasks.md"
+grep -q '^- Stories: none$' "$src/project/TASKS.md" || wired="$wired project/TASKS.md"
+for f in project/tools/check.cfg examples/order-desk/tools/check.cfg; do
+  awk '/^\[stories\]$/ { s = 1; next } /^\[/ { s = 0 } s && /^every = 10$/ { found = 1 } END { exit !found }' "$src/$f" || wired="$wired $f"
+done
+grep -qF 'Each persona is a role in the user stories, by the same name' "$src/project/product/prd.md" \
+  && grep -qF '[user stories](user-stories.md)' "$src/project/product/prd.md" && grep -qF '(Stories: US-1, US-3)' "$src/project/product/prd.md" \
+  && grep -qF '[user stories](user-stories.md)' "$src/examples/order-desk/product/prd.md" || wired="$wired prd.md"
+grep -q '^| Why each feature is built, for which persona | `product/user-stories\.md`: the value for each persona in PRD › Personas and Roles' "$satt/rules.md" \
+  && grep -qF 'recorded in the PRD, the user stories, ADRs, contracts and TASKS.md' "$satt/rules.md" \
+  && grep -q '^- \*\*Why it.s built\.\*\* A feature item names the user stories it serves' "$satt/rules.md" \
+  && grep -qF '`product/user-stories.md` when a story was drafted for it' "$satt/rules.md" || wired="$wired rules.md"
+grep -q '^## User stories$' "$satt/procedures/design.md" && grep -q '^### Validate the stories$' "$satt/procedures/design.md" \
+  && grep -q 'bash tools/stories\.sh --due' "$satt/procedures/design.md" && grep -q 'its `Stories:`' "$satt/procedures/design.md" \
+  && grep -q '^5\. \*\*`product/user-stories\.md`:\*\*' "$satt/procedures/design.md" || wired="$wired design.md"
+grep -q 'bash tools/stories\.sh --due' "$satt/procedures/next-task.md" && grep -q '\[stories\] every' "$satt/procedures/next-task.md" \
+  && grep -q 'A feature item (not a research item) with no story gets one before it is built' "$satt/procedures/next-task.md" \
+  && grep -q 'with `product/user-stories\.md` when the claim drafted a story' "$satt/procedures/next-task.md" \
+  && grep -q 'a security assessment or a stories validation if Pick step 4 found one due' "$satt/procedures/next-task.md" || wired="$wired next-task.md"
+grep -qF -- '- [ ] Still right   - [ ] Needs a change' "$satt/procedures/acceptance.md" && grep -q '^4\. \*\*Stories\*\*' "$satt/procedures/acceptance.md" \
+  && grep -qF 'take `Stories:` from the item it was found under' "$satt/procedures/acceptance.md" || wired="$wired acceptance.md"
+grep -q 'stories no item serves' "$satt/procedures/align.md" && grep -q 'feature items with no story' "$satt/procedures/align.md" \
+  && grep -q 'bugs with no story' "$satt/procedures/align.md" \
+  && grep -q 'stories unconfirmed past the cadence' "$satt/procedures/align.md" \
+  && grep -q 'were written from the code on <date>, before the app kept user stories\.' "$satt/procedures/align.md" || wired="$wired align.md"
+grep -q 'the stories under `Stories:`' "$satt/procedures/build.md" || wired="$wired build.md"
+for f in ui-design drift-reset roadmap; do grep -q '`Stories:`' "$satt/procedures/$f.md" || wired="$wired $f.md"; done
+grep -q '^3\. \*\*User stories\.\*\* .*Every one is `unconfirmed`' "$satt/procedures/assess.md" \
+  && grep -qF 'The stories under User stories go to `product/user-stories.md`' "$satt/procedures/assess.md" \
+  && grep -q '^## User stories$' "$satt/templates/assessment.md" || wired="$wired assess.md/assessment.md"
+grep -q '^## User stories$' "$satt/workshops/README.md" && grep -qF -- '- new US-? | changed US-<n> · As a <role>' "$satt/workshops/README.md" \
+  && grep -q 'product/user-stories\.md' "$satt/workshops/capabilities.md" || wired="$wired workshops"
+grep -qF '"Bash(bash tools/stories.sh --due)",' "$settings" && ! grep -qF '"Bash(bash tools/stories.sh*)"' "$settings" \
+  && ! grep -qF '"Bash(bash tools/stories.sh *)"' "$settings" || wired="$wired settings.json"
+grep -q 'validate the user stories' "$src/framework/.claude/skills/design/SKILL.md" && grep -q 'user stories' "$src/framework/.claude/skills/align/SKILL.md" \
+  && grep -q 'user stories' "$src/framework/.claude/skills/assess/SKILL.md" && grep -q 'user stories' "$src/skills/saas-assessment/SKILL.md" \
+  && grep -q 'under User stories' "$src/skills/saas-design-session/SKILL.md" || wired="$wired skills"
+grep -q 'product/user-stories\.md' "$src/ONBOARDING.md" && grep -q '`\[stories\] every`' "$src/ONBOARDING.md" \
+  && grep -q '^3\. \*\*Draft the first user stories\*\*' "$src/ONBOARDING.md" \
+  && grep -q 'were written from the code on <date>, before the app kept user stories\.' "$src/ONBOARDING.md" || wired="$wired ONBOARDING.md"
+grep -q 'product/user-stories\.md' "$src/README.md" && grep -q 'tools/stories\.sh' "$src/README.md" && grep -q '/design validate the stories' "$src/README.md" || wired="$wired README.md"
+[ -z "$wired" ] && ok "the user stories seed and the example's have their header, sections and roles, and Stories:, the cadence, the PRD, the rules, the procedures, the workshops, the assessment, the settings, the skills and the docs name them" \
+  || bad "the user stories aren't wired into:$wired"
 # The design-session skill runs in the Claude apps without subagents, so it leaves the research procedure out and says so.
 if [ ! -e "$src/skills/saas-design-session/references/procedures/research.md" ] && [ ! -e "$src/skills/saas-design-session/references/research-domain.md" ] \
     && grep -q 'research assistant' "$src/skills/saas-design-session/SKILL.md"; then
@@ -403,6 +527,8 @@ grep -qx '/product/ui/captures/' .gitignore && grep -qx '/tools/ui/node_modules/
 grep -q "$(printf '\t')tools/ui/capture.mjs$" .satt/manifest && ! grep -q "$(printf '\t')tools/ui/screens.mjs$" .satt/manifest \
   && ok "the manifest lists the capture tools, not the app's own catalog" || bad "the manifest lists the capture tools, not the app's own catalog"
 grep -q "Order Desk" AGENTS.md && ok "keeps the project's own files" || bad "keeps the project's own files"
+[ -x tools/stories.sh ] && grep -q "$(printf '\t')tools/stories.sh$" .satt/manifest && grep -q '^# User stories: Order Desk$' product/user-stories.md \
+  && ok "installs tools/stories.sh and keeps the app's own user stories" || bad "installs tools/stories.sh and keeps the app's own user stories" "$out"
 git add -A >/dev/null 2>&1 && git_q commit -qm "install" >/dev/null 2>&1
 out="$(bash "$src/install.sh" . 2>&1)"; expect_output "a second run changes nothing" "0 new, 0 updated" "$out"
 [ -z "$(git status --porcelain)" ] && ok "adds no duplicate .gitignore/.gitattributes lines" || bad "adds no duplicate lines" "$(git status --porcelain)"
@@ -455,6 +581,9 @@ if [ -f "$core_only/product/director-brief.md" ] && grep -q '^## 10\. Control Fr
 else
   bad "a new app gets the product brief template, even with --tools none" "$out"
 fi
+[ -x "$core_only/tools/stories.sh" ] && cmp -s "$core_only/product/user-stories.md" "$stories_seed" \
+  && ok "a new app gets tools/stories.sh and the user stories seed, even with --tools none" \
+  || bad "a new app gets tools/stories.sh and the user stories seed, even with --tools none" "$out"
 # Installing from a SaaSAllTheThings folder that is itself a git clone, or sits inside the app.
 s_clone="$work/satt-clone"; cp -R "$src" "$s_clone"; rm -rf "$s_clone/.git"
 (cd "$s_clone" && git init -q && git config core.autocrlf false && git add -A && git_q commit -qm satt) >/dev/null 2>&1
@@ -1770,7 +1899,7 @@ grep -q 'security\.md' "$satt/procedures/release.md" \
   && grep -q 'unless an accepted ADR deviates from that item' "$satt/procedures/release.md" || wired="$wired release.md"
 grep -q 'security\.md' "$satt/procedures/next-task.md" && grep -qF '`[security] every`' "$satt/procedures/next-task.md" \
   && grep -q '10 when the key is absent' "$satt/procedures/next-task.md" \
-  && grep -qF 'With no report in `assessment/security/` yet, it'"'"'s due' "$satt/procedures/next-task.md" \
+  && grep -qF 'With no report in `assessment/security/` yet, the assessment is due' "$satt/procedures/next-task.md" \
   && grep -q 'is-shallow-repository' "$satt/procedures/next-task.md" || wired="$wired next-task.md"
 # The count next-task.md gives counts item commits, squash-merged ones too, and nothing else.
 count_re="$(sed -n "s/.*grep -cE '\([^']*\)'.*/\1/p" "$satt/procedures/next-task.md" | head -n 1)"
@@ -1847,6 +1976,66 @@ if [ "$dotnet_sdk" -eq 1 ]; then
 else
   echo "  note  dotnet list package --vulnerable skipped: no .NET SDK on this machine"
 fi
+
+# --- user stories ----------------------------------------------------------------------------------
+echo "user stories"
+# tools/stories.sh --due counts built items as next-task.md counts them for the security assessment, from the
+# commit on the stories file's Last validated line (by its date when that commit isn't in the history), and
+# is due when the stories were never validated. The seed stands in for an app's file.
+_st="$work/stories"; new_repo "$_st"; mkdir -p "$_st/tools" "$_st/product"
+cp "$src/framework/tools/stories.sh" "$_st/tools/"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"; status=$?
+expect_status "stories --due exits 0 without a stories file" 0 "$status" "$out"
+expect_output "stories --due: not due without a stories file" "^stories: not due: no stories yet \(no product/user-stories\.md\), \[stories\] every = 10$" "$out"
+printf '# User stories: x\n\n**Next ID:** US-1 · **Last validated:** never\n\n## Roles\n' > "$_st/product/user-stories.md"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due: not due while the file has no stories" "^stories: not due: no stories yet in product/user-stories\.md" "$out"
+cp "$stories_seed" "$_st/product/user-stories.md"
+_st_total="$(grep -c '^| US-' "$stories_seed")"; _st_unc="$(grep -c '| unconfirmed |$' "$stories_seed")"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due: due when never validated, counting the stories and the unconfirmed ones" \
+  "^stories: due: never validated \(Last validated: never\), $_st_total stories, $_st_unc unconfirmed, \[stories\] every = 10$" "$out"
+(cd "$_st" && for i in 1 2 3; do git_q commit -q --allow-empty -m "feat: item (T$i)"; done && git_q commit -q --allow-empty -m "docs: note (R1)")
+printf '[stories]\n; a comment line\nevery = 3\n' > "$_st/tools/check.cfg"
+_st_validated() { # <the Last validated value>
+  sed "s/\*\*Last validated:\*\* never/**Last validated:** $1/" "$stories_seed" > "$_st/product/user-stories.md"
+}
+_st_validated "2026-01-01 at \`$(cd "$_st" && git rev-parse --short HEAD~2)\`"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due counts from the Last validated commit, research items left out" \
+  "^stories: not due: built items since the last validation \(2026-01-01, commit [0-9a-f]+\): 1, \[stories\] every = 3; $_st_total stories, $_st_unc unconfirmed$" "$out"
+(cd "$_st" && git_q commit -q --allow-empty -m "feat: squashed item (T4) (#12)" && git_q commit -q --allow-empty -m "fix: squashed bug (B2) (#13)")
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due counts squash-merge subjects and is due at [stories] every = 3" "^stories: due: built items since the last validation \(2026-01-01, commit [0-9a-f]+\): 3, \[stories\] every = 3" "$out"
+(cd "$_st" && git_q commit -q --allow-empty -m "fix: B5 is mentioned (B5) but not at the end")
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due ignores an item ID that doesn't end the subject" ": 3, \[stories\] every = 3" "$out"
+_st_validated "2000-01-01 at \`0000000\`"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due counts by the date when the commit isn't in this history" \
+  "^stories: due: built items since the last validation \(2000-01-01, by its date: its commit isn't in this history\): 5, \[stories\] every = 3" "$out"
+_st_validated "2000-01-01"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due counts by the date when the line names no commit" \
+  "^stories: due: built items since the last validation \(2000-01-01, by its date: the line names no commit\): 5, \[stories\] every = 3" "$out"
+grep -v '^\*\*Next ID:\*\*' "$stories_seed" > "$_st/product/user-stories.md"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due is due, and says why, when the file has no Last validated line" \
+  "^stories: due: never validated \(product/user-stories\.md has no Last validated line\), $_st_total stories" "$out"
+printf '[stories]\nevery = often\n' > "$_st/tools/check.cfg"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due notes a setting that isn't a whole number above 0 and uses 10" "^stories: note: \[stories\] every = often isn't a whole number above 0; using 10" "$out"
+printf '[stories]\nevery = 0\n' > "$_st/tools/check.cfg"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due treats every = 0 the same way" "^stories: note: \[stories\] every = 0 isn't a whole number above 0; using 10" "$out"
+out="$(cd "$_st" && bash tools/stories.sh 2>&1)"; status=$?
+expect_status "stories.sh without --due exits 3" 3 "$status" "$out"
+# Outside a git repository (git isn't allowed to look above $work for one) it can't count, and says so.
+_st_nogit="$work/stories-nogit"; mkdir -p "$_st_nogit/tools" "$_st_nogit/product"
+cp "$src/framework/tools/stories.sh" "$_st_nogit/tools/"; cp "$stories_seed" "$_st_nogit/product/"
+out="$(cd "$_st_nogit" && GIT_CEILING_DIRECTORIES="$work" bash tools/stories.sh --due 2>&1)"; status=$?
+expect_status "stories --due exits 3 outside a git repository" 3 "$status" "$out"
+expect_output "and says it couldn't count" "^stories: couldn't count: not a git repository$" "$out"
 
 # --- .NET, where the SDK is installed -----------------------------------------------------------
 if [ "$dotnet_sdk" -eq 1 ]; then

@@ -13,6 +13,13 @@ delete this comment and the guidance in parentheses. Self-contained: no links in
 ## What the app is today
 (Shape, entry points, business rules, data, identity, configuration, integrations, clients, tests and delivery. Short paragraphs or a table, each with evidence: file:line, counts, commands.)
 
+## User stories
+(The roles the app serves today, then one table per area of what each role can do in it now, written from the code. Every story is unconfirmed: the director confirms, corrects or drops it in the design sessions or workshops that follow.)
+
+| ID | Story | Confirmed | Evidence |
+|---|---|---|---|
+| US-1 | As a <role> I <do something>, so <why>. | unconfirmed | (file:line) |
+
 ## SaaS readiness
 0: absent or blocking · 1: present, must be rebuilt · 2: reusable with changes · 3: already fits
 

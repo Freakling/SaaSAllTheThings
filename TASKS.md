@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T33 · B3 · R1
+**Next IDs:** T34 · B3 · R1
 
 ## Queue
+
+### T33 · User stories anchor every item · done · L · agent
+- Touches: project/product/user-stories.md (new), framework/tools/stories.sh (new), framework/.satt/tasks.md, framework/.satt/rules.md, framework/.satt/procedures/design.md, framework/.satt/procedures/next-task.md, framework/.satt/procedures/acceptance.md, framework/.satt/procedures/align.md, framework/.satt/procedures/assess.md, framework/.satt/procedures/build.md, framework/.satt/procedures/ui-design.md, framework/.satt/procedures/drift-reset.md, framework/.satt/procedures/roadmap.md, framework/.satt/templates/assessment.md, framework/.satt/workshops/README.md, framework/.satt/workshops/capabilities.md, framework/.claude/skills/design/SKILL.md, framework/.claude/skills/align/SKILL.md, framework/.claude/skills/assess/SKILL.md, framework/.claude/settings.json, skills/saas-assessment/SKILL.md, skills/saas-design-session/SKILL.md, skills/saas-design-session/references/ (bundle.sh), project/product/prd.md, project/TASKS.md, project/tools/check.cfg, examples/order-desk/product/user-stories.md (new), examples/order-desk/product/prd.md, examples/order-desk/TASKS.md, examples/order-desk/tools/check.cfg, ONBOARDING.md, README.md, selftest.sh, CHANGELOG.md
+- Done when: `project/product/user-stories.md` is a seed with a worked example: a header with the next story ID (`US-<n>`) and the date and commit the stories were last validated, the value in one paragraph per role, the roles (the personas in PRD › Personas and Roles, by the same names), and a table per area with the ID, the story ("As a <role> I <do something>, so <why>") and the date the director confirmed it, or `unconfirmed`; the PRD seed links it and each capability names the stories it serves (check) · the item format gains `Stories:` (the IDs an item serves, or `none` for foundation, tooling and infrastructure), the TASKS.md seed and the example show it, `rules.md` names the file in "Each fact lives in one place", the product session drafts the stories a design needs and puts them to the director, and a feature item with no story gets one drafted before it is built (check) · the director validates on a cadence: `bash tools/stories.sh --due` counts built items since the Last validated commit against `[stories] every` (10 by default) as next-task counts for the security assessment, next-task proposes the validation and names it in a run's final report, each acceptance check asks "still right?" of the stories behind its items, and align lists stories no item serves, feature items with no story and stories unconfirmed past the cadence; onboarding drafts a fresh app's stories from the interview and writes an existing app's from the code, unconfirmed; `/assess` writes the stories it finds in an existing app or proof of concept into its report, unconfirmed, and workshop notes name the stories a workshop adds or changes; `selftest.sh` checks the seed, the example, the field, the setting and the due count, and passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T262
 
 ### T32 · The guard and the Read rules block reads of .env.local and the other .env.<suffix> files · done · S · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, selftest.sh, CHANGELOG.md

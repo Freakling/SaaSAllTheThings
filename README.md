@@ -7,7 +7,7 @@
 Two starting points, one destination: a multi-tenant product that business customers sign in to with their own identity provider, on plans you define, connected to the systems they already run, on an event-driven Azure backend that stays cheap while it's small and grows with use.
 
 - **From scratch:** a short product interview, then the platform is built in small, proven steps, starting with tenancy and sign-in rather than bolting them on later.
-- **From a proof of concept or an existing app:** an assessment first (readiness, roadmap, the workshops to hold), then the app is moved over area by area, behind tests, while it keeps working.
+- **From a proof of concept or an existing app:** an assessment first (readiness, the user stories the app serves today, roadmap, the workshops to hold), then the app is moved over area by area, behind tests, while it keeps working.
 
 You own the product: what it does, for whom, and in what order. The framework owns the architecture and enforces it: an event-driven Azure Functions backend, separate Windows and mobile clients, OIDC sign-in with federated identity, pooled multi-tenancy that can move a customer to its own deployment later, and enterprise integrations starting with Navision (Dynamics NAV / Business Central). The AI builds within that architecture, tests and keeps the records. Designed to work with any AI coding assistant that reads `AGENTS.md`. Built and tested on Claude Code; other assistants are untested. Everything lives in your app's own git repository.
 
@@ -50,7 +50,7 @@ Before you install, write your product brief in your own words. Copy the [templa
 
 ### Assess first (optional)
 
-Not sure yet what it would take? The `saas-assessment` skill analyses an existing app without changing it, and writes a report: how ready the app is (scored, with evidence), the development roadmap by stage with rough effort, the decisions to make, and the workshops to hold, each with participants, preparation, a timed agenda and methods. It asks your stack preference first. Install the skill as below (it comes with the plugin, or `npx skills add Freakling/SaaSAllTheThings`), then ask "what does it take to make this app a SaaS?". The workshops' notes, and the report, feed onboarding later, so nothing is asked twice.
+Not sure yet what it would take? The `saas-assessment` skill analyses an existing app without changing it, and writes a report: how ready the app is (scored, with evidence), the user stories it serves today (written from the code, for you to confirm), the development roadmap by stage with rough effort, the decisions to make, and the workshops to hold, each with participants, preparation, a timed agenda and methods. It asks your stack preference first. Install the skill as below (it comes with the plugin, or `npx skills add Freakling/SaaSAllTheThings`), then ask "what does it take to make this app a SaaS?". The workshops' notes, and the report, feed onboarding later, so nothing is asked twice.
 
 ### Design sessions, anywhere
 
@@ -107,10 +107,11 @@ Only the framework's own files are replaced, and your edits to them are kept. Wh
 |---|---|
 | "Do the next task" (`/next-task`) | Builds the next ready item (high-severity bugs first), proves it with the check, updates the records, and asks you to approve the commit. |
 | "Do the next 3 tasks", "Work through the queue", "Grab tasks until you're blocked" | The same, item after item, committing each without pausing, until one needs you. |
-| "Assess the app", "Which workshops do we need?" (`/assess`) | A read-only assessment report: readiness, the roadmap by stage with rough effort, and the workshops with their agendas. "Process the workshop notes" turns a session's decisions into records. |
+| "Assess the app", "Which workshops do we need?" (`/assess`) | A read-only assessment report: readiness, the user stories the app serves today (written from the code, for you to confirm), the roadmap by stage with rough effort, and the workshops with their agendas. "Process the workshop notes" turns a session's decisions into records. |
 | "Plan the next stage" (`/roadmap`) | Writes the next stage of the roadmap to SaaS as small items. |
 | "Which open questions block development?" (`/design questions`) | Ranks the open product questions by what they unblock, with options and a recommendation for each. |
-| "Let's work out {capability}" (`/design {topic}`) | A design session. Your decisions become PRD text, decision-log lines and task items. |
+| "Let's work out {capability}" (`/design {topic}`) | A design session. Your decisions become PRD text, decision-log lines, user stories and task items. |
+| "Validate the user stories" (`/design validate the stories`) | You confirm, correct or drop each user story the recently built items served, and each one still unconfirmed. `/next-task` proposes it every 10 built items (`tools/check.cfg` › `[stories] every`); you can decline. |
 | "Which UI tech for the Windows client?", "Can we use SQL instead?" (`/architect`) | An architecture session: options with "comply" first, then an ADR that you accept. |
 | "Research which Azure service fits {need}", "What does our security framework require for {topic}?" (`/research {question}`) | A read-only researcher looks into one question in a fresh context and saves a dated note in `product/research/`: the conclusion, the options, the sources with a confidence, and a recommendation, with an ADR-ready summary for an architecture question. It informs; you decide. Product and architecture sessions ask it for facts they don't have, and you can queue a research item (`R1`, `R2`, ...) for later. |
 | "Capture the screens", "Redesign the orders screen", "Process my drawing", "Verify the orders screen" (`/ui-design`) | Opens your web client on this machine in headless Chromium (Node and Playwright, installed once in `tools/ui/`; the check never needs them), signed in as test users of seeded test tenants, and captures each screen at each size, with a numbered map of its elements and a layout lint (squeezed text, off-screen or unreachable controls, a dialog without focus), and writes a starter drawing per screen. You draw over it in Excalidraw (free, no account) and save it in `director/ui/`; `process` reads exactly what you drew, asks about what it can't tell, and records the layout once in `product/ui/<screen>.md`; the build follows that spec, and `verify` captures the built screen, lists its deviations and writes a compare image of your drawing's screenshot beside the result. Data is seeded through the API, never a real tenant's, and capture opens only this machine, or the dev environment you name, never prod. Drawing is optional; capture and lint work without it. Native Windows and mobile clients get capture later. |
@@ -130,7 +131,7 @@ Running two sessions that build at once? Give each its own git worktree; the rul
 you, a customer or a pilot has an idea
         │
         ▼
-product session ── options + a recommendation ── you decide ──► PRD + decisions.md + TASKS.md items
+product session ── options + a recommendation ── you decide ──► PRD + decisions.md + user stories + TASKS.md items
         │                                       architecture call? ──► /architect ──► ADR you accept
         ▼
 next task ── builds the next ready item ── tests ── bash tools/check.sh ──► commit (you approve)
@@ -163,13 +164,14 @@ your-app/
 ├── product/prd.md              the product's current requirements, and Open Questions
 ├── product/director-brief.md   a product brief template for you to fill in, in your own words (optional): the enterprise architecture, requirements, security requirements and control frameworks; onboarding and the assessment read it first and never edit it
 ├── product/decisions.md        why: one line per product decision
+├── product/user-stories.md     the roles the product serves, and why each feature is built: their stories, confirmed by you; each feature item and capability names the ones it serves
 ├── product/research/           dated research notes, one per topic; the decision line or the ADR links to its note
 ├── adr/                        architecture decision records: choices and accepted deviations
 ├── integrations/<system>/      one contract per external system (written by /integrate)
 ├── assessment/                 assessment reports and workshop notes (written by /assess), security assessments in security/ (/security)
 ├── resets/                     design drift resets: as built, interpretations, postmortem (written by /drift-reset)
 ├── validation/TEMPLATE.md      the feedback template, one section per capability
-├── tools/check.cfg             the stack, the layers' folders, size limits
+├── tools/check.cfg             the stack, the layers' folders, size limits, the security assessment and stories validation cadence
 ├── tools/ui/screens.mjs        the screen catalog: each web client screen, its route, the test tenant it opens as, its states
 ├── tools/ui_capture.cfg        capture sizes and seed, the web client to open, the test tenants, lint thresholds, verify tolerance
 ├── product/ui/                 one spec per screen (and a gitignored captures/ folder); README.md says how to draw
@@ -187,6 +189,7 @@ your-app/
 ├── .satt/tasks.md              the TASKS.md item format
 ├── tools/check.sh, archcheck.awk, cfg.sh, stacks/   the check, and one profile per backend stack
 ├── tools/setup-clone.sh        per clone: toolchain, dependencies, the pre-commit hook
+├── tools/stories.sh            whether the user stories are due for validation
 ├── tools/ui_capture.sh, tools/ui/  screen capture, element map, layout lint, drawing reader, compare and verify (Node and Playwright)
 ├── .githooks/pre-commit        scans for secrets on every commit, and runs the check before commits that touch more than docs
 ├── validation/README.md        how acceptance checks and feedback reports work
@@ -229,7 +232,7 @@ The orchestrator (main session) and the builder (builder subagent) are deliberat
 - **Design sessions: clear after each commit.** Once a product or architecture session's commit lands, the conversation has no value left: every decision is in the PRD, `decisions.md` and ADRs. `/clear` before the next topic. The procedures remind you at the end of each session.
 
 **The builder subagent (builder)**
-- **Fresh context per item.** In Claude Code, each build runs as a separate `builder` subagent that starts with an empty context. It reads only what the item needs: the files in `Touches`, the relevant AGENTS.md rows, the PRD sections named in the item, and the reference architecture topics the work touches. It builds, runs the check, and returns a structured ~20-line report.
+- **Fresh context per item.** In Claude Code, each build runs as a separate `builder` subagent that starts with an empty context. It reads only what the item needs: the files in `Touches`, the relevant AGENTS.md rows, the PRD sections and user stories named in the item, and the reference architecture topics the work touches. It builds, runs the check, and returns a structured ~20-line report.
 - **Isolation prevents accumulation.** Because the builder is isolated, the main session never carries the file contents, check logs or edit history. A session that works through ten items stays about as lean as one that worked through one.
 - **The report is the only channel.** The builder's report fields (`Files`, `Systems`, `Contracts`, `Found`, `For the human`) give the main session exactly what it needs to update the records and decide what's next: no more.
 
