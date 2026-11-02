@@ -316,8 +316,15 @@ for gs in "${gsegs[@]}"; do
   done
   case ${w[k]:-} in
     commit)
+      # -n in a short-option cluster (-n, -nm, -an) and --no-verify skip the check. They're tested on the words, after
+      # their quotes are resolved, so '-n', "-n", -""n and --no-ve''rify are the flags they spell. git takes no shorter
+      # spelling of --no-verify (--no-ver is ambiguous with --no-verbose). The -- that ends the options stops the test,
+      # so a pathspec named -n after it is a file.
       for ((k++; k < n; k++)); do
         a="${w[k]}"
+        [[ $a == -- ]] && break
+        [[ $a =~ ^-[a-mo-zA-Z]*n[a-zA-Z]*$ ]] && block "git commit -n skips the project check"
+        [[ $a == --no-veri* ]] && block "--no-verify skips the project check"
         if [[ $a =~ ^-[aeinopqsvz]*F(.*)$ ]]; then v="${BASH_REMATCH[1]:-${w[k+1]:-}}"
         elif [[ $a =~ ^--fil(e?)(=(.*))?$ ]]; then
           if [[ -n ${BASH_REMATCH[2]} ]]; then v="${BASH_REMATCH[3]}"; else v="${w[k+1]:-}"; fi

@@ -970,6 +970,18 @@ for cmd in \
   guard 0 "$cmd"
 done
 
+# A quoted or split no-verify (the docs repo's item B26, as App-Director's guard blocks them): the test runs on the words
+# after their quotes are resolved, so '-n', "-n", -""n and --no-ve''rify skip the check as -n and --no-verify do. The
+# -- that ends the options stops it, so a -n after it is a pathspec and passes.
+for cmd in "git commit '-n' -m x" 'git commit "-n" -m x' 'git commit -""n -m x' "git commit --no-ve''rify -m x" \
+    "git commit --no-'verify' -m x" 'git commit -m x --no-ve"rify"' "git commit -'n' -m x" \
+    "git commit '-nm' x" 'git commit -m x "-n"'; do
+  guard 2 "$cmd"
+done
+for cmd in "git commit -m x -- '-n'" "git commit -m 'fix: the -n flag' -- a.cs"; do
+  guard 0 "$cmd"
+done
+
 # Prototypes (.satt/procedures/prototype.md): the harvest removes a worktree, never forced, and leaves deleting
 # the branch to the human, so the guard blocks every spelling of what discards a worktree's changes or a
 # branch's commits, or overwrites a branch: worktree remove with a force (-f, a cluster with f, --force from its
@@ -2536,6 +2548,41 @@ out="$(printf '{"session_id":"s","tool_name":"Bash","tool_input":{"command":"azd
 expect_status "the guard finds the prototype from the folder it runs in when CLAUDE_PROJECT_DIR isn't set" 2 "$status" "$out"
 expect_output "and says a prototype never deploys" "a prototype never deploys or changes anything in Azure, dev included" "$out"
 
+# The authority guard in a prototype refuses (exit 2) an edit to the hooks, the guard, the scan and the files that excuse a
+# finding, where elsewhere it asks for the framework-owned ones. .satt/ still asks there, and a product file passes. A
+# PROTOTYPE.md beside a .git file is what makes it a prototype: the main checkout (a .git folder) asks even with one.
+edit_in() { # edit_in <refused|asked|allowed> <what> <project dir> <file_path>: the authority guard on an Edit there
+  local out status
+  out="$(printf '{"tool_name":"Edit","tool_input":{"file_path":"%s","old_string":"a","new_string":"b"}}' "$4" \
+    | CLAUDE_PROJECT_DIR="$3" bash "$src/framework/.claude/hooks/guard-authority.sh" 2>&1)"; status=$?
+  case "$1" in
+    refused) if [ "$status" -eq 2 ] && [[ $out == *"in a prototype"* ]]; then ok "refuses an edit to $2"; else bad "refuses an edit to $2 (exit $status)" "$out"; fi ;;
+    asked) if [ "$status" -eq 0 ] && [[ $out == *'"permissionDecision":"ask"'* ]]; then ok "asks before an edit to $2"; else bad "asks before an edit to $2 (exit $status)" "$out"; fi ;;
+    allowed) if [ "$status" -eq 0 ] && [[ $out != *permissionDecision* ]]; then ok "lets through an edit to $2"; else bad "lets through an edit to $2 (exit $status)" "$out"; fi ;;
+  esac
+}
+for f in .githooks/pre-commit .claude/settings.json .claude/hooks/guard-commands.sh tools/prototype.sh tools/setup-clone.sh \
+    tools/check.sh tools/archcheck.awk tools/check.cfg adr/ADR-9-excuse.md .gitattributes sub/.gitattributes; do
+  edit_in refused "$f, in the prototype" "$_pw" "$_pw/$f"
+done
+edit_in asked ".satt/reference/tenancy.md, in the prototype" "$_pw" "$_pw/.satt/reference/tenancy.md"
+edit_in allowed "src/Orders.cs, in the prototype" "$_pw" "$_pw/src/Orders.cs"
+edit_in allowed "PROTOTYPE.md, in the prototype" "$_pw" "$_pw/PROTOTYPE.md"
+mv "$_pw/PROTOTYPE.md" "$work/PROTOTYPE.md.authority"
+edit_in asked "tools/check.sh, in a worktree with no PROTOTYPE.md" "$_pw" "$_pw/tools/check.sh"
+mv "$work/PROTOTYPE.md.authority" "$_pw/PROTOTYPE.md"
+edit_in asked ".githooks/pre-push, in the main checkout" "$_pa" "$_pa/.githooks/pre-push"
+edit_in asked "tools/prototype.sh, in the main checkout" "$_pa" "$_pa/tools/prototype.sh"
+edit_in asked ".claude/hooks/guard-commands.sh, in the main checkout" "$_pa" "$_pa/.claude/hooks/guard-commands.sh"
+edit_in asked "tools/check.sh, in the main checkout" "$_pa" "$_pa/tools/check.sh"
+edit_in allowed ".claude/settings.json, in the main checkout" "$_pa" "$_pa/.claude/settings.json"
+edit_in allowed "tools/check.cfg, in the main checkout" "$_pa" "$_pa/tools/check.cfg"
+edit_in allowed ".gitattributes, in the main checkout" "$_pa" "$_pa/.gitattributes"
+edit_in allowed "an ADR that isn't accepted, in the main checkout" "$_pa" "$_pa/adr/ADR-9-excuse.md"
+put "$_pa/PROTOTYPE.md" '# Prototype: fake'
+edit_in asked "tools/check.sh, with a PROTOTYPE.md in the main checkout (a .git folder, so not a prototype)" "$_pa" "$_pa/tools/check.sh"
+rm -f "$_pa/PROTOTYPE.md"
+
 # The pre-push hook refuses a proto/ branch, from the prototype or to the remote, and any push that carries a
 # prototype's commits under another name, and lets main through.
 _push_refused() { # _push_refused <what> <folder> <refspec> <reason pattern>
@@ -2569,6 +2616,23 @@ expect_output "harvest shows the prototype's notes" "## How it felt" "$out"
 [ "$(_pa_state)" = "$_pa_before" ] && ok "harvest writes no item, record, commit or branch without the human" \
   || bad "harvest changed the main checkout or the branches" "$(_pa_state)"
 out="$(proto harvest nothing-here)"; expect_status "harvest refuses a prototype that doesn't exist" 1 $? "$out"
+
+# harvest and list name a gate file that differs from main's, committed or not, and name none while every one is main's.
+out="$(proto harvest quick-add)"
+expect_no_output "harvest names no gate file while every one is main's" "gate files that differ" "$out"
+printf '\n# a prototype edit, not committed\n' >> "$_pw/tools/check.cfg"
+out="$(proto harvest quick-add)"
+printf '%s\n' "$out" | sed -n '/^--- gate files/,$p' | grep -qx 'tools/check.cfg' \
+  && ok "harvest names an uncommitted gate file that differs from main's" || bad "harvest names an uncommitted gate file that differs from main's" "$out"
+out="$(proto list)"
+expect_output "list names it too" "differs from main's: tools/check.cfg" "$out"
+git -C "$_pw" checkout -q -- tools/check.cfg
+printf '\n# a prototype edit, committed\n' >> "$_pw/tools/check.cfg"
+git -C "$_pw" commit -q --no-verify -am "proto: edit the check settings" >/dev/null 2>&1
+out="$(proto harvest quick-add)"
+printf '%s\n' "$out" | sed -n '/^--- gate files/,$p' | grep -qx 'tools/check.cfg' \
+  && ok "harvest names a committed gate file that differs from main's" || bad "harvest names a committed gate file that differs from main's" "$out"
+git -C "$_pw" reset -q --hard HEAD~1
 
 # remove: never forced, and the branch stays for the human to delete.
 out="$(proto remove quick-add)"; status=$?

@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T35 · B3 · R1
+**Next IDs:** T36 · B3 · R1
 
 ## Queue
+
+### T35 · A quoted no-verify and a gate edit can't get a commit past the hooks · done · S · agent
+- Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/hooks/guard-authority.sh, framework/tools/prototype.sh, selftest.sh, CHANGELOG.md
+- Done when: the guard blocks `git commit` with `-n` or `--no-verify` quoted or split; in a prototype, Edit and Write are refused on the hooks, the guard, `tools/prototype.sh`, `tools/setup-clone.sh` and the files that excuse a scan finding without the human, and `prototype.sh harvest` and `list` name any of those that differ from main's; the selftest covers each (check) · the entry sits under the 0.15.0 heading, and the release notes in #45 say so (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T272
 
 ### T34 · A prototype routine, apart from real building · done · M · agent
 - Touches: framework/.satt/procedures/prototype.md (new), framework/.claude/skills/prototype/SKILL.md (new), framework/tools/prototype.sh (new), framework/.githooks/pre-push (new), framework/.satt/rules.md, framework/.satt/tasks.md, framework/.satt/procedures/design.md, framework/.satt/procedures/build.md, framework/.satt/procedures/release.md, framework/.githooks/pre-commit, framework/tools/setup-clone.sh, framework/.claude/hooks/stop-check.sh, framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, skills/saas-design-session/SKILL.md, skills/saas-design-session/references/ (bundle.sh), README.md, ONBOARDING.md, selftest.sh, CHANGELOG.md
