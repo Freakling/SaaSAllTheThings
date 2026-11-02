@@ -55,11 +55,27 @@ secret_patterns=(
   -e 'gh[pousr]_[A-Za-z0-9]{36}'
   -e 'xox[abprs]-[A-Za-z0-9-]{10,}'
 )
-# scan_secrets <file>: the working tree's lines that match a pattern, as path:line:text (the text is
-# never printed). The check's own files hold the patterns, so they're left out.
+# scan_secrets <file>: the lines that match a pattern, as path:line:text (the text is never printed), in the
+# working tree (tracked and untracked files) and in the index, so a secret that is staged and edited out of
+# the file on disk is still found by the commit that would carry it. The check's own files hold the patterns,
+# so they're left out. git grep exits 0 for a match, 1 for none and more for an error: any error means the scan
+# didn't look, and this returns 1 for the caller to say so.
 scan_secrets() {
+  local tree_status staged_status
   git -c core.quotePath=false grep -n -I -i -E --untracked "${secret_patterns[@]}" -- . \
     ':(exclude)tools/check.sh' ':(exclude)tools/archcheck.awk' > "$1" 2>/dev/null
+  tree_status=$?
+  git -c core.quotePath=false grep --cached -n -I -i -E "${secret_patterns[@]}" -- . \
+    ':(exclude)tools/check.sh' ':(exclude)tools/archcheck.awk' > "$1.staged" 2>/dev/null
+  staged_status=$?
+  [ "$tree_status" -le 1 ] && [ "$staged_status" -le 1 ] || return 1
+  # Add the staged lines the working tree's scan didn't report, once each.
+  if [ "$staged_status" -eq 0 ]; then
+    awk 'FILENAME == ARGV[1] { seen[$0] = 1; next } !($0 in seen)' "$1" "$1.staged" > "$1.new" && cat "$1.new" >> "$1"
+    rm -f "$1.new"
+  fi
+  rm -f "$1.staged"
+  return 0
 }
 # list_adrs <file>: the ADRs, for the exceptions that excuse a violation.
 list_adrs() {
@@ -72,8 +88,9 @@ if [ "$mode" = "--fingerprint" ]; then fingerprint; exit 0; fi
 [ -d "$state" ] || mkdir -p "$state" || exit 3
 
 # --secrets: only the secrets rule of step 1, with the same patterns, [scan] skip folders, public
-# emulator keys and accepted ADR exceptions, over the whole working tree. The pre-commit hook runs it
-# on every commit, because it runs the whole check only for a commit that stages more than documentation.
+# emulator keys and accepted ADR exceptions, over the whole working tree and the index (so a staged secret
+# edited out on disk is still found); a git grep error exits 3. The pre-commit hook runs it on every commit,
+# because it runs the whole check only for a commit that stages more than documentation.
 # It only reads, so it takes no lock and no fingerprint. Other violations are the full check's to report.
 if [ "$mode" = "--secrets" ]; then
   if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -82,7 +99,7 @@ if [ "$mode" = "--secrets" ]; then
   fi
   found="$state/secrets-scan.txt"; adrs="$state/secrets-adrs.txt"; log="$state/secrets-scan.log"
   list_adrs "$adrs"; : > "$log"
-  scan_secrets "$found"
+  scan_secrets "$found" || { echo "check: secrets: git grep couldn't scan the files, so nothing was checked"; exit 3; }
   awk -v cfg=tools/check.cfg -v adrs="$adrs" -v secrets="$found" -v logfile="$log" -f tools/archcheck.awk >/dev/null
   [ $? -le 1 ] || { echo "check: secrets: awk couldn't run the rules"; exit 3; }
   count=0
@@ -159,7 +176,7 @@ architecture() {
   local list="$state/files.txt" adrs="$state/adrs.txt" secrets="$state/secrets.txt"
   : > "$secrets"
   if git -c core.quotePath=false ls-files -c -o --exclude-standard > "$list" 2>/dev/null; then
-    scan_secrets "$secrets"
+    scan_secrets "$secrets" || { echo "check: git grep couldn't scan the files for secrets, so this isn't a pass"; unverified=1; }
   else
     "$FIND" . -type f ! -path './.git/*' ! -path "./$state/*" | sed 's|^\./||' > "$list"
     echo "check: note: not a git repository, so secrets aren't scanned"
@@ -170,8 +187,9 @@ architecture() {
 }
 architecture
 if [ "$mode" = "--architecture" ]; then
-  [ "$failed" -eq 0 ] && exit 0
-  exit 1
+  [ "$failed" -eq 0 ] || exit 1
+  [ "$unverified" -eq 0 ] || exit 3
+  exit 0
 fi
 
 # --- 2. the stack ---------------------------------------------------------------------------------

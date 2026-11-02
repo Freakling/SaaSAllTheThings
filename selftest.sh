@@ -110,7 +110,7 @@ done
 [ -z "$missing" ] && ok "every procedure has a skill (except build and review, which are subagents)" || bad "procedures without skills:$missing"
 # Every .md a rule, procedure or reference topic names: one awk pass prints "doc<TAB>ref" pairs.
 missing=""
-other=" mapping.md contract.md prd.md director-brief.md decisions.md as-built.md interpretations.md prd-before.md postmortem.md README.md TEMPLATE.md ONBOARDING.md CHANGELOG.md AGENTS.md CLAUDE.md TASKS.md TASKS-archive.md adr.md integration-contract.md "
+other=" mapping.md contract.md prd.md director-brief.md decisions.md user-stories.md as-built.md interpretations.md prd-before.md postmortem.md README.md TEMPLATE.md ONBOARDING.md CHANGELOG.md AGENTS.md CLAUDE.md TASKS.md TASKS-archive.md adr.md integration-contract.md "
 while IFS="$(printf '\t')" read -r doc ref; do
   case "$ref" in
     reference/*) [ -f "$src/framework/.satt/$ref" ] || missing="$missing ${doc##*/}→$ref" ;;
@@ -230,6 +230,182 @@ assess_line="$(grep -n '^### Assess first' "$src/README.md" | head -n 1 | cut -d
   && grep -qF "$brief_link" "$src/examples/order-desk/product/director-brief.md" \
   && ok "the README's Start here step links the brief template at v$version, and the template's header carries the same link" \
   || bad "the README's Start here step or the template header doesn't link the brief at v$version"
+# User stories: the seed and the example's file have the header line, the sections and stories in the story
+# format, whose roles are listed under Roles (and in the example, are personas of its PRD); the item format,
+# the TASKS.md seed and the example carry Stories:; the check.cfg seeds have the cadence; the PRD links the
+# file; and the rules, the procedures, the workshops, the assessment, the settings, the skills and the docs
+# name them. tools/stories.sh --due is tested under "user stories".
+stories_seed="$src/project/product/user-stories.md"
+stories_example="$src/examples/order-desk/product/user-stories.md"
+# stories_faults <file> [prd]: what a user stories file gets wrong, read in one pass with builtins; nothing when it holds.
+stories_faults() {
+  local line section="" next="" faults="" ids="|" roles="|" values="|" stories="" story id r found
+  local header=0 value=0 rolesec=0
+  local next_re='^[*][*]Next ID:[*][*] US-([0-9]+) · [*][*]Last validated:[*][*] never$'
+  local role_re='^- [*][*]([^*:]+)[*][*]$'
+  local value_re='^- [*][*]([^*:]+):[*][*] .+'
+  local persona_re='^- [*][*]([^*:]+)[*][*] [(]'
+  local row_re='^[|] US-([0-9]+) [|] As an? (.+ I [^|]+, so [^|]+[.]) [|] ([0-9]{4}-[0-9]{2}-[0-9]{2}|unconfirmed) [|]$'
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    case "$line" in
+      '## The value in one paragraph per role') section=value; value=1; continue ;;
+      '## Roles') section=roles; rolesec=1; continue ;;
+      '## '*) section=table; continue ;;
+      '| ID | Story | Confirmed |') header=1; continue ;;
+    esac
+    if [[ $line =~ $next_re ]]; then next="${BASH_REMATCH[1]}"
+    elif [ "$section" = roles ] && [[ $line =~ $role_re ]]; then roles="$roles${BASH_REMATCH[1]}|"
+    elif [ "$section" = value ] && [[ $line =~ $value_re ]]; then values="$values${BASH_REMATCH[1]}|"
+    elif [[ $line =~ $row_re ]]; then
+      id="${BASH_REMATCH[1]}"
+      case "$ids" in *"|$id|"*) faults="$faults US-$id(twice)" ;; esac
+      ids="$ids$id|"; stories="$stories${BASH_REMATCH[2]}"$'\n'
+    else
+      case "$line" in '| US-'*) faults="$faults row(not | US-<n> | As a <role> I ..., so ... | <date> or unconfirmed |)" ;; esac
+    fi
+  done < "$1"
+  [ -n "$next" ] || faults="$faults Next-ID-and-Last-validated"
+  [ "$value" -eq 1 ] && [ "$rolesec" -eq 1 ] && [ "$header" -eq 1 ] && [ -n "$stories" ] || faults="$faults sections"
+  local IFS='|'
+  for id in ${ids#|}; do [ -n "$next" ] && [ "$id" -lt "$next" ] || faults="$faults US-$id(not below Next ID)"; done
+  for r in ${roles#|}; do case "$values" in *"|$r|"*) ;; *) faults="$faults role($r has no value paragraph)" ;; esac; done
+  if [ -n "${2:-}" ]; then
+    local personas="|" in_personas=0
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line%$'\r'}"
+      case "$line" in '## Personas and Roles') in_personas=1; continue ;; '## '*) in_personas=0; continue ;; esac
+      [ "$in_personas" -eq 1 ] && [[ $line =~ $persona_re ]] && personas="$personas${BASH_REMATCH[1]}|"
+    done < "$2"
+    for r in ${roles#|}; do case "$personas" in *"|$r|"*) ;; *) faults="$faults role($r isn't a persona in the PRD)" ;; esac; done
+  fi
+  IFS=$'\n'
+  shopt -s nocasematch
+  for story in $stories; do
+    found=0
+    local IFS='|'
+    for r in ${roles#|}; do [[ $story == "$r I "* ]] && { found=1; break; }; done
+    IFS=$'\n'
+    [ "$found" -eq 1 ] || faults="$faults story(its role isn't under Roles: ${story%% I *})"
+  done
+  shopt -u nocasematch
+  printf '%s' "$faults"
+}
+wired=""
+[ -f "$stories_seed" ] && [ -f "$stories_example" ] && [ -f "$src/framework/tools/stories.sh" ] || wired="$wired files"
+grep -q '^# User stories: {{PROJECT_NAME}}$' "$stories_seed" || wired="$wired seed(title)"
+grep -q '^# User stories: Order Desk$' "$stories_example" || wired="$wired example(title)"
+faults="$(stories_faults "$stories_seed")"; [ -z "$faults" ] || wired="$wired seed:$faults"
+faults="$(stories_faults "$stories_example" "$src/examples/order-desk/product/prd.md")"; [ -z "$faults" ] || wired="$wired example:$faults"
+# The example: every agent item other than research has a Stories: line, every capability in its PRD names its
+# stories, and every story ID an item or a capability names is in its file.
+faults="$(awk '
+  FNR == 1 { if (file == 2 && id != "" && agent && !st) print "item(" id " has no Stories:)"; st = 0; file++ }
+  file == 1 { if ($0 ~ /^[|] US-[0-9]+ [|]/) { split($0, c, " "); have[c[2]] = 1 }; next }
+  file == 2 && /^### / { if (id != "" && agent && !st) print "item(" id " has no Stories:)"; id = $2; st = 0
+    agent = ($0 ~ / · agent$/ || $0 ~ / · agent · /) && id !~ /^R/ }
+  file == 3 && /^## / { if (cap != "" && !st) print "capability(" cap " has no Stories:)"; cap = ""; caps = ($0 == "## Capabilities") }
+  file == 3 && caps && /^### / { if (cap != "" && !st) print "capability(" cap " has no Stories:)"; cap = substr($0, 5); st = 0 }
+  /^(- )?Stories: / { st = 1; n = split($0, w, /[ ,]+/)
+    for (i = 1; i <= n; i++) if (w[i] ~ /^US-[0-9]+$/ && !(w[i] in have)) print FILENAME ": " w[i] " is not in the stories" }
+  END { if (cap != "" && !st) print "capability(" cap " has no Stories:)" }
+' "$stories_example" "$src/examples/order-desk/TASKS.md" "$src/examples/order-desk/product/prd.md")"
+[ -z "$faults" ] || wired="$wired example($faults)"
+grep -q '^- Stories: US-[0-9]' "$satt/tasks.md" && grep -q '^- \*\*`Stories:`\.\*\* .* or `none` for foundation, tooling and infrastructure' "$satt/tasks.md" || wired="$wired tasks.md"
+grep -q '^- Stories: none$' "$src/project/TASKS.md" || wired="$wired project/TASKS.md"
+for f in project/tools/check.cfg examples/order-desk/tools/check.cfg; do
+  awk '/^\[stories\]$/ { s = 1; next } /^\[/ { s = 0 } s && /^every = 10$/ { found = 1 } END { exit !found }' "$src/$f" || wired="$wired $f"
+done
+grep -qF 'Each persona is a role in the user stories, by the same name' "$src/project/product/prd.md" \
+  && grep -qF '[user stories](user-stories.md)' "$src/project/product/prd.md" && grep -qF '(Stories: US-1, US-3)' "$src/project/product/prd.md" \
+  && grep -qF '[user stories](user-stories.md)' "$src/examples/order-desk/product/prd.md" || wired="$wired prd.md"
+grep -q '^| Why each feature is built, for which persona | `product/user-stories\.md`: the value for each persona in PRD › Personas and Roles' "$satt/rules.md" \
+  && grep -qF 'recorded in the PRD, the user stories, ADRs, contracts and TASKS.md' "$satt/rules.md" \
+  && grep -q '^- \*\*Why it.s built\.\*\* A feature item names the user stories it serves' "$satt/rules.md" \
+  && grep -qF '`product/user-stories.md` when a story was drafted for it' "$satt/rules.md" || wired="$wired rules.md"
+grep -q '^## User stories$' "$satt/procedures/design.md" && grep -q '^### Validate the stories$' "$satt/procedures/design.md" \
+  && grep -q 'bash tools/stories\.sh --due' "$satt/procedures/design.md" && grep -q 'its `Stories:`' "$satt/procedures/design.md" \
+  && grep -q '^5\. \*\*`product/user-stories\.md`:\*\*' "$satt/procedures/design.md" || wired="$wired design.md"
+grep -q 'bash tools/stories\.sh --due' "$satt/procedures/next-task.md" && grep -q '\[stories\] every' "$satt/procedures/next-task.md" \
+  && grep -q 'A feature item (not a research item) with no story gets one before it is built' "$satt/procedures/next-task.md" \
+  && grep -q 'with `product/user-stories\.md` when the claim drafted a story' "$satt/procedures/next-task.md" \
+  && grep -q 'a security assessment or a stories validation if Pick step 4 found one due' "$satt/procedures/next-task.md" || wired="$wired next-task.md"
+grep -qF -- '- [ ] Still right   - [ ] Needs a change' "$satt/procedures/acceptance.md" && grep -q '^4\. \*\*Stories\*\*' "$satt/procedures/acceptance.md" \
+  && grep -qF 'take `Stories:` from the item it was found under' "$satt/procedures/acceptance.md" || wired="$wired acceptance.md"
+grep -q 'stories no item serves' "$satt/procedures/align.md" && grep -q 'feature items with no story' "$satt/procedures/align.md" \
+  && grep -q 'bugs with no story' "$satt/procedures/align.md" \
+  && grep -q 'stories unconfirmed past the cadence' "$satt/procedures/align.md" \
+  && grep -q 'were written from the code on <date>, before the app kept user stories\.' "$satt/procedures/align.md" || wired="$wired align.md"
+grep -q 'the stories under `Stories:`' "$satt/procedures/build.md" || wired="$wired build.md"
+for f in ui-design drift-reset roadmap; do grep -q '`Stories:`' "$satt/procedures/$f.md" || wired="$wired $f.md"; done
+grep -q '^3\. \*\*User stories\.\*\* .*Every one is `unconfirmed`' "$satt/procedures/assess.md" \
+  && grep -qF 'The stories under User stories go to `product/user-stories.md`' "$satt/procedures/assess.md" \
+  && grep -q '^## User stories$' "$satt/templates/assessment.md" || wired="$wired assess.md/assessment.md"
+grep -q '^## User stories$' "$satt/workshops/README.md" && grep -qF -- '- new US-? | changed US-<n> · As a <role>' "$satt/workshops/README.md" \
+  && grep -q 'product/user-stories\.md' "$satt/workshops/capabilities.md" || wired="$wired workshops"
+grep -qF '"Bash(bash tools/stories.sh --due)",' "$settings" && ! grep -qF '"Bash(bash tools/stories.sh*)"' "$settings" \
+  && ! grep -qF '"Bash(bash tools/stories.sh *)"' "$settings" || wired="$wired settings.json"
+grep -q 'validate the user stories' "$src/framework/.claude/skills/design/SKILL.md" && grep -q 'user stories' "$src/framework/.claude/skills/align/SKILL.md" \
+  && grep -q 'user stories' "$src/framework/.claude/skills/assess/SKILL.md" && grep -q 'user stories' "$src/skills/saas-assessment/SKILL.md" \
+  && grep -q 'under User stories' "$src/skills/saas-design-session/SKILL.md" || wired="$wired skills"
+grep -q 'product/user-stories\.md' "$src/ONBOARDING.md" && grep -q '`\[stories\] every`' "$src/ONBOARDING.md" \
+  && grep -q '^3\. \*\*Draft the first user stories\*\*' "$src/ONBOARDING.md" \
+  && grep -q 'were written from the code on <date>, before the app kept user stories\.' "$src/ONBOARDING.md" || wired="$wired ONBOARDING.md"
+grep -q 'product/user-stories\.md' "$src/README.md" && grep -q 'tools/stories\.sh' "$src/README.md" && grep -q '/design validate the stories' "$src/README.md" || wired="$wired README.md"
+[ -z "$wired" ] && ok "the user stories seed and the example's have their header, sections and roles, and Stories:, the cadence, the PRD, the rules, the procedures, the workshops, the assessment, the settings, the skills and the docs name them" \
+  || bad "the user stories aren't wired into:$wired"
+# Prototypes: the procedure, the skill and tools/prototype.sh exist and are wired in. rules.md routes the
+# procedure and says a prototype session is outside the loop, deploys nowhere and reaches main only through the
+# harvest, the item format has Prototype:, the design procedure harvests one, sends what goes against the
+# reference architecture to /architect and files nothing without the human, the settings allow the script, the
+# hooks know proto/ branches, the guard keeps a prototype from Azure, and the docs name it. The script and the
+# hooks run under "prototype".
+_pp="$satt/procedures/prototype.md"
+wired=""
+for file in framework/.satt/procedures/prototype.md framework/.claude/skills/prototype/SKILL.md framework/tools/prototype.sh framework/.githooks/pre-push; do
+  [ -f "$src/$file" ] || wired="$wired $file"
+done
+grep -q 'procedures/prototype\.md' "$src/framework/.claude/skills/prototype/SKILL.md" || wired="$wired SKILL.md"
+grep -q '^## Start$' "$_pp" && grep -q '^## In a prototype session$' "$_pp" && grep -q '^## Harvest$' "$_pp" \
+  && grep -qF 'bash tools/prototype.sh start <name>' "$_pp" && grep -qF 'bash tools/prototype.sh harvest <name>' "$_pp" \
+  && grep -qF 'bash tools/prototype.sh remove <name>' "$_pp" && grep -qF 'bash tools/prototype.sh list' "$_pp" \
+  && grep -qF 'git diff main...proto/<name>' "$_pp" && grep -qF 'Never push a `proto/` branch' "$_pp" \
+  && grep -qF 'git branch -D proto/<name>' "$_pp" && grep -qF 'Never force it' "$_pp" \
+  && grep -q 'Nothing is filed without the human.s answer' "$_pp" && grep -qF 'Commits need no approval' "$_pp" \
+  && grep -qF '`ui-design.md` › capture' "$_pp" && grep -q 'Run `design\.md` on them' "$_pp" \
+  && grep -qF 'git pull --ff-only' "$_pp" && grep -qF 'start <name> --as-is' "$_pp" \
+  && grep -q "ask the human to stop the prototype's app and close its session" "$_pp" && grep -qF 'node_modules' "$_pp" \
+  && grep -qF 'bash tools/check.sh --secrets' "$_pp" && grep -qF '`adr/`' "$_pp" && grep -qF '`tools/archcheck.awk`' "$_pp" \
+  && [ "$(grep -c 'A capture opens whatever answers at `base_url`' "$_pp")" -ge 2 ] || wired="$wired prototype.md"
+grep -qF '**Never deploys.** Not to dev, not to any other Azure environment' "$_pp" \
+  && grep -qF 'no `az`, `azd`, `func azure` or `gh workflow run`, which the guard blocks in a prototype session' "$_pp" \
+  && grep -qF 'an architecture call for `architect.md` with "comply" first, which ends in an ADR the human accepts' "$_pp" \
+  && grep -qF 'to the reference architecture' "$_pp" \
+  && grep -qF 'can still call `az` where no text guard sees it' "$_pp" \
+  && grep -qF 'git checkout refs/heads/main -- <path>' "$_pp" && grep -qF '`.gitattributes` files' "$_pp" || wired="$wired prototype.md(deploys, architecture, scan files)"
+grep -qF 'A prototype session never runs this, for dev either' "$satt/procedures/release.md" || wired="$wired release.md"
+grep -qF 'Unlike Record step 5, a drafted story the human doesn' "$satt/procedures/design.md" || wired="$wired design.md(unanswered story)"
+grep -qF '**prototype.md:**' "$satt/rules.md" && grep -q '^- \*\*Prototypes\.\*\*' "$satt/rules.md" \
+  && grep -q 'That session is outside the loop' "$satt/rules.md" && grep -q 'reaches main only through the harvest' "$satt/rules.md" \
+  && grep -qF 'nothing is deployed, to dev either' "$satt/rules.md" || wired="$wired rules.md"
+grep -q '^- \*\*`Prototype:`\*\* (optional)\. `proto/<name>`' "$satt/tasks.md" || wired="$wired tasks.md"
+grep -q '^## Harvest a prototype$' "$satt/procedures/design.md" && grep -q 'or harvest a prototype (Harvest a prototype, below)' "$satt/procedures/design.md" \
+  && grep -qF -- '- Prototype: proto/<name>' "$satt/procedures/design.md" && grep -qF '(prototype: proto/<name>)' "$satt/procedures/design.md" \
+  && grep -qF 'Each goes to `architect.md`, with "comply" first, and ends in an ADR that only the human accepts' "$satt/procedures/design.md" \
+  && grep -q 'Nothing is filed without the human.s answer' "$satt/procedures/design.md" || wired="$wired design.md"
+grep -qF '"Bash(bash tools/prototype.sh *)",' "$settings" || wired="$wired settings.json"
+grep -qF 'bash tools/prototype.sh here' "$src/framework/.githooks/pre-commit" && grep -qF 'bash tools/prototype.sh here' "$src/framework/.claude/hooks/stop-check.sh" \
+  && grep -qF 'refs/heads/proto/' "$src/framework/.githooks/pre-push" && grep -qF 'pre-commit pre-push' "$src/framework/tools/setup-clone.sh" \
+  && grep -qF 'a prototype never deploys' "$src/framework/.claude/hooks/guard-commands.sh" || wired="$wired hooks"
+grep -qF 'A session in a checkout that `bash tools/prototype.sh here` calls a prototype (a linked worktree on a `proto/` branch with `PROTOTYPE.md` at its root) is a prototype session: read `prototype.md` › In a prototype session before any work.' "$satt/rules.md" \
+  && grep -qF 'git diff main...proto/<name> -- <path>' "$satt/procedures/build.md" || wired="$wired rules.md(prototype session) build.md"
+grep -qF '`/prototype {name}`' "$src/README.md" && grep -qF 'tools/prototype.sh' "$src/README.md" && grep -qF '· prototype ·' "$src/README.md" \
+  && grep -qF 'pre-push' "$src/README.md" || wired="$wired README.md"
+grep -qF '`/prototype`' "$src/ONBOARDING.md" && grep -qF '.githooks/pre-push' "$src/ONBOARDING.md" || wired="$wired ONBOARDING.md"
+grep -qF 'Prototypes (`prototype.md`, `/prototype`) aren' "$src/skills/saas-design-session/SKILL.md" && [ ! -e "$src/skills/saas-design-session/references/procedures/prototype.md" ] \
+  || wired="$wired saas-design-session"
+[ -z "$wired" ] && ok "prototypes: the procedure, the skill and tools/prototype.sh exist, and the rules, the item format, the design procedure, the release, the settings, the hooks and the docs name them" \
+  || bad "prototypes aren't wired into:$wired"
 # The design-session skill runs in the Claude apps without subagents, so it leaves the research procedure out and says so.
 if [ ! -e "$src/skills/saas-design-session/references/procedures/research.md" ] && [ ! -e "$src/skills/saas-design-session/references/research-domain.md" ] \
     && grep -q 'research assistant' "$src/skills/saas-design-session/SKILL.md"; then
@@ -403,6 +579,12 @@ grep -qx '/product/ui/captures/' .gitignore && grep -qx '/tools/ui/node_modules/
 grep -q "$(printf '\t')tools/ui/capture.mjs$" .satt/manifest && ! grep -q "$(printf '\t')tools/ui/screens.mjs$" .satt/manifest \
   && ok "the manifest lists the capture tools, not the app's own catalog" || bad "the manifest lists the capture tools, not the app's own catalog"
 grep -q "Order Desk" AGENTS.md && ok "keeps the project's own files" || bad "keeps the project's own files"
+[ -x tools/stories.sh ] && grep -q "$(printf '\t')tools/stories.sh$" .satt/manifest && grep -q '^# User stories: Order Desk$' product/user-stories.md \
+  && ok "installs tools/stories.sh and keeps the app's own user stories" || bad "installs tools/stories.sh and keeps the app's own user stories" "$out"
+[ -f .satt/procedures/prototype.md ] && [ -f .claude/skills/prototype/SKILL.md ] && [ -x tools/prototype.sh ] && [ -x .githooks/pre-push ] \
+  && grep -q "$(printf '\t')tools/prototype.sh$" .satt/manifest && grep -q "$(printf '\t').githooks/pre-push$" .satt/manifest \
+  && ok "installs prototypes: the procedure, the skill, tools/prototype.sh and the pre-push hook" \
+  || bad "installs prototypes: the procedure, the skill, tools/prototype.sh and the pre-push hook" "$out"
 git add -A >/dev/null 2>&1 && git_q commit -qm "install" >/dev/null 2>&1
 out="$(bash "$src/install.sh" . 2>&1)"; expect_output "a second run changes nothing" "0 new, 0 updated" "$out"
 [ -z "$(git status --porcelain)" ] && ok "adds no duplicate .gitignore/.gitattributes lines" || bad "adds no duplicate lines" "$(git status --porcelain)"
@@ -455,6 +637,9 @@ if [ -f "$core_only/product/director-brief.md" ] && grep -q '^## 10\. Control Fr
 else
   bad "a new app gets the product brief template, even with --tools none" "$out"
 fi
+[ -x "$core_only/tools/stories.sh" ] && cmp -s "$core_only/product/user-stories.md" "$stories_seed" \
+  && ok "a new app gets tools/stories.sh and the user stories seed, even with --tools none" \
+  || bad "a new app gets tools/stories.sh and the user stories seed, even with --tools none" "$out"
 # Installing from a SaaSAllTheThings folder that is itself a git clone, or sits inside the app.
 s_clone="$work/satt-clone"; cp -R "$src" "$s_clone"; rm -rf "$s_clone/.git"
 (cd "$s_clone" && git init -q && git config core.autocrlf false && git add -A && git_q commit -qm satt) >/dev/null 2>&1
@@ -622,10 +807,12 @@ guard() { # guard <expected exit> <command>
   local escaped="${2//\\/\\\\}"
   escaped="${escaped//\"/\\\"}"
   escaped="${escaped//$'\n'/\\n}"   # a real command line carries newlines as \n in the JSON
+  escaped="${escaped//$'\t'/\\t}"   # and tabs as \t
   printf '{"session_id":"s","tool_name":"Bash","tool_input":{"command":"%s","description":"run"}}' "$escaped" \
     | bash .claude/hooks/guard-commands.sh >/dev/null 2>&1
   local got=$?
-  if [ "$got" -eq "$1" ]; then ok "$([ "$1" -eq 2 ] && echo blocks || echo allows): $2"; else bad "guard exit $got, expected $1: $2"; fi
+  local shown="${2//$'\n'/\\n}"; shown="${shown//$'\t'/\\t}"
+  if [ "$got" -eq "$1" ]; then ok "$([ "$1" -eq 2 ] && echo blocks || echo allows): $shown"; else bad "guard exit $got, expected $1: $shown"; fi
 }
 for cmd in 'git commit -m x --no-verify' 'git commit -nm "x"' 'git push origin main --force' \
     'git push --force-with-lease=main origin' 'git push origin +main' 'git reset HEAD --hard' \
@@ -783,6 +970,100 @@ for cmd in \
   guard 0 "$cmd"
 done
 
+# A quoted or split no-verify (the docs repo's item B26, as App-Director's guard blocks them): the test runs on the words
+# after their quotes are resolved, so '-n', "-n", -""n and --no-ve''rify skip the check as -n and --no-verify do. The
+# -- that ends the options stops it, so a -n after it is a pathspec and passes.
+for cmd in "git commit '-n' -m x" 'git commit "-n" -m x' 'git commit -""n -m x' "git commit --no-ve''rify -m x" \
+    "git commit --no-'verify' -m x" 'git commit -m x --no-ve"rify"' "git commit -'n' -m x" \
+    "git commit '-nm' x" 'git commit -m x "-n"'; do
+  guard 2 "$cmd"
+done
+for cmd in "git commit -m x -- '-n'" "git commit -m 'fix: the -n flag' -- a.cs"; do
+  guard 0 "$cmd"
+done
+
+# Prototypes (.satt/procedures/prototype.md): the harvest removes a worktree, never forced, and leaves deleting
+# the branch to the human, so the guard blocks every spelling of what discards a worktree's changes or a
+# branch's commits, or overwrites a branch: worktree remove with a force (-f, a cluster with f, --force from its
+# first three characters), worktree add -B, -f and --force, branch -D, -d with a force, -M, -C, and -m or -c with
+# a force. An unquoted brace expansion or $IFS in a git command could spell such a flag past it, so they are
+# blocked too, while git's own @{...} passes; the global options that take a value are read past.
+for cmd in \
+    'git branch -D proto/quick-add' \
+    'git worktree remove --force ../app-proto-quick-add' \
+    'git worktree remove --forc ../x' \
+    'git worktree remove --f ../x' \
+    "git worktree remove '--force' ../x" \
+    'git worktree remove ../app-proto-quick-add -f' \
+    'git worktree remove -ff ../x' \
+    'git -C ../app worktree remove --fo ../x' \
+    'git branch -d -f proto/quick-add' \
+    'git branch --delete --force proto/quick-add' \
+    'git branch --del --forc proto/quick-add' \
+    'git branch -df proto/quick-add' \
+    'git branch -qD proto/quick-add' \
+    'git worktree remove --{force,} x' \
+    'git worktree remove -{f,f} x' \
+    'git worktree remove x$IFS--force' \
+    'git worktree remove x${IFS}--force' \
+    'git branch -{D,} x' \
+    'git branch -{d..f} x' \
+    'git --git-dir .git worktree remove --forc x' \
+    'git --work-tree . branch -df x' \
+    'git --config-env x=Y worktree remove -f x' \
+    'git branch -M a b' \
+    'git branch -C a b' \
+    'git branch -m -f a b' \
+    'git branch --move --force a b' \
+    'git branch -cf a b' \
+    'git worktree add -B proto/x ../x main' \
+    'git worktree add -f ../x proto/x' \
+    'git worktree add --forc ../x proto/x'; do
+  guard 2 "$cmd"
+done
+for cmd in \
+    'git worktree add --no-track -b proto/quick-add ../app-proto-quick-add main' \
+    'git worktree remove ../app-proto-quick-add' \
+    'git worktree list' \
+    'git branch -d proto/quick-add' \
+    'git branch -f topic main' \
+    'git branch -uorigin/feature-dev' \
+    'git commit -m "git branch -d -f x"' \
+    'git log HEAD@{1}' \
+    'git log --oneline @{u}..HEAD' \
+    'git diff stash@{0}' \
+    'git branch -m old new' \
+    'git branch -c old new' \
+    'git commit -m "a {b,c} message"' \
+    'bash tools/prototype.sh start quick-add' \
+    'bash tools/prototype.sh remove quick-add'; do
+  guard 0 "$cmd"
+done
+# A command that starts a later line, tab-indented or not, is a command of its own. The command arrives
+# JSON-escaped, so its first letter follows the n or t of \n or \t, and a rule that wants a word boundary before
+# git, az or azd must read the line break as a separator (the first line must not hide it).
+for cmd in \
+    $'cd x\ngit branch -D y' \
+    $'cd x\n\tgit branch -D y' \
+    $'echo hi\ngit push origin main --force' \
+    $'echo hi\n\tgit commit -m x --no-verify' \
+    $'cd x\ngit worktree remove --force y' \
+    $'cd x\ngit log --output=/tmp/probe.txt' \
+    $'cd x\nazd down --purge' \
+    $'cd x\n\taz group delete -n rg --yes' \
+    $'cd x\n\naz keyvault secret show --vault-name kv --name db' \
+    '/usr/bin/git branch -D y'; do
+  guard 2 "$cmd"
+done
+for cmd in \
+    $'cd x\ngit branch -d y' \
+    $'cd x\n\tgit status' \
+    $'git add a.md\ngit commit -m "docs: a note" -- a.md' \
+    $'cd x\nls' \
+    $'cd x\naz account show'; do
+  guard 0 "$cmd"
+done
+
 # Hangs: an empty heredoc into Python, a polling loop without a limit, a lone long sleep.
 nlc=$'\n'
 for cmd in "python3 - <<'EOF' 2>/dev/null || echo \"no python\"${nlc}EOF" "python3 - <<EOF${nlc}EOF" \
@@ -828,6 +1109,8 @@ authority none "another edit to an ADR" \
   '{"tool_name":"Edit","tool_input":{"file_path":"/home/u/app/adr/ADR-2-windows-client-ui.md","old_string":"a","new_string":"b"}}'
 authority none "an edit to product code" '{"tool_name":"Edit","tool_input":{"file_path":"/home/u/app/src/OrderDesk.Domain/Orders/Order.cs","old_string":"a","new_string":"b"}}'
 authority none "the builder's state marker" '{"tool_name":"Write","tool_input":{"file_path":"/home/u/app/.satt/state/building","content":""}}'
+authority ask "an edit to the prototype script" '{"tool_name":"Edit","tool_input":{"file_path":"/home/u/app/tools/prototype.sh","old_string":"a","new_string":"b"}}'
+authority ask "an edit to the pre-push hook" '{"tool_name":"Edit","tool_input":{"file_path":"/home/u/app/.githooks/pre-push","old_string":"a","new_string":"b"}}'
 
 # director/ is the director's own workspace: the hook blocks writes there (exit 2), wherever the path is spelled from.
 protected() { # protected <expected exit> <what> <file_path as JSON> [project dir]
@@ -1196,6 +1479,8 @@ git checkout -q -- $domain
 echo "pre-commit hook"
 out="$(bash tools/setup-clone.sh 2>&1)"; expect_status "setup-clone succeeds" 0 $? "$out"
 grep -qs "SaaSAllTheThings" "$(git rev-parse --git-path hooks)/pre-commit" && ok "installs the pre-commit hook" || bad "installs the pre-commit hook" "$out"
+grep -qs "SaaSAllTheThings" "$(git rev-parse --git-path hooks)/pre-push" && ok "installs the pre-push hook" || bad "installs the pre-push hook" "$out"
+expect_output "setup-clone says it installed both hooks" "setup: pre-push hook installed" "$out"
 printf 'public static class Bad { public static Guid G => Guid.NewGuid(); }\n' >> $domain
 git add $domain
 out="$(git_q commit -qm "broken" 2>&1)"; expect_status "blocks a commit that fails the check" 1 $? "$out"
@@ -1271,6 +1556,51 @@ out="$(git_q commit -qm "docs: setup" 2>&1)"; status=$?
 expect_status "allows a Markdown-only commit without a secret" 0 "$status" "$out"
 expect_output "scans for secrets on every commit" "scanning for secrets" "$out"
 expect_no_output "and still doesn't run the whole check for it" "running the project check" "$out"
+# A scan that can't run blocks the commit, a Markdown-only one too: with the check's rules file missing, awk
+# can't run them.
+mv tools/archcheck.awk "$work/archcheck.saved"
+put docs/other.md "# Other"
+git add docs/other.md
+out="$(git_q commit -qm "docs: other" 2>&1)"; status=$?
+expect_status "blocks a Markdown-only commit while the secrets scan can't run" 1 "$status" "$out"
+expect_output "and says the scan couldn't run" "the secrets scan couldn't run; commit blocked" "$out"
+mv "$work/archcheck.saved" tools/archcheck.awk
+git reset -q -- docs/other.md && rm -f docs/other.md
+# The scan reads the index too: a secret that is staged and then edited out of the file on disk is still in the
+# commit that would carry it.
+put docs/staged.md "# Staged
+Storage: $fake_key"
+git add docs/staged.md
+put docs/staged.md "# Staged
+Storage: <from Key Vault>"
+out="$(bash tools/check.sh --secrets 2>&1)"; status=$?
+expect_status "check.sh --secrets finds a secret that is staged but edited out on disk" 1 "$status" "$out"
+expect_output "and names the file and line" '\[secrets\] docs/staged\.md:2' "$out"
+out="$(git_q commit -qm "docs: staged" 2>&1)"; status=$?
+expect_status "the pre-commit hook blocks the commit that would carry it" 1 "$status" "$out"
+expect_no_output "and never prints the secret" "q2Vh4dN0k3sRm7" "$out"
+git reset -q -- docs/staged.md && rm -f docs/staged.md
+out="$(bash tools/check.sh --secrets 2>&1)"; expect_status "and passes once it is unstaged" 0 $? "$out"
+# A git grep that fails didn't look: --secrets exits 3, never 0 (here the index is unreadable).
+_gg="$work/grep-fails"; new_repo "$_gg"; bash "$src/install.sh" "$_gg" >/dev/null 2>&1
+(cd "$_gg" && git add -A >/dev/null 2>&1 && git_q commit -qm "install" >/dev/null 2>&1)
+printf 'junk' > "$_gg/.git/index"
+out="$(cd "$_gg" && bash tools/check.sh --secrets 2>&1)"; status=$?
+expect_status "check.sh --secrets exits 3 when git grep fails" 3 "$status" "$out"
+expect_output "and says nothing was checked" "git grep couldn't scan the files, so nothing was checked" "$out"
+# setup-clone installs both hooks even when the stack has no profile (exit 3): neither needs the toolchain, and
+# the pre-commit hook still blocks a secret there.
+_sc="$work/setup-exit3"; new_repo "$_sc"; bash "$src/install.sh" "$_sc" >/dev/null 2>&1
+sed 's/^stack = dotnet$/stack = cobol/' "$_sc/tools/check.cfg" > "$work/cfg-cobol" && cp "$work/cfg-cobol" "$_sc/tools/check.cfg"
+out="$(cd "$_sc" && bash tools/setup-clone.sh 2>&1)"; status=$?
+expect_status "setup-clone exits 3 when the stack has no profile" 3 "$status" "$out"
+grep -qs "SaaSAllTheThings" "$_sc/.git/hooks/pre-commit" && grep -qs "SaaSAllTheThings" "$_sc/.git/hooks/pre-push" \
+  && ok "and still installs the pre-commit and pre-push hooks" || bad "setup-clone installs the hooks even when it exits 3" "$out"
+(cd "$_sc" && git add -A >/dev/null 2>&1 && git_q commit -qm "install" --no-verify >/dev/null 2>&1 && put docs/setup.md "# Setup
+Storage: $fake_key" && git add docs/setup.md)
+out="$(cd "$_sc" && git_q commit -qm "docs: setup" 2>&1)"; status=$?
+expect_status "the hooks block a secret there" 1 "$status" "$out"
+expect_output "and name the file" '\[secrets\] docs/setup\.md:2' "$out"
 cd "$app" || exit 1
 
 # --- /ui-design -----------------------------------------------------------------------------------
@@ -1770,7 +2100,7 @@ grep -q 'security\.md' "$satt/procedures/release.md" \
   && grep -q 'unless an accepted ADR deviates from that item' "$satt/procedures/release.md" || wired="$wired release.md"
 grep -q 'security\.md' "$satt/procedures/next-task.md" && grep -qF '`[security] every`' "$satt/procedures/next-task.md" \
   && grep -q '10 when the key is absent' "$satt/procedures/next-task.md" \
-  && grep -qF 'With no report in `assessment/security/` yet, it'"'"'s due' "$satt/procedures/next-task.md" \
+  && grep -qF 'With no report in `assessment/security/` yet, the assessment is due' "$satt/procedures/next-task.md" \
   && grep -q 'is-shallow-repository' "$satt/procedures/next-task.md" || wired="$wired next-task.md"
 # The count next-task.md gives counts item commits, squash-merged ones too, and nothing else.
 count_re="$(sed -n "s/.*grep -cE '\([^']*\)'.*/\1/p" "$satt/procedures/next-task.md" | head -n 1)"
@@ -1847,6 +2177,503 @@ if [ "$dotnet_sdk" -eq 1 ]; then
 else
   echo "  note  dotnet list package --vulnerable skipped: no .NET SDK on this machine"
 fi
+
+# --- user stories ----------------------------------------------------------------------------------
+echo "user stories"
+# tools/stories.sh --due counts built items as next-task.md counts them for the security assessment, from the
+# commit on the stories file's Last validated line (by its date when that commit isn't in the history), and
+# is due when the stories were never validated. The seed stands in for an app's file.
+_st="$work/stories"; new_repo "$_st"; mkdir -p "$_st/tools" "$_st/product"
+cp "$src/framework/tools/stories.sh" "$_st/tools/"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"; status=$?
+expect_status "stories --due exits 0 without a stories file" 0 "$status" "$out"
+expect_output "stories --due: not due without a stories file" "^stories: not due: no stories yet \(no product/user-stories\.md\), \[stories\] every = 10$" "$out"
+printf '# User stories: x\n\n**Next ID:** US-1 · **Last validated:** never\n\n## Roles\n' > "$_st/product/user-stories.md"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due: not due while the file has no stories" "^stories: not due: no stories yet in product/user-stories\.md" "$out"
+cp "$stories_seed" "$_st/product/user-stories.md"
+_st_total="$(grep -c '^| US-' "$stories_seed")"; _st_unc="$(grep -c '| unconfirmed |$' "$stories_seed")"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due: due when never validated, counting the stories and the unconfirmed ones" \
+  "^stories: due: never validated \(Last validated: never\), $_st_total stories, $_st_unc unconfirmed, \[stories\] every = 10$" "$out"
+(cd "$_st" && for i in 1 2 3; do git_q commit -q --allow-empty -m "feat: item (T$i)"; done && git_q commit -q --allow-empty -m "docs: note (R1)")
+printf '[stories]\n; a comment line\nevery = 3\n' > "$_st/tools/check.cfg"
+_st_validated() { # <the Last validated value>
+  sed "s/\*\*Last validated:\*\* never/**Last validated:** $1/" "$stories_seed" > "$_st/product/user-stories.md"
+}
+_st_validated "2026-01-01 at \`$(cd "$_st" && git rev-parse --short HEAD~2)\`"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due counts from the Last validated commit, research items left out" \
+  "^stories: not due: built items since the last validation \(2026-01-01, commit [0-9a-f]+\): 1, \[stories\] every = 3; $_st_total stories, $_st_unc unconfirmed$" "$out"
+(cd "$_st" && git_q commit -q --allow-empty -m "feat: squashed item (T4) (#12)" && git_q commit -q --allow-empty -m "fix: squashed bug (B2) (#13)")
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due counts squash-merge subjects and is due at [stories] every = 3" "^stories: due: built items since the last validation \(2026-01-01, commit [0-9a-f]+\): 3, \[stories\] every = 3" "$out"
+(cd "$_st" && git_q commit -q --allow-empty -m "fix: B5 is mentioned (B5) but not at the end")
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due ignores an item ID that doesn't end the subject" ": 3, \[stories\] every = 3" "$out"
+_st_validated "2000-01-01 at \`0000000\`"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due counts by the date when the commit isn't in this history" \
+  "^stories: due: built items since the last validation \(2000-01-01, by its date: its commit isn't in this history\): 5, \[stories\] every = 3" "$out"
+_st_validated "2000-01-01"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due counts by the date when the line names no commit" \
+  "^stories: due: built items since the last validation \(2000-01-01, by its date: the line names no commit\): 5, \[stories\] every = 3" "$out"
+grep -v '^\*\*Next ID:\*\*' "$stories_seed" > "$_st/product/user-stories.md"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due is due, and says why, when the file has no Last validated line" \
+  "^stories: due: never validated \(product/user-stories\.md has no Last validated line\), $_st_total stories" "$out"
+printf '[stories]\nevery = often\n' > "$_st/tools/check.cfg"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due notes a setting that isn't a whole number above 0 and uses 10" "^stories: note: \[stories\] every = often isn't a whole number above 0; using 10" "$out"
+printf '[stories]\nevery = 0\n' > "$_st/tools/check.cfg"
+out="$(cd "$_st" && bash tools/stories.sh --due 2>&1)"
+expect_output "stories --due treats every = 0 the same way" "^stories: note: \[stories\] every = 0 isn't a whole number above 0; using 10" "$out"
+out="$(cd "$_st" && bash tools/stories.sh 2>&1)"; status=$?
+expect_status "stories.sh without --due exits 3" 3 "$status" "$out"
+# Outside a git repository (git isn't allowed to look above $work for one) it can't count, and says so.
+_st_nogit="$work/stories-nogit"; mkdir -p "$_st_nogit/tools" "$_st_nogit/product"
+cp "$src/framework/tools/stories.sh" "$_st_nogit/tools/"; cp "$stories_seed" "$_st_nogit/product/"
+out="$(cd "$_st_nogit" && GIT_CEILING_DIRECTORIES="$work" bash tools/stories.sh --due 2>&1)"; status=$?
+expect_status "stories --due exits 3 outside a git repository" 3 "$status" "$out"
+expect_output "and says it couldn't count" "^stories: couldn't count: not a git repository$" "$out"
+
+# --- prototypes -----------------------------------------------------------------------------------
+echo "prototype"
+# tools/prototype.sh on a throwaway app with an origin: start stops while origin/main is ahead, creates the
+# worktree beside the project, the branch from main with no upstream and the committed PROTOTYPE.md, and refuses
+# an existing name or an invalid one. Only a prototype (a linked worktree on a proto/ branch with PROTOTYPE.md at
+# its root) skips the check: the pre-commit hook still scans every commit for secrets there, and blocks a commit
+# while what the scan reads (adr/, tools/check.cfg, tools/check.sh, tools/archcheck.awk) differs from main's,
+# and runs the check everywhere else, the Stop hook likewise, the pre-push hook refuses a proto/ branch, and
+# the guard keeps a prototype session from Azure. harvest prints what the harvest reads and changes nothing;
+# remove never forces and keeps the branch. The app's project check always fails (tools/check.local.sh), so a
+# commit that goes through shows the check was skipped. A token is assembled at run time ($fake_key), never
+# kept in a tracked file.
+_proto_repo() { # _proto_repo <folder> <origin>: an app with the framework installed, a failing project check and an origin
+  new_repo "$1" >/dev/null 2>&1
+  bash "$src/install.sh" "$1" >/dev/null 2>&1
+  sed 's/^stack = dotnet$/stack = none/' "$1/tools/check.cfg" > "$work/proto-cfg" && cp "$work/proto-cfg" "$1/tools/check.cfg"
+  printf 'exit 1\n' > "$1/tools/check.local.sh"
+  git init -q --bare "$2"
+  (cd "$1" && git config user.name selftest && git config user.email selftest@localhost && git branch -M main \
+    && git config branch.autoSetupMerge always \
+    && git add -A && git commit -q --no-verify -m "install, with a failing project check" && git remote add origin "$2" \
+    && git push -q origin main && bash tools/setup-clone.sh) >/dev/null 2>&1
+}
+_pa="$work/proto-app"; _pw="$work/proto-app-proto-quick-add"; _po="$work/proto-origin.git"
+_proto_repo "$_pa" "$_po"
+proto() { (cd "$_pa" && bash tools/prototype.sh "$@" 2>&1); }
+commit_in() { (cd "$1" && git commit -qm "$2" 2>&1); }   # commit_in <folder> <message>
+_pa_none() { [ ! -e "$_pw" ] && [ -z "$(git -C "$_pa" for-each-ref refs/heads/proto/)" ]; }   # no prototype yet
+guard_in() { # guard_in <what> <project dir> <expected exit> <command>: the guard as a session in that folder
+  local escaped="${4//\\/\\\\}"
+  escaped="${escaped//\"/\\\"}"
+  escaped="${escaped//$'\n'/\\n}"; escaped="${escaped//$'\t'/\\t}"   # as a real command line carries them
+  printf '{"session_id":"s","tool_name":"Bash","tool_input":{"command":"%s","description":"run"}}' "$escaped" \
+    | CLAUDE_PROJECT_DIR="$2" bash "$src/framework/.claude/hooks/guard-commands.sh" >/dev/null 2>&1
+  local got=$?
+  local shown="${4//$'\n'/\\n}"; shown="${shown//$'\t'/\\t}"
+  if [ "$got" -eq "$3" ]; then ok "$([ "$3" -eq 2 ] && echo blocks || echo allows) in $1: $shown"; else bad "guard exit $got, expected $3 in $1: $shown"; fi
+}
+
+[ -x "$_pa/tools/prototype.sh" ] && [ -x "$_pa/.githooks/pre-push" ] && ok "the throwaway app has the installed prototype tools" \
+  || bad "the throwaway app has the installed prototype tools"
+out="$(proto list)"
+expect_output "list says so when there are no prototypes" "^prototype: no prototypes \(no proto/ branches\)$" "$out"
+
+# A prototype's only gates are its hooks and the secrets scan, so start refuses, creating nothing, without them.
+_pa_hooks="$(git -C "$_pa" rev-parse --git-path hooks)"
+[ "${_pa_hooks#/}" = "$_pa_hooks" ] && [ "${_pa_hooks#?:}" = "$_pa_hooks" ] && _pa_hooks="$_pa/$_pa_hooks"
+mv "$_pa_hooks/pre-push" "$work/pre-push.saved"
+out="$(proto start quick-add)"; status=$?
+{ [ "$status" -eq 1 ] && printf '%s' "$out" | grep -q "this clone has no SaaSAllTheThings pre-push hook: run bash tools/setup-clone.sh here first" && _pa_none; } \
+  && ok "start refuses, creating nothing, while this clone has no pre-push hook" || bad "start refuses while this clone has no pre-push hook (exit $status)" "$out"
+mv "$work/pre-push.saved" "$_pa_hooks/pre-push"
+mv "$_pa/tools/archcheck.awk" "$work/archcheck.saved"
+out="$(proto start quick-add)"; status=$?
+{ [ "$status" -eq 1 ] && printf '%s' "$out" | grep -q "the secrets scan can't run here" && _pa_none; } \
+  && ok "start refuses, creating nothing, while the secrets scan can't run here" || bad "start refuses while the secrets scan can't run here (exit $status)" "$out"
+mv "$work/archcheck.saved" "$_pa/tools/archcheck.awk"
+_pm="$work/proto-old-main"; _proto_repo "$_pm" "$work/proto-old-origin.git"
+(cd "$_pm" && git rm -q .githooks/pre-push tools/archcheck.awk && git commit -q --no-verify -m "a main without the hook and the scan's rules") >/dev/null 2>&1
+out="$(cd "$_pm" && bash tools/prototype.sh start quick-add 2>&1)"; status=$?
+{ [ "$status" -eq 1 ] && printf '%s' "$out" | grep -q "main has no committed .githooks/pre-push tools/archcheck.awk" && [ ! -e "$work/proto-old-main-proto-quick-add" ]; } \
+  && ok "start refuses, creating nothing, when main has no committed pre-push hook or scan rules" || bad "start refuses when main lacks the hook and the scan rules (exit $status)" "$out"
+
+# origin/main ahead of main (as last fetched): start creates nothing and says how to go on.
+_pa_ahead="$(cd "$_pa" && git commit-tree -p main -m "a commit only origin has" "main^{tree}")"
+git -C "$_pa" update-ref refs/remotes/origin/main "$_pa_ahead"
+out="$(proto start quick-add)"; status=$?
+expect_status "start stops when origin/main is ahead of main (exit 5)" 5 "$status" "$out"
+expect_output "and offers to bring main up to date or to start as it is" "git pull --ff-only.*start quick-add --as-is" "$out"
+[ ! -e "$_pw" ] && ! git -C "$_pa" show-ref --verify --quiet refs/heads/proto/quick-add \
+  && ok "and creates no branch and no worktree" || bad "start created a prototype while origin/main was ahead"
+out="$(proto start quick-add --as-is)"; status=$?
+git -C "$_pa" update-ref refs/remotes/origin/main main
+expect_status "start --as-is creates a prototype from main as it is" 0 "$status" "$out"
+[ -d "$_pw" ] && [ "$(git -C "$_pw" symbolic-ref --short HEAD 2>/dev/null)" = "proto/quick-add" ] \
+  && ok "start creates the worktree beside the project, named after it, on the new branch proto/quick-add" \
+  || bad "start creates the worktree beside the project, named after it, on the new branch proto/quick-add" "$out"
+[ "$(git -C "$_pa" merge-base main proto/quick-add 2>/dev/null)" = "$(git -C "$_pa" rev-parse main)" ] \
+  && ok "the prototype's branch starts from local main" || bad "the prototype's branch starts from local main"
+[ -z "$(git -C "$_pa" config --get branch.proto/quick-add.merge)" ] \
+  && ok "the prototype's branch has no upstream, even with branch.autoSetupMerge = always" \
+  || bad "the prototype's branch has an upstream: $(git -C "$_pa" config --get branch.proto/quick-add.merge)"
+expect_output "start runs setup-clone in the worktree, which installs the pre-commit hook" "setup: pre-commit hook installed" "$out"
+expect_output "and the pre-push hook" "setup: pre-push hook installed" "$out"
+grep -q "^## What we're trying$" "$_pw/PROTOTYPE.md" && grep -q '^## How it felt$' "$_pw/PROTOTYPE.md" \
+  && grep -q '^## What to keep$' "$_pw/PROTOTYPE.md" \
+  && grep -qF 'A session in a checkout that `bash tools/prototype.sh here` calls a prototype (a linked worktree on a `proto/` branch with this file at its root) is a prototype session: read `.satt/procedures/prototype.md` › In a prototype session before any work.' "$_pw/PROTOTYPE.md" \
+  && grep -qF 'it deploys nowhere, dev included' "$_pw/PROTOTYPE.md" \
+  && [ -z "$(git -C "$_pw" status --porcelain)" ] && [ "$(git -C "$_pa" rev-list --count main..proto/quick-add)" = 1 ] \
+  && ok "start writes PROTOTYPE.md from its template (what we're trying, how it felt, what to keep) and commits it" \
+  || bad "start writes PROTOTYPE.md from its template and commits it" "$(cat "$_pw/PROTOTYPE.md" 2>&1)"
+
+out="$(proto start quick-add)"; status=$?
+expect_status "start refuses a name whose branch exists" 1 "$status" "$out"
+expect_output "and says the branch exists" "the branch proto/quick-add already exists" "$out"
+mkdir -p "$work/proto-app-proto-taken"
+out="$(proto start taken)"; status=$?
+expect_status "start refuses a name whose folder exists" 1 "$status" "$out"
+expect_output "and says the folder exists" "the folder .*proto-app-proto-taken already exists" "$out"
+_proto_bad=""
+for _pn in Quick quick_add -x x- a/b .. 'two words' list harvest remove here ''; do
+  out="$(proto start "$_pn")"; status=$?
+  { [ "$status" -eq 1 ] && printf '%s' "$out" | grep -q "isn't a prototype name"; } || _proto_bad="$_proto_bad '$_pn'"
+done
+[ -z "$_proto_bad" ] && ok "start refuses an invalid name: capitals, an underscore, a dash at either end, a slash, dots, a space, a command word, none" \
+  || bad "start doesn't refuse these names:$_proto_bad"
+[ "$(git -C "$_pa" for-each-ref refs/heads/proto/ | wc -l | tr -d ' ')" = 1 ] && [ "$(git -C "$_pa" worktree list | wc -l | tr -d ' ')" = 2 ] \
+  && ok "a refused start creates no branch and no worktree" || bad "a refused start creates no branch and no worktree" "$(git -C "$_pa" worktree list)"
+out="$(cd "$_pw" && bash tools/prototype.sh start other 2>&1)"; status=$?
+expect_status "start refuses to run in a prototype session" 1 "$status" "$out"
+out="$(cd "$_pw" && bash tools/prototype.sh here 2>&1)"; status=$?
+expect_status "here: the worktree is a prototype" 0 "$status" "$out"
+out="$(cd "$_pa" && bash tools/prototype.sh here 2>&1)"; status=$?
+expect_status "here: the main checkout isn't" 1 "$status" "$out"
+out="$(proto list)"
+expect_output "list shows the prototype, its worktree and its commits since main" "^proto/quick-add · .*proto-app-proto-quick-add · 1 commit\(s\) since main$" "$out"
+
+# The pre-commit hook in the prototype: no project check, but the secrets scan on every commit.
+(cd "$_pw" && printf 'export const tried = 1;\n' > tried.ts && git add tried.ts)
+out="$(commit_in "$_pw" "proto: try it")"; status=$?
+expect_status "pre-commit lets a source commit through in a prototype while the check fails" 0 "$status" "$out"
+expect_output "and says the check is skipped in a prototype" "this checkout is a prototype, so the project check is skipped" "$out"
+expect_output "and that the secrets scan still ran" "scanning for secrets" "$out"
+expect_no_output "and doesn't run the check there" "running the project check|check.local" "$out"
+(cd "$_pw" && printf 'export const key = "%s";\n' "$fake_key" > leak.ts && git add leak.ts)
+_pt_commits="$(git -C "$_pw" rev-list --count HEAD)"
+out="$(commit_in "$_pw" "proto: a secret")"; status=$?
+expect_status "pre-commit still blocks a staged secret in a prototype" 1 "$status" "$out"
+expect_output "and names the file and line" '\[secrets\] leak\.ts:1' "$out"
+expect_output "and says a secret blocked the commit" 'a secret was found; commit blocked' "$out"
+expect_no_output "and never prints the secret" "q2Vh4dN0k3sRm7" "$out"
+[ "$(git -C "$_pw" rev-list --count HEAD)" = "$_pt_commits" ] && ok "the blocked commit in the prototype is not made" || bad "the blocked commit in the prototype is not made"
+(cd "$_pw" && git reset -q -- leak.ts && rm -f leak.ts)
+# The files the scan reads to excuse a finding or to find one must be main's, on disk and staged: excusing a secret
+# needs the human, and a prototype has no review to catch it. Each of these blocks a commit that is otherwise fine.
+(cd "$_pw" && printf 'export const ok = 3;\n' >> tried.ts && git add tried.ts)
+_proto_blocked() { # _proto_blocked <what>: the commit in the prototype is blocked because the scan's files differ from main's
+  out="$(commit_in "$_pw" "proto: $1")"; status=$?
+  { [ "$status" -eq 1 ] && printf '%s' "$out" | grep -q "what the secrets scan reads differs from main's in this prototype; commit blocked"; } \
+    && ok "pre-commit blocks a prototype commit while $1" || bad "pre-commit blocks a prototype commit while $1 (exit $status)" "$out"
+}
+(cd "$_pw" && put adr/ADR-9-excuse.md '# ADR-9 · Excuse a finding
+
+- **Status:** accepted
+- Exception: secrets leak.ts')
+_proto_blocked "an ADR that excuses a secret is on disk, untracked"
+expect_output "and names the file" "adr/ADR-9-excuse\.md" "$out"
+(cd "$_pw" && git add adr/ADR-9-excuse.md)
+_proto_blocked "an ADR is staged"
+(cd "$_pw" && git rm -q -f --cached adr/ADR-9-excuse.md && rm -f adr/ADR-9-excuse.md)
+printf '\n[scan]\nskip = leak.ts\n' >> "$_pw/tools/check.cfg"
+_proto_blocked "tools/check.cfg on disk differs from main's"
+(cd "$_pw" && git checkout -q -- tools/check.cfg)
+rm -f "$_pw/tools/archcheck.awk"
+_proto_blocked "the scan's rules (tools/archcheck.awk) are missing"
+(cd "$_pw" && git checkout -q -- tools/archcheck.awk)
+rm -f "$_pw/tools/check.sh"
+_proto_blocked "the scan (tools/check.sh) is missing"
+(cd "$_pw" && git checkout -q -- tools/check.sh)
+out="$(commit_in "$_pw" "proto: more")"; status=$?
+expect_status "and the same commit goes through once the scan's files are main's again" 0 "$status" "$out"
+# Main moves on in a file the scan reads: the prototype's commits compare the index and the disk with main, not
+# the commit they are made on, so they are blocked until the prototype takes main's copy, and then they go through
+# although HEAD still holds the old one.
+(cd "$_pa" && printf '; main moved on\n' >> tools/check.cfg && git commit -q --no-verify -am "chore: main changes the check settings") >/dev/null 2>&1
+(cd "$_pw" && printf 'export const synced = 4;\n' >> tried.ts && git add tried.ts)
+_proto_blocked "main changed tools/check.cfg and the prototype has not taken it"
+expect_output "and says how to take main's copy" "git checkout refs/heads/main -- <path>" "$out"
+(cd "$_pw" && git checkout -q refs/heads/main -- tools/check.cfg)
+out="$(commit_in "$_pw" "proto: take main's check settings")"; status=$?
+expect_status "and goes through once the prototype has taken main's copy, though HEAD held the old one" 0 "$status" "$out"
+[ "$(git -C "$_pw" show HEAD:tools/check.cfg | tail -n 1)" = "; main moved on" ] \
+  && ok "the commit carries main's tools/check.cfg" || bad "the commit carries main's tools/check.cfg"
+# .gitattributes can make git grep skip a file as binary, so the root one and any in a folder must be main's too.
+(cd "$_pw" && printf 'export const attr = 5;\n' >> tried.ts && git add tried.ts && printf '*.ts -text\n' >> .gitattributes)
+_proto_blocked "the root .gitattributes on disk differs from main's"
+(cd "$_pw" && git checkout -q -- .gitattributes && mkdir -p sub && printf '* binary\n' > sub/.gitattributes)
+_proto_blocked "a .gitattributes in a folder is untracked"
+expect_output "and names it" "sub/\.gitattributes" "$out"
+(cd "$_pw" && git add sub/.gitattributes)
+_proto_blocked "a .gitattributes in a folder is staged"
+(cd "$_pw" && git rm -q -f --cached sub/.gitattributes && rm -rf sub && git reset -q -- tried.ts && git checkout -q -- tried.ts)
+
+# Everywhere else the check runs: the prototype's worktree without PROTOTYPE.md or on a detached HEAD, a proto/
+# branch in the main checkout (with or without PROTOTYPE.md: it isn't a linked worktree), main, and protoish.
+# None of them is a prototype for the pre-commit hook. The guard is stricter: it fails closed, so a PROTOTYPE.md
+# beside a .git file (a linked worktree) is a prototype whatever branch it is on, and lets Azure through only
+# where one of the two is missing.
+_proto_runs() { # _proto_runs <what> <folder> <guard exit for az there>: a staged file's commit there runs the failing check
+  (cd "$2" && printf 'export const x = 1;\n' > runs.ts && git add runs.ts)
+  out="$(commit_in "$2" "feat: runs")"; status=$?
+  { [ "$status" -eq 1 ] && printf '%s' "$out" | grep -q "running the project check"; } \
+    && ok "pre-commit runs the check in $1" || bad "pre-commit runs the check in $1 (exit $status)" "$out"
+  (cd "$2" && git reset -q -- runs.ts && rm -f runs.ts)
+  guard_in "$1" "$2" "$3" 'az deployment group what-if -g rg --template-file infra/main.bicep'
+}
+mv "$_pw/PROTOTYPE.md" "$work/PROTOTYPE.md.saved"
+_proto_runs "a worktree on a proto/ branch without PROTOTYPE.md" "$_pw" 0
+mv "$work/PROTOTYPE.md.saved" "$_pw/PROTOTYPE.md"
+git -C "$_pw" checkout -q --detach
+_proto_runs "a detached HEAD, in the prototype's worktree" "$_pw" 2
+git -C "$_pw" switch -q proto/quick-add
+git -C "$_pa" switch -q -c proto/fake
+_proto_runs "a proto/ branch in the main checkout" "$_pa" 0
+printf '# Prototype: fake\n' > "$_pa/PROTOTYPE.md"
+_proto_runs "a proto/ branch in the main checkout, with a PROTOTYPE.md (not a linked worktree)" "$_pa" 0
+rm -f "$_pa/PROTOTYPE.md"
+git -C "$_pa" switch -q main && git -C "$_pa" branch -q -d proto/fake
+_proto_runs "main" "$_pa" 0
+git -C "$_pa" switch -q -c protoish
+_proto_runs "a branch whose name only starts like one (protoish)" "$_pa" 0
+git -C "$_pa" switch -q main && git -C "$_pa" branch -q -d protoish
+(cd "$_pw" && git reset -q -- tried.ts && git checkout -q -- tried.ts)
+
+# The Stop hook runs the check when files differ from the last commit, but not in a prototype.
+_stop_in() { printf '{}' | CLAUDE_PROJECT_DIR="$1" bash "$src/framework/.claude/hooks/stop-check.sh" 2>&1; }
+printf 'export const wip = 1;\n' > "$_pw/wip.ts"
+out="$(_stop_in "$_pw")"; expect_status "the Stop hook doesn't run the check in a prototype" 0 $? "$out"
+printf 'export const wip = 1;\n' > "$_pa/wip.ts"
+out="$(_stop_in "$_pa")"; expect_status "the Stop hook runs the check on main, and blocks on a failure" 2 $? "$out"
+rm -f "$_pa/wip.ts" "$_pa/.satt/state/last-reported"
+
+# A prototype session never deploys: the guard blocks az, azd, func azure and gh workflow run there, in either
+# way the session can be told (CLAUDE_PROJECT_DIR, or the folder it runs in), and keeps working locally. It reads
+# the command as the shell does: a command on a later line (tab-indented or not), a path before the word, .exe,
+# .cmd or .bat after it, the func subcommands that reach Azure (azure*, kubernetes) and the npm packages that
+# hold func (azure-functions-core-tools, azfun, azurefunctions); and the quoted text too when the line names a shell
+# with -c (any flags before it), PowerShell, cmd /c, python -c, node -e or eval, or holds a command
+# substitution, where a false block beats a miss.
+for cmd in \
+    'az account show' \
+    'az deployment group create -g rg --template-file infra/main.bicep' \
+    'az deployment group what-if -g rg --template-file infra/main.bicep' \
+    'az functionapp deployment source config-zip -g rg -n orders --src a.zip' \
+    'azd up' \
+    'azd deploy' \
+    'azd provision' \
+    'func azure functionapp publish orders-func' \
+    'gh workflow run deploy.yml' \
+    'bash tools/check.sh && azd up' \
+    'cd src && az bicep build --file x.bicep' \
+    'bash -c "az group list"' \
+    $'cd src\naz account show' \
+    $'cd src\n\taz account show' \
+    $'dotnet build\n\n\tazd deploy' \
+    $'cd src\\\naz account show' \
+    $'bash <<\'EOF\'\naz account show\nEOF' \
+    '/usr/bin/az account show' \
+    './node_modules/.bin/func azure functionapp publish orders-func' \
+    'C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd account show' \
+    'az.cmd account show' \
+    'az.exe login' \
+    'azd.exe up' \
+    'func.exe azure functionapp publish orders-func' \
+    'gh.exe workflow run deploy.yml' \
+    'bash -e -c "az account show"' \
+    'bash -ec "az account show"' \
+    'sh -lc "azd up"' \
+    'bash --noprofile --norc -c "az account show"' \
+    'pwsh -Command "az account show"' \
+    'powershell -NoProfile -c "az login"' \
+    'cmd /c az account show' \
+    'cmd /c "az account show"' \
+    "python3 -c \"import os; os.system('az account show')\"" \
+    'node -e "require(\"child_process\").execSync(\"az login\")"' \
+    'eval "az account show"' \
+    'echo "$(az account show)"' \
+    'npx azure-functions-core-tools azure functionapp publish orders-func' \
+    'npx -y azure-functions-core-tools@4 start' \
+    'func azurecontainerapps deploy' \
+    'func kubernetes deploy' \
+    'func --verbose azure functionapp publish orders-func' \
+    'azfun deploy' \
+    'azurefunctions publish' \
+    'AZ ACCOUNT SHOW' \
+    'env az account show' \
+    'cd x && (az login)'; do
+  guard_in "a prototype" "$_pw" 2 "$cmd"
+done
+for cmd in \
+    'func start' \
+    'func new --name Orders --template "HTTP trigger"' \
+    'bash tools/check.sh' \
+    'dotnet test' \
+    'git status --short' \
+    'git commit -m "proto: az deployment and azd up are not for a prototype"' \
+    $'git commit -q -F - <<\'EOF\'\nproto: try the order screen\nEOF' \
+    'gh pr list' \
+    'echo azure' \
+    'bash -c "echo hello"' \
+    'python3 -c "print(1)"' \
+    'python3 --version' \
+    'node -e "console.log(1)"' \
+    'pwsh --version' \
+    $'cd src\nls' \
+    'bash tools/prototype.sh here'; do
+  guard_in "a prototype" "$_pw" 0 "$cmd"
+done
+for cmd in \
+    'az deployment group what-if -g rg --template-file infra/main.bicep' \
+    $'cd src\naz account show' \
+    'azd up' \
+    'func azure functionapp publish orders-func' \
+    'gh workflow run deploy.yml'; do
+  guard_in "the main checkout" "$_pa" 0 "$cmd"
+done
+out="$(printf '{"session_id":"s","tool_name":"Bash","tool_input":{"command":"azd up","description":"run"}}' | (unset CLAUDE_PROJECT_DIR; cd "$_pw" && bash "$src/framework/.claude/hooks/guard-commands.sh") 2>&1)"; status=$?
+expect_status "the guard finds the prototype from the folder it runs in when CLAUDE_PROJECT_DIR isn't set" 2 "$status" "$out"
+expect_output "and says a prototype never deploys" "a prototype never deploys or changes anything in Azure, dev included" "$out"
+
+# The authority guard in a prototype refuses (exit 2) an edit to the hooks, the guard, the scan and the files that excuse a
+# finding, where elsewhere it asks for the framework-owned ones. .satt/ still asks there, and a product file passes. A
+# PROTOTYPE.md beside a .git file is what makes it a prototype: the main checkout (a .git folder) asks even with one.
+edit_in() { # edit_in <refused|asked|allowed> <what> <project dir> <file_path>: the authority guard on an Edit there
+  local out status
+  out="$(printf '{"tool_name":"Edit","tool_input":{"file_path":"%s","old_string":"a","new_string":"b"}}' "$4" \
+    | CLAUDE_PROJECT_DIR="$3" bash "$src/framework/.claude/hooks/guard-authority.sh" 2>&1)"; status=$?
+  case "$1" in
+    refused) if [ "$status" -eq 2 ] && [[ $out == *"in a prototype"* ]]; then ok "refuses an edit to $2"; else bad "refuses an edit to $2 (exit $status)" "$out"; fi ;;
+    asked) if [ "$status" -eq 0 ] && [[ $out == *'"permissionDecision":"ask"'* ]]; then ok "asks before an edit to $2"; else bad "asks before an edit to $2 (exit $status)" "$out"; fi ;;
+    allowed) if [ "$status" -eq 0 ] && [[ $out != *permissionDecision* ]]; then ok "lets through an edit to $2"; else bad "lets through an edit to $2 (exit $status)" "$out"; fi ;;
+  esac
+}
+for f in .githooks/pre-commit .claude/settings.json .claude/hooks/guard-commands.sh tools/prototype.sh tools/setup-clone.sh \
+    tools/check.sh tools/archcheck.awk tools/check.cfg adr/ADR-9-excuse.md .gitattributes sub/.gitattributes; do
+  edit_in refused "$f, in the prototype" "$_pw" "$_pw/$f"
+done
+edit_in asked ".satt/reference/tenancy.md, in the prototype" "$_pw" "$_pw/.satt/reference/tenancy.md"
+edit_in allowed "src/Orders.cs, in the prototype" "$_pw" "$_pw/src/Orders.cs"
+edit_in allowed "PROTOTYPE.md, in the prototype" "$_pw" "$_pw/PROTOTYPE.md"
+mv "$_pw/PROTOTYPE.md" "$work/PROTOTYPE.md.authority"
+edit_in asked "tools/check.sh, in a worktree with no PROTOTYPE.md" "$_pw" "$_pw/tools/check.sh"
+mv "$work/PROTOTYPE.md.authority" "$_pw/PROTOTYPE.md"
+edit_in asked ".githooks/pre-push, in the main checkout" "$_pa" "$_pa/.githooks/pre-push"
+edit_in asked "tools/prototype.sh, in the main checkout" "$_pa" "$_pa/tools/prototype.sh"
+edit_in asked ".claude/hooks/guard-commands.sh, in the main checkout" "$_pa" "$_pa/.claude/hooks/guard-commands.sh"
+edit_in asked "tools/check.sh, in the main checkout" "$_pa" "$_pa/tools/check.sh"
+edit_in allowed ".claude/settings.json, in the main checkout" "$_pa" "$_pa/.claude/settings.json"
+edit_in allowed "tools/check.cfg, in the main checkout" "$_pa" "$_pa/tools/check.cfg"
+edit_in allowed ".gitattributes, in the main checkout" "$_pa" "$_pa/.gitattributes"
+edit_in allowed "an ADR that isn't accepted, in the main checkout" "$_pa" "$_pa/adr/ADR-9-excuse.md"
+put "$_pa/PROTOTYPE.md" '# Prototype: fake'
+edit_in asked "tools/check.sh, with a PROTOTYPE.md in the main checkout (a .git folder, so not a prototype)" "$_pa" "$_pa/tools/check.sh"
+rm -f "$_pa/PROTOTYPE.md"
+
+# The pre-push hook refuses a proto/ branch, from the prototype or to the remote, and any push that carries a
+# prototype's commits under another name, and lets main through.
+_push_refused() { # _push_refused <what> <folder> <refspec> <reason pattern>
+  out="$(cd "$2" && git push -q origin "$3" 2>&1)"; status=$?
+  { [ "$status" -ne 0 ] && printf '%s' "$out" | grep -q "a prototype is never pushed; push blocked" && printf '%s' "$out" | grep -q "$4"; } \
+    && ok "pre-push refuses $1" || bad "pre-push refuses $1 (exit $status)" "$out"
+}
+_push_refused "a proto/ branch" "$_pw" proto/quick-add "(a proto/ branch)"
+_push_refused "a push to a proto/ branch on the remote" "$_pa" main:refs/heads/proto/sneak "(a proto/ branch)"
+_push_refused "HEAD under another name, from the prototype" "$_pw" HEAD:refs/heads/x "carries a prototype's commits"
+_push_refused "a prototype's commit by its hash" "$_pa" "$(git -C "$_pa" rev-parse proto/quick-add):refs/heads/y" "carries a prototype's commits"
+_push_refused "proto/quick-add~0 under another name" "$_pa" "proto/quick-add~0:refs/heads/z" "carries a prototype's commits"
+git -C "$_pa" branch from-proto proto/quick-add >/dev/null 2>&1
+_push_refused "a branch made from a prototype's commit" "$_pa" from-proto "carries a prototype's commits"
+(cd "$_pa" && printf '# app\n\nA note.\n' > README.md && git add README.md && git commit -qm "docs: a note") >/dev/null 2>&1
+out="$(cd "$_pa" && git push -q origin main 2>&1)"
+expect_status "pre-push lets main through" 0 $? "$out"
+[ "$(git --git-dir="$_po" for-each-ref --format='%(refname)')" = "refs/heads/main" ] \
+  && ok "the origin has main and nothing else" || bad "a refused push reached the origin" "$(git --git-dir="$_po" for-each-ref)"
+
+# harvest prints the prototype's commits, files, the diff command, uncommitted changes and notes, and writes nothing.
+_pa_state() { git -C "$_pa" status --porcelain; git -C "$_pa" rev-parse HEAD proto/quick-add; git -C "$_pa" for-each-ref; cksum < "$_pa/TASKS.md"; }
+_pa_before="$(_pa_state)"
+out="$(proto harvest quick-add)"; status=$?
+expect_status "harvest prints what the harvest reads" 0 "$status" "$out"
+expect_output "harvest lists the prototype's commits since main" "proto: try it" "$out"
+expect_output "harvest lists the files the prototype changed, with the diff command" "read the diff with: git diff main\.\.\.proto/quick-add" "$out"
+expect_output "harvest lists a changed file" "tried\.ts" "$out"
+expect_output "harvest names the worktree's uncommitted changes, which the diff leaves out" "(^|[[:space:]])\?\? wip\.ts([[:space:]]|$)" "$out"
+expect_output "harvest shows the prototype's notes" "## How it felt" "$out"
+[ "$(_pa_state)" = "$_pa_before" ] && ok "harvest writes no item, record, commit or branch without the human" \
+  || bad "harvest changed the main checkout or the branches" "$(_pa_state)"
+out="$(proto harvest nothing-here)"; expect_status "harvest refuses a prototype that doesn't exist" 1 $? "$out"
+
+# harvest and list name a gate file that differs from main's, committed or not, and name none while every one is main's.
+out="$(proto harvest quick-add)"
+expect_no_output "harvest names no gate file while every one is main's" "gate files that differ" "$out"
+printf '\n# a prototype edit, not committed\n' >> "$_pw/tools/check.cfg"
+out="$(proto harvest quick-add)"
+printf '%s\n' "$out" | sed -n '/^--- gate files/,$p' | grep -qx 'tools/check.cfg' \
+  && ok "harvest names an uncommitted gate file that differs from main's" || bad "harvest names an uncommitted gate file that differs from main's" "$out"
+out="$(proto list)"
+expect_output "list names it too" "differs from main's: tools/check.cfg" "$out"
+git -C "$_pw" checkout -q -- tools/check.cfg
+printf '\n# a prototype edit, committed\n' >> "$_pw/tools/check.cfg"
+git -C "$_pw" commit -q --no-verify -am "proto: edit the check settings" >/dev/null 2>&1
+out="$(proto harvest quick-add)"
+printf '%s\n' "$out" | sed -n '/^--- gate files/,$p' | grep -qx 'tools/check.cfg' \
+  && ok "harvest names a committed gate file that differs from main's" || bad "harvest names a committed gate file that differs from main's" "$out"
+git -C "$_pw" reset -q --hard HEAD~1
+
+# remove: never forced, and the branch stays for the human to delete.
+out="$(proto remove quick-add)"; status=$?
+expect_status "remove fails on a worktree with uncommitted changes" 1 "$status" "$out"
+[ -f "$_pw/wip.ts" ] && ok "and leaves the worktree and its changes in place" || bad "remove deleted a worktree with uncommitted changes"
+expect_output "and says why, without forcing it" "git worktree remove failed \(above\); uncommitted changes are the usual cause.*never force it" "$out"
+rm -f "$_pw/wip.ts"
+out="$(proto remove quick-add)"; status=$?
+expect_status "remove removes a clean worktree" 0 "$status" "$out"
+[ ! -e "$_pw" ] && git -C "$_pa" show-ref --verify --quiet refs/heads/proto/quick-add \
+  && ok "remove deletes the worktree's folder and keeps the branch with its commits" \
+  || bad "remove deletes the worktree's folder and keeps the branch with its commits" "$out"
+expect_output "remove asks the human to delete the branch, with the command" "the human runs that.*: git branch -D proto/quick-add$" "$out"
+out="$(proto list)"
+expect_output "list shows a prototype whose worktree is gone" "^proto/quick-add · no worktree · 4 commit\(s\) since main$" "$out"
+[ -z "$(git --git-dir="$_po" for-each-ref refs/heads/proto/)" ] && [ -n "$(git --git-dir="$_po" for-each-ref refs/heads/main)" ] \
+  && ok "nothing pushes a proto/ branch" || bad "a proto/ branch reached the origin" "$(git --git-dir="$_po" for-each-ref)"
+
+# A project folder whose name has a space.
+_ps="$work/proto space app"; _psw="$work/proto space app-proto-try"
+_proto_repo "$_ps" "$work/proto-space-origin.git"
+# A tag named main, on an older commit, is what a bare main would mean: the scripts and hooks name refs/heads/main.
+git -C "$_ps" tag main HEAD~1
+out="$(cd "$_ps" && bash tools/prototype.sh start try 2>&1)"; status=$?
+expect_status "start works in a project folder whose name has a space, with a tag named main" 0 "$status" "$out"
+[ "$(git -C "$_ps" merge-base refs/heads/main refs/heads/proto/try)" = "$(git -C "$_ps" rev-parse refs/heads/main)" ] \
+  && ok "and the prototype starts from the branch main, not from the tag" || bad "the prototype did not start from the branch main"
+(cd "$_psw" && printf 'export const tried = 1;\n' > tried.ts && git add tried.ts)
+out="$(commit_in "$_psw" "proto: try it")"; status=$?
+expect_status "pre-commit compares with the branch main there, tag or not" 0 "$status" "$out"
+out="$(cd "$_psw" && git push -q origin HEAD:refs/heads/z 2>&1)"; status=$?
+{ [ "$status" -ne 0 ] && printf '%s' "$out" | grep -q "a prototype is never pushed; push blocked"; } \
+  && ok "pre-push refuses the prototype's commits there, tag or not" || bad "pre-push refuses the prototype's commits there (exit $status)" "$out"
+out="$(cd "$_psw" && bash tools/prototype.sh here 2>&1)"
+expect_status "the worktree beside it, named after it, is a prototype" 0 $? "$out"
+out="$(cd "$_ps" && bash tools/prototype.sh list 2>&1)"
+expect_output "list names its folder, space and all" "^proto/try · .*proto space app-proto-try · 2 commit\(s\) since main$" "$out"
+out="$(cd "$_ps" && bash tools/prototype.sh harvest try 2>&1)"
+expect_status "harvest works there" 0 $? "$out"
+out="$(cd "$_ps" && bash tools/prototype.sh remove try 2>&1)"; status=$?
+[ "$status" -eq 0 ] && [ ! -e "$_psw" ] && ok "remove works there" || bad "remove works in a folder whose name has a space (exit $status)" "$out"
 
 # --- .NET, where the SDK is installed -----------------------------------------------------------
 if [ "$dotnet_sdk" -eq 1 ]; then

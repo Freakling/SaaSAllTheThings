@@ -24,7 +24,7 @@ Stages 4-6 can overlap once stage 3 is done. The human may reorder them; file or
 1. **Read** TASKS.md › Milestones and the queue, PRD › Capabilities, Clients and Integrations, `AGENTS.md` › Layout and Architecture, and the ADRs' titles and statuses. If `assessment/` has an assessment report, read its Roadmap and Target sections: they're the starting point, corrected by everything decided since.
 2. **Where are we?** The current stage is the first one not `✅`. Say which, and what's left in it.
 3. **Write items for the current stage and the next one only.** Later stages stay as table rows; they'll be planned with what the earlier ones teach.
-   - Follow `.satt/tasks.md`: each item with a Size, `Depends on`, `Touches`, tagged `Done when`, and `PRD:`.
+   - Follow `.satt/tasks.md`: each item with a Size, `Depends on`, `Touches`, tagged `Done when`, `PRD:` and `Stories:`.
    - Small: prefer `S`, split anything `L`. One capability's slice is contract, then domain and application with tests, then the host, then the client.
    - `human` items for what only the human can do: app registrations and consent, a Business Central sandbox, the budget amount, a production deploy.
    - Choices the reference leaves open become an item "Decide: <choice> (architect.md)" before the items that need it, owned by the human.

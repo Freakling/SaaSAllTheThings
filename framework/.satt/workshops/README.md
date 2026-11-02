@@ -49,6 +49,9 @@ Each session's notes go to `assessment/workshops/YYYY-MM-DD-<name>.md`. For a wo
 ## Decisions
 - <decision> · why: <one line> · owner: <role>
 
+## User stories
+- new US-? | changed US-<n> · As a <role> I <do something>, so <why> · confirmed by: <role> | unconfirmed
+
 ## Open questions
 - <question> · owner: <role> · by: YYYY-MM-DD
 
@@ -64,8 +67,9 @@ Each session's notes go to `assessment/workshops/YYYY-MM-DD-<name>.md`. For a wo
 heading two levels down (#### Context, #### Options …), status proposed>
 ```
 - **Who and when.** In a one-to-one session, Participants is the human's role (ask once; if they'd rather not say, `the human`) and the assistant, and the decisions' owner is that role. A date nobody gave is `by: none`, never a guess.
+- **User stories** are the session's outcome for the people it serves: each story it adds or changes, in the form `procedures/design.md` › User stories gives, with whether its owner confirmed it in the room. A new story stays `US-?` in the notes, as an ADR draft stays `ADR-?`: it gets its ID when the notes are processed. A session that touches none leaves the section out.
 - **A deviation turned down is a decision too:** "comply with reference/<topic>.md › <heading>", with why.
 - **ADR drafts** stay `ADR-?` and proposed in the notes: choosing an option is a decision in the room; accepting the ADR happens when the notes are processed, by the human.
-Then `procedures/assess.md` › Process workshop notes turns them into records: the PRD, ADRs, integration contracts and TASKS.md. Before SaaSAllTheThings is installed, onboarding reads them instead.
+Then `procedures/assess.md` › Process workshop notes turns them into records: the PRD, the user stories, ADRs, integration contracts and TASKS.md. Before SaaSAllTheThings is installed, onboarding reads them instead.
 
 The same notes come from a session held without the app's repository at hand, for example with the `saas-design-session` skill in Cowork or the Claude apps: they're processed the same way once they're in `assessment/workshops/`.

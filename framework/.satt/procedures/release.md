@@ -1,7 +1,7 @@
 <!-- SaaSAllTheThings · framework-owned: replaced on upgrade. -->
 # Release
 
-Deploy the current main branch to an environment. Every step that touches Azure needs the human's approval, each time. **Production is the human's to deploy**: for prod, prepare everything and hand over the commands. Never run a complete-mode deployment, and never delete resources.
+Deploy the current main branch to an environment. Every step that touches Azure needs the human's approval, each time. **Production is the human's to deploy**: for prod, prepare everything and hand over the commands. Never run a complete-mode deployment, and never delete resources. A prototype session never runs this, for dev either (`prototype.md`): its work is deployed only after the harvest, built from main.
 
 The request names the environment: `dev` (the default) or `prod`. The setup is in `.satt/reference/infra.md` › Delivery.
 

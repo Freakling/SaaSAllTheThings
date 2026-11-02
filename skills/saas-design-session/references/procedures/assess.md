@@ -1,7 +1,7 @@
 <!-- SaaSAllTheThings · framework-owned: replaced on upgrade. -->
 # Assess
 
-Analyse an existing app and recommend what it takes to turn it into a SaaS on the reference architecture: how ready it is, the development roadmap by stage with rough effort, and the workshops that must happen, with how to run each. It's for deciding whether and how to start, before or alongside onboarding.
+Analyse an existing app and recommend what it takes to turn it into a SaaS on the reference architecture: how ready it is, the user stories it serves today, the development roadmap by stage with rough effort, and the workshops that must happen, with how to run each. It's for deciding whether and how to start, before or alongside onboarding.
 
 **Read only.** You change nothing in the app except writing the report. Don't build, run, install or test anything unless the human agrees: builds and tests can reach databases and networks.
 
@@ -45,9 +45,10 @@ Follow `.satt/reference/stacks.md` › Choosing the stack: tell the human the la
 
    Dimensions: stack, separation of business rules, data and tenant-awareness, identity, configuration and secrets, integrations, clients, tests, delivery and operations.
 2. **Target picture.** Map each existing component onto its target layer (`.satt/reference/layers.md`), with one of: **keep** (moves as it is), **extract** (its rules move into domain and application), **rebuild**, **retire**. Name what the reference adds that the app doesn't have: the tenant registry, token validation, the outbox, the integration adapters.
-3. **Roadmap.** Use the stages in `.satt/procedures/roadmap.md` › Stages. For each, say what this app needs, the main items with their size (S, M, L), a rough effort range in person-days with a confidence (low, medium, high) and its assumptions, what it depends on, and the workshop that must happen first. Estimates are for planning, never commitments; say what would narrow each one.
-4. **First slice.** Recommend the capability for stage 3: valuable, small, touching the riskiest parts (tenancy, the main integration) early.
-5. **Risks and assumptions,** each with what would reduce it.
+3. **User stories.** The roles the app serves today, and a story for each thing a role can do in it now, one table per area, written from the code (screens, endpoints, jobs, the roles and permissions that guard them) in the form `.satt/procedures/design.md` › User stories gives, numbered `US-1`, `US-2` and on. A story describes what works now, not a plan, and cites its evidence (`file:line`). Every one is `unconfirmed`: the director confirms, corrects or drops each in the design sessions or workshops that follow (the capabilities workshop walks them), and onboarding takes them into `product/user-stories.md`. In an app that already keeps that file, list only the stories it lacks, numbered after its Next ID. In an installed app, the capabilities workshop or a design session records the ones the director confirms, with the next ID at that time.
+4. **Roadmap.** Use the stages in `.satt/procedures/roadmap.md` › Stages. For each, say what this app needs, the main items with their size (S, M, L), a rough effort range in person-days with a confidence (low, medium, high) and its assumptions, what it depends on, and the workshop that must happen first. Estimates are for planning, never commitments; say what would narrow each one.
+5. **First slice.** Recommend the capability for stage 3: valuable, small, touching the riskiest parts (tenancy, the main integration) early.
+6. **Risks and assumptions,** each with what would reduce it.
 
 ## 5. Workshops
 Read `.satt/workshops/README.md`, then the files of the workshops this app needs: usually all of them, combined into fewer sessions for a small app (README › Sizing). For each one in the report:
@@ -70,5 +71,5 @@ Fill `.satt/templates/assessment.md`. The report is self-contained, because it g
 
 ## Process workshop notes
 When the human gives you the notes of a workshop (a file in `assessment/workshops/`; names and format in `.satt/workshops/README.md` › Notes):
-- **SaaSAllTheThings installed:** record each decision with `design.md` › Record each decision, `architect.md` (an ADR) or `integrate.md` (the contract), as it fits. An ADR draft in the notes becomes an ADR through `architect.md` › Record: it gets the next number, and stays proposed until the human accepts it. Open questions go to PRD › Open Questions, actions to TASKS.md as `human` items. Record only what the notes say was decided; if one reads as a leaning rather than a decision, ask. Under the notes' header, add `**Processed:** YYYY-MM-DD → Q4, ADR-2, T12`. Commit as `docs: process workshop <name>` after the human approves.
+- **SaaSAllTheThings installed:** record each decision with `design.md` › Record each decision, `architect.md` (an ADR) or `integrate.md` (the contract), as it fits. An ADR draft in the notes becomes an ADR through `architect.md` › Record: it gets the next number, and stays proposed until the human accepts it. The stories under User stories go to `product/user-stories.md` as `design.md` › Record each decision says: a new one gets the next ID, a changed one is rewritten under its own, and each is dated with the workshop's date when its owner confirmed it, or `unconfirmed`. Open questions go to PRD › Open Questions, actions to TASKS.md as `human` items. Record only what the notes say was decided; if one reads as a leaning rather than a decision, ask. Under the notes' header, add `**Processed:** YYYY-MM-DD → Q4, ADR-2, T12, US-3` (the stories it added or changed among them). Commit as `docs: process workshop <name>` after the human approves.
 - **Not installed yet:** leave the notes where they are; onboarding reads them (`ONBOARDING.md` › Content, by mode).

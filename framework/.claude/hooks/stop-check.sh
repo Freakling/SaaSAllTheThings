@@ -6,6 +6,7 @@
 # pass. If the check fails, block once and hand the output back to Claude. The same failing state
 # isn't reported twice, so a turn can still end after Claude has explained a failure it can't fix.
 # Turn it off per machine with SATT_STOP_CHECK=0 (e.g. .claude/settings.local.json › env).
+# It never runs in a prototype (bash tools/prototype.sh here).
 
 IFS= read -r -d '' _input || true
 [ "${SATT_STOP_CHECK:-1}" = "0" ] && exit 0
@@ -15,6 +16,10 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 git -c core.quotePath=false status --porcelain --untracked-files=all 2>/dev/null \
   | awk '{ p = substr($0, 4); sub(/^.* -> /, "", p); gsub(/"/, "", p) } p != "" && (p !~ /\.md$/ || p ~ /^adr\//) { found = 1 } END { exit !found }' \
   || exit 0
+
+# A prototype (a linked worktree on a proto/ branch with PROTOTYPE.md at its root) is tried outside the
+# loop: the check gates nothing there (.satt/procedures/prototype.md).
+[ -f tools/prototype.sh ] && bash tools/prototype.sh here >/dev/null 2>&1 && exit 0
 
 state=".satt/state"
 mkdir -p "$state" 2>/dev/null

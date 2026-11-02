@@ -4,8 +4,15 @@
 #
 # On every commit, whatever is staged, it scans for secrets (the check's secrets rule, run alone as
 # `bash tools/check.sh --secrets`), so a token pasted into a page, a script or a record is caught
-# before it enters history. When the commit includes anything but documentation (Markdown outside
-# adr/), it also runs the project check. The check covers the working tree, so commit what you checked.
+# before it enters history. A scan that can't run blocks the commit. When the commit includes anything but
+# documentation (Markdown outside adr/), it also runs the project check. The check covers the working tree,
+# so commit what you checked.
+#
+# In a prototype (a linked worktree on a proto/ branch with PROTOTYPE.md at its root, which is what
+# `bash tools/prototype.sh here` says; .satt/procedures/prototype.md), tried outside the loop, the project
+# check is skipped and the secrets scan is the only gate. So the scan is never skipped there, and the files it
+# reads to excuse or to skip a finding (adr/, tools/check.cfg, check.sh, archcheck.awk, .gitattributes) must be
+# main's.
 
 # ls-files also lists a nested repository in an ignored folder (such as a clone) as a
 # directory, so keep only the paths that really end in .satt-new.
@@ -15,7 +22,40 @@ if [ -n "$pending" ]; then
   printf '%s\n' "$pending" | sed 's/^/  /'
   exit 1
 fi
-[ -f tools/check.sh ] || exit 0
+
+# tools/prototype.sh is the one place that says what a prototype is.
+prototype=0
+[ -f tools/prototype.sh ] && bash tools/prototype.sh here >/dev/null 2>&1 && prototype=1
+
+[ -f tools/check.sh ] || [ "$prototype" -eq 1 ] || exit 0
+
+# In a prototype the scan is the only gate, and an accepted ADR's exception (adr/), the [scan] skip list
+# (tools/check.cfg), the scan's own patterns (tools/check.sh, tools/archcheck.awk) and the attributes that make
+# git grep skip a file as binary (.gitattributes, at the root or in any folder) decide what it reports.
+# Excusing a finding needs the human (rules.md › Who decides), and a prototype has no review to catch it, so
+# those files must be main's where the scan and the commit read them: the index differs from main, the disk
+# differs from the index, or a file is untracked (ignored ones too, except .gitattributes files, which npm
+# packages ship) blocks the commit. The commit's history doesn't count, so taking main's copy back
+# (git checkout refs/heads/main -- <path>) after main moved on clears it.
+if [ "$prototype" -eq 1 ]; then
+  main_ref=refs/heads/main
+  if ! git rev-parse --verify -q "$main_ref" >/dev/null 2>&1; then
+    echo "pre-commit: this prototype has no main branch to compare the files the secrets scan reads with; commit blocked."
+    exit 1
+  fi
+  scan_inputs=(adr tools/check.cfg tools/check.sh tools/archcheck.awk .gitattributes ':(glob)**/.gitattributes')
+  differing="$(git diff --cached --name-only "$main_ref" -- "${scan_inputs[@]}" 2>&1
+    git diff --name-only -- "${scan_inputs[@]}" 2>&1
+    git ls-files -o -- adr tools/check.cfg tools/check.sh tools/archcheck.awk 2>&1
+    git ls-files -o --exclude-standard -- .gitattributes ':(glob)**/.gitattributes' 2>&1)"
+  if [ -n "$differing" ]; then
+    echo "pre-commit: what the secrets scan reads differs from main's in this prototype; commit blocked:"
+    printf '%s\n' "$differing" | sed 's/^/            /'
+    echo "            Excusing a secret, or changing the scan, needs the human, in the main session (rules.md › Who decides)."
+    echo "            If main changed one of these since the prototype started, take main's copy: git checkout refs/heads/main -- <path>"
+    exit 1
+  fi
+fi
 
 # The secrets scan doesn't wait for the check: the filter below skips most Markdown, and a pass the
 # check reuses (--if-changed) never looked at a Markdown file. The scan takes a second.
@@ -26,6 +66,8 @@ if [ "$status" -ne 0 ]; then
   printf '%s\n' "$secrets_out"
   if [ "$status" -eq 1 ]; then
     echo "pre-commit: a secret was found; commit blocked."
+  elif [ "$prototype" -eq 1 ]; then
+    echo "pre-commit: the secrets scan couldn't run, and in a prototype it is the only gate; commit blocked."
   else
     echo "pre-commit: the secrets scan couldn't run; commit blocked."
   fi
@@ -34,6 +76,10 @@ fi
 
 if git -c core.quotePath=false diff --cached --name-only -z --diff-filter=ACMRD | tr '\0' '\n' \
     | awk 'NF && (!/\.md$/ || /^adr\//) { found = 1 } END { exit !found }'; then
+  if [ "$prototype" -eq 1 ]; then
+    echo "pre-commit: this checkout is a prototype, so the project check is skipped (the secrets scan still ran)"
+    exit 0
+  fi
   echo "pre-commit: running the project check"
   bash tools/check.sh --if-changed
   status=$?

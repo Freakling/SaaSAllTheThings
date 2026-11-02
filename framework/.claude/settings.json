@@ -7,6 +7,8 @@
     "allow": [
       "Bash(bash tools/check.sh)",
       "Bash(bash tools/check.sh *)",
+      "Bash(bash tools/stories.sh --due)",
+      "Bash(bash tools/prototype.sh *)",
       "Bash(bash tools/ui_capture.sh)",
       "Bash(bash tools/ui_capture.sh *)",
       "Bash(node tools/ui/drawing.mjs *)",

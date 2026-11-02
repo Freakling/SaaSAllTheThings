@@ -8,6 +8,8 @@
   growing a long one, and delete sections this product doesn't need.
 - Say what a number is for and how it should feel; undecided values are PLACEHOLDER in the code.
 - How the system is built lives in .satt/reference/ and adr/, not here.
+- Why each capability is built lives in the user stories (product/user-stories.md); the capability
+  says who does it and names the stories it serves.
 -->
 
 ## Pitch
@@ -22,11 +24,13 @@ Limits that aren't decided yet are Open Questions. -->
 
 ## Personas and Roles
 <!-- Who uses the product inside a tenant, and the app roles that authorize them
-(e.g. Tenant.Admin, Tenant.User). -->
+(e.g. Tenant.Admin, Tenant.User). Each persona is a role in the user stories, by the same name. -->
+What each persona does in the product, and why, is in the [user stories](user-stories.md).
 
 ## Capabilities
-<!-- One ### subsection per capability: who does it, on which client, the rules, and what other
-capabilities or integrations it touches. Order is priority. -->
+<!-- One ### subsection per capability: who does it, on which client, the rules, what other
+capabilities or integrations it touches, and a last line naming the user stories it serves
+(Stories: US-1, US-3). Order is priority. -->
 
 ## Clients
 ### Windows

@@ -46,7 +46,7 @@ Write `resets/YYYY-MM-DD/interpretations.md`, one table per kind (pillars, PRD r
 4. **Hooks.** If a hook asks the director to confirm an edit (an ADR's status, a framework-owned file), let it ask; never bypass or work around one. If the director declines, write the change as a proposal in the reset folder (`resets/YYYY-MM-DD/proposal-<file>.md`) and ask them to apply it.
 
 ## 4. Plan the rebuild (no code)
-Compare the approved design with `as-built.md`. For every place the system differs, add items to TASKS.md in the format in `.satt/tasks.md`: a Size, `Depends on`, `Touches` naming the exact files the item may change, tagged `Done when` outcomes, `PRD:` the heading, and `ADR:` where one applies.
+Compare the approved design with `as-built.md`. For every place the system differs, add items to TASKS.md in the format in `.satt/tasks.md`: a Size, `Depends on`, `Touches` naming the exact files the item may change, tagged `Done when` outcomes, `PRD:` the heading, its `Stories:`, and `ADR:` where one applies.
 - Security findings from step 1 come first, as `high` bugs with `Found in: resets/YYYY-MM-DD/as-built.md`.
 - Then contracts and stored schemas, then the rest as slices: contract, then domain and application, then the host, then the client.
 - Split anything `L` or bigger, as `.satt/tasks.md` › Size says.
