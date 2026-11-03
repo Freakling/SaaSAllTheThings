@@ -36,12 +36,16 @@ Typically two to three weeks for a mid-size app, with a day or two between sessi
 - **Decide with options.** Each decision is put as 2-4 options, with a recommendation and what each costs, then the owner decides. The same shape as the rest of the workflow.
 - **Timebox and park.** Each agenda block has a time. Anything that runs over, or can't be decided, goes to the parking lot and becomes an open question with an owner and a date.
 - **Write down decisions, not discussion.** Only what was decided becomes a record; how the room got there is a one-line reason.
-- **The AI assistant's role:** it prepares the pre-read and the options from the assessment, scribes live into the notes file, and proposes; it doesn't decide, and records only what the owner said.
+- **The AI assistant's role:** it prepares the pre-read and the options from the assessment, scribes live in the conversation and writes the notes file from the read-back the room approves at the end (Notes), and proposes; it doesn't decide, and records only what the owner said.
 - **Remote or on site.** Remote: a shared whiteboard, cameras on, 90 minutes at most per session with a break. On site: sticky notes and a wall, photos of the board into the notes. Either way, the scribe confirms each decision aloud before moving on.
 - **Roles, not names,** in anything that goes into the repository.
 
 ## Notes
-Each session's notes go to `assessment/workshops/YYYY-MM-DD-<name>.md`. For a workshop, the name is its file's (`2026-10-02-integration.md`); for any other design session, its kind and topic (`2026-10-02-architecture-windows-client-ui.md`); a second file of the same name that day adds `-2`. The shape:
+Each session's notes go to `assessment/workshops/YYYY-MM-DD-<name>.md`. For a workshop, the name is its file's (`2026-10-02-integration.md`); for any other design session, its kind and topic (`2026-10-02-architecture-windows-client-ui.md`); a second file of the same name that day adds `-2`.
+
+A one-to-one session holds its decisions, stories, open questions, actions and ADR drafts in the conversation, shows them as the summary, and writes the notes file after the human approves it. In a live group workshop the scribe still confirms each decision aloud as the room moves on, and the read-back at the end is the summary the room approves; the notes file is written from it. Either way, a chat message or an "Other" answer before the approval re-opens the options it touches (`procedures/design.md` › Summary and approval).
+
+The shape:
 ```
 # <Workshop> · YYYY-MM-DD
 **Participants** (roles): product owner, sales lead, architect · **Facilitator:** · **Scribe:**
@@ -69,7 +73,7 @@ heading two levels down (#### Context, #### Options …), status proposed>
 - **Who and when.** In a one-to-one session, Participants is the human's role (ask once; if they'd rather not say, `the human`) and the assistant, and the decisions' owner is that role. A date nobody gave is `by: none`, never a guess.
 - **User stories** are the session's outcome for the people it serves: each story it adds or changes, in the form `procedures/design.md` › User stories gives, with whether its owner confirmed it in the room. A new story stays `US-?` in the notes, as an ADR draft stays `ADR-?`: it gets its ID when the notes are processed. A session that touches none leaves the section out.
 - **A deviation turned down is a decision too:** "comply with reference/<topic>.md › <heading>", with why.
-- **ADR drafts** stay `ADR-?` and proposed in the notes: choosing an option is a decision in the room; accepting the ADR happens when the notes are processed, by the human.
+- **ADR drafts** stay `ADR-?` and proposed in the notes: choosing an option is a decision in the room; accepting the ADR happens when the notes are processed, by the human's approval of the summary that lists it.
 Then `procedures/assess.md` › Process workshop notes turns them into records: the PRD, the user stories, ADRs, integration contracts and TASKS.md. Before SaaSAllTheThings is installed, onboarding reads them instead.
 
 The same notes come from a session held without the app's repository at hand, for example with the `saas-design-session` skill in Cowork or the Claude apps: they're processed the same way once they're in `assessment/workshops/`.

@@ -40,8 +40,8 @@ Every subagent launch sets its model explicitly, from the mapping in AGENTS.md �
 - **Other tools:** follow `build.md` yourself, or in a subagent if your tool has them, with its model set as Build says.
 - **A rebuild** (after a failure, a blocked report or review findings) gets the previous report, anything the human said about the item, and word that the earlier attempt's edits are still in the tree to continue from.
 - **Report `blocked`:** the report brings the question with options and a recommendation. Put it to the human.
-  - A product decision: record it following `design.md` › Record each decision before rebuilding. It's committed with the item.
-  - `blocked: architecture`: follow `architect.md` with the options from the report. If the human chooses to comply, rebuild with that. If they choose a deviation, the ADR must be accepted before the rebuild.
+  - A product decision: the summary lists its records, as `design.md` lists them. Write nothing until the human approves a summary of all of it (`design.md` › Summary and approval); a chat message or an "Other" answer before then re-opens the options. Once it is approved, record it following `design.md` › Record each decision before rebuilding. It's committed with the item.
+  - `blocked: architecture`: follow `architect.md` with the options from the report; its summary (`architect.md` › Summary and approval) lists the ADR with its status and the records it brings, and nothing is written before the human approves it. If the human chooses to comply, rebuild with that. If they choose a deviation, the ADR must be accepted, by the approval of that summary, before the rebuild.
   - Then rebuild, including the answer.
 - **Report `failed`:**
   - An `XL` item, or one that has already escalated, stops: add a `Note:` to the item and give the human the check output.

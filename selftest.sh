@@ -406,6 +406,87 @@ grep -qF 'Prototypes (`prototype.md`, `/prototype`) aren' "$src/skills/saas-desi
   || wired="$wired saas-design-session"
 [ -z "$wired" ] && ok "prototypes: the procedure, the skill and tools/prototype.sh exist, and the rules, the item format, the design procedure, the release, the settings, the hooks and the docs name them" \
   || bad "prototypes aren't wired into:$wired"
+# Nothing is written without the human's approval of a summary: rules.md › Who decides has the bullet right after
+# the product-call bullet, and accepts an ADR only by the approval of the summary that lists it; design.md holds the
+# answers in the conversation, has Summary and approval between For each question and Record each decision in one
+# change, and Finish writes what the summary lists; and every procedure that records from a conversation carries the
+# pointer: design.md's validation and harvest, research.md, next-task.md, architect.md, integrate.md, assess.md,
+# acceptance.md, feedback.md, align.md, drift-reset.md, ui-design.md, roadmap.md, the workshop notes, the design-session skill
+# and ONBOARDING.md (Director-Driven-Development T281).
+wired=""
+_ap_q="'"
+_ap_tail='› Summary and approval); a chat message or an "Other" answer before then re-opens the options.'
+_ap_ptr='Write nothing until the human approves a summary of all of it (`design.md` '"$_ap_tail"
+_ap_ptr_d='Write nothing until the director approves a summary of all of it (`design.md` '"$_ap_tail"
+_ap_ptr_o='Write nothing until the human approves a summary of all of it (`.satt/procedures/design.md` '"$_ap_tail"
+_ap_ptr_s='Write nothing until the human (in a workshop, the room) approves a summary of all of it (`.satt/procedures/design.md` '"$_ap_tail"
+_ap_room='A one-to-one session holds its decisions, stories, open questions, actions and ADR drafts in the conversation, shows them as the summary, and writes the notes file after the human approves it. In a live group workshop the scribe still confirms each decision aloud as the room moves on, and the read-back at the end is the summary the room approves; the notes file is written from it.'
+_ap_adr='- **Only the director accepts an ADR.** An ADR is accepted only by the director'"$_ap_q"'s approval of the summary that lists it. The summary names each ADR with its status, and `architect.md` writes the ADR, its exceptions, the TASKS.md items, the AGENTS.md lines and the compliance mapping rows only after that approval. In Claude Code the hook still asks the director to confirm an edit that sets `Status: accepted`.'
+_ap_rules="$satt/rules.md"
+_ap_dm="$satt/procedures/design.md"
+_ap_call="$(grep -n '^- \*\*A product call\*\* is anything a user or customer would notice' "$_ap_rules" | cut -d: -f1)"
+_ap_rule="$(grep -n '^- \*\*Nothing is written without the human.s explicit approval\.\*\* While a session runs, the answers stay in the conversation\.' "$_ap_rules" | cut -d: -f1)"
+[ -n "$_ap_call" ] && [ -n "$_ap_rule" ] && [ "$_ap_rule" -eq $((_ap_call + 1)) ] \
+  && grep -qF 'is a scope change or a modification, not an answer to record: it re-opens the options it touches, and the session reassesses, then restarts or continues.' "$_ap_rules" \
+  && grep -qF 'show a summary of every file, line, item, story and ADR status to be written (`design.md` › Summary and approval), and write and commit all of it in one change only after the human approves the summary.' "$_ap_rules" \
+  || wired="$wired rules.md(the approval bullet after the product-call bullet)"
+grep -qF -- "$_ap_adr" "$_ap_rules" && ! grep -qF 'only when the human has said so in this conversation' "$_ap_rules" || wired="$wired rules.md(the ADR sentence)"
+_ap_each="$(grep -n '^## For each question$' "$_ap_dm" | cut -d: -f1)"
+_ap_sum="$(grep -n '^## Summary and approval$' "$_ap_dm" | cut -d: -f1)"
+_ap_rec="$(grep -n '^## Record each decision in one change$' "$_ap_dm" | cut -d: -f1)"
+[ -n "$_ap_each" ] && [ -n "$_ap_sum" ] && [ -n "$_ap_rec" ] && [ "$_ap_each" -lt "$_ap_sum" ] && [ "$_ap_sum" -lt "$_ap_rec" ] \
+  || wired="$wired design.md(Summary and approval between For each question and Record)"
+grep -qF 'Hold the answer in the conversation: nothing is recorded yet, and an answered part is not recorded by itself.' "$_ap_dm" \
+  && ! grep -qF 'record only that part' "$_ap_dm" || wired="$wired design.md(the wait holds the answers)"
+grep -qF 'Nothing is written before the human approves it.' "$_ap_dm" && grep -qF 'Approve this summary, or tell me what to change?' "$_ap_dm" \
+  && grep -qF 'Only a yes to the summary as shown approves it.' "$_ap_dm" \
+  && grep -qF 'each user story with its ID and its Confirmed date, or `unconfirmed`;' "$_ap_dm" \
+  && grep -qF 'each ADR with the status it will be written with;' "$_ap_dm" || wired="$wired design.md(the summary's list)"
+grep -qF 'Write everything the approved summary lists and commit it as one change, `docs: <summary>`' "$_ap_dm" \
+  && grep -qF 'The approval of the summary is the approval to commit (`rules.md` › Git and Azure).' "$_ap_dm" || wired="$wired design.md(Finish)"
+[ "$(grep -cF "$_ap_ptr" "$_ap_dm")" -ge 2 ] && grep -qF 'each ADR the architecture step leads to' "$_ap_dm" \
+  || wired="$wired design.md(pointers in the validation and the harvest)"
+for _ap_f in research.md next-task.md architect.md integrate.md assess.md acceptance.md feedback.md align.md roadmap.md; do
+  grep -qF "$_ap_ptr" "$satt/procedures/$_ap_f" || wired="$wired $_ap_f(pointer)"
+done
+for _ap_f in ui-design.md drift-reset.md; do
+  grep -qF "$_ap_ptr_d" "$satt/procedures/$_ap_f" || wired="$wired $_ap_f(pointer)"
+done
+grep -qF 'Hold the note and the item in the conversation.' "$satt/procedures/research.md" || wired="$wired research.md(holds the note and the item)"
+grep -qF 'A product decision: the summary lists its records, as `design.md` lists them.' "$satt/procedures/next-task.md" \
+  && grep -qF 'its summary (`architect.md` › Summary and approval)' "$satt/procedures/next-task.md" || wired="$wired next-task.md(blocked)"
+_ap_ar="$satt/procedures/architect.md"
+_ap_prop="$(grep -n '^## Propose$' "$_ap_ar" | cut -d: -f1)"
+_ap_sum="$(grep -n '^## Summary and approval$' "$_ap_ar" | cut -d: -f1)"
+_ap_rec="$(grep -n '^## Record$' "$_ap_ar" | cut -d: -f1)"
+[ -n "$_ap_prop" ] && [ -n "$_ap_sum" ] && [ -n "$_ap_rec" ] && [ "$_ap_prop" -lt "$_ap_sum" ] && [ "$_ap_sum" -lt "$_ap_rec" ] \
+  && grep -qF 'The summary lists the ADR with its status' "$_ap_ar" \
+  && grep -qF "An ADR is accepted only by the human${_ap_q}s approval of the summary that lists it." "$_ap_ar" \
+  && grep -qF 'In Claude Code the hook still asks the human to confirm an edit that sets `Status: accepted`.' "$_ap_ar" \
+  && ! grep -qF 'until the human has said in this conversation' "$_ap_ar" || wired="$wired architect.md(Summary and approval, the ADR sentence)"
+grep -qF "Hold each round${_ap_q}s answers in the conversation" "$satt/procedures/integrate.md" \
+  && grep -qF -- '- **Summary and approval.** Show one summary of everything this session will write' "$satt/procedures/integrate.md" || wired="$wired integrate.md(the rounds and the summary)"
+grep -qF 'the ADR drafts with the status each will be written with' "$satt/procedures/assess.md" \
+  || wired="$wired assess.md(the summary's list)"
+! grep -qF 'straight away' "$satt/procedures/feedback.md" || wired="$wired feedback.md(straight away)"
+grep -qF 'Inside a session the fixes join its summary; during onboarding they are approved at `ONBOARDING.md` › 10' "$satt/procedures/align.md"   && ! grep -qF 'If any are missing, rerun the installer.' "$satt/procedures/align.md" || wired="$wired align.md(the fixes join the summary)"
+[ "$(grep -cF "$_ap_ptr_d" "$satt/procedures/drift-reset.md")" -ge 2 ] && grep -q '^## Summary and approval$' "$satt/procedures/drift-reset.md" \
+  && grep -qF 'the design diff' "$satt/procedures/drift-reset.md" \
+  && grep -qF 'Commit the reset folder and the records as one change, `docs: drift reset YYYY-MM-DD`' "$satt/procedures/drift-reset.md" \
+  || wired="$wired drift-reset.md(the summary, the postmortem's and one commit)"
+grep -qF 'The summary lists the spec,' "$satt/procedures/ui-design.md" || wired="$wired ui-design.md(the summary's list)"
+grep -qF "$_ap_room" "$satt/workshops/README.md" && ! grep -qF 'scribes live into the notes file' "$satt/workshops/README.md" \
+  || wired="$wired workshops/README.md(the workshop sentence)"
+grep -qF "$_ap_room" "$src/skills/saas-design-session/SKILL.md" && grep -qF "$_ap_ptr_s" "$src/skills/saas-design-session/SKILL.md" \
+  && grep -qF 'That read-back is the summary the room approves' "$src/skills/saas-design-session/SKILL.md" || wired="$wired saas-design-session(the workshop sentence and pointer)"
+_ap_both="$(grep -n '^### Both$' "$src/ONBOARDING.md" | cut -d: -f1)"
+_ap_sum="$(grep -n '^### Summary and approval$' "$src/ONBOARDING.md" | cut -d: -f1)"
+[ "$(grep -cF "$_ap_ptr_o" "$src/ONBOARDING.md")" -ge 2 ] && [ -n "$_ap_both" ] && [ -n "$_ap_sum" ] && [ "$_ap_both" -lt "$_ap_sum" ] \
+  && grep -qF "An ADR is accepted only by the human${_ap_q}s approval of the summary that lists it, so ADR-1 is accepted by the approval of this summary." "$src/ONBOARDING.md" \
+  && ! grep -qF 'since the human just decided' "$src/ONBOARDING.md" || wired="$wired ONBOARDING.md(pointers, Both before Summary and approval, ADR-1)"
+grep -q 'once the director approves a summary of them' "$src/framework/.claude/skills/design/SKILL.md" || wired="$wired skills/design/SKILL.md(description)"
+[ -z "$wired" ] && ok "nothing is written until the human approves a summary: the rule, the ADR sentence, design.md's Summary and approval, and the pointer in each procedure that records from a conversation" \
+  || bad "the approval of a summary isn't wired into:$wired"
 # The design-session skill runs in the Claude apps without subagents, so it leaves the research procedure out and says so.
 if [ ! -e "$src/skills/saas-design-session/references/procedures/research.md" ] && [ ! -e "$src/skills/saas-design-session/references/research-domain.md" ] \
     && grep -q 'research assistant' "$src/skills/saas-design-session/SKILL.md"; then
