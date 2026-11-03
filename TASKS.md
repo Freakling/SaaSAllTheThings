@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T41 · B3 · R1
+**Next IDs:** T42 · B3 · R1
 
 ## Queue
+
+### T41 · The Stop hook runs the check only for the session that changed the code · done · M · agent
+- Touches: framework/.claude/hooks/stop-check.sh, framework/.claude/hooks/session-touched.sh (new), framework/.claude/settings.json, framework/.satt/rules.md, README.md, selftest.sh, CHANGELOG.md
+- Done when: the Stop hook runs the project check only when this session itself wrote or edited a source file (any file but `*.md`, with `adr/` counting as source, the hook's present rule) since its last passing check: a new PostToolUse hook, `session-touched.sh`, on Edit, Write, MultiEdit and NotebookEdit records the paths the tool touched in `.satt/state/sessions/<session_id>.touched` (the hook input's `session_id`), and for Bash and PowerShell a PreToolUse snapshot of `git status --porcelain --untracked-files=all` and the same hook after the command record the source files that are new in the list or modified since (one `find -newer` for all of them); a session that touched only docs (`*.md` outside `adr/`, product/, TASKS.md) never triggers the check; the builder marker, the fingerprint (the same failure isn't reported twice), `SATT_STOP_CHECK=0`, the prototype exit and the exit 0 when tools/check.sh is missing keep working; no or a malformed `session_id` behaves as before; the session's record is removed when the check passes, and records older than a day are ignored and deleted (check) · in a design session that edits only Markdown while another session has uncommitted a source file in the same folder, the Stop hook exits at once without running the check, tested with scripted hook input; a session that edits a source file still gets the check and is blocked once on failure; a Bash command that creates a source file is recorded; a passing check removes the record; a record older than a day is ignored; no session_id behaves as before; settings.json wires the hook; both hooks use no bash 4 form or GNU-only flag; the selftest passes (check) · the entry sits under the Unreleased heading, with upgrade steps
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T297
 
 ### T40 · The guard reads a command's name written as a path, so a quoted or backslash path can't hide git, az or a Remove-Az cmdlet · done · S · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, selftest.sh, CHANGELOG.md

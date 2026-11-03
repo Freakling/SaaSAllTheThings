@@ -200,8 +200,9 @@ your-app/
 │  the framework's, Claude Code adapter: updated on upgrade
 ├── .claude/skills/             /next-task and the rest: each points to its procedure
 ├── .claude/agents/             builder (builds each item in a fresh context) · reviewer and researcher (read-only)
-├── .claude/hooks/              runs the check before a turn ends; blocks risky git and Azure commands;
-│                               asks you before framework files change or an ADR is accepted; keeps out of director/
+├── .claude/hooks/              runs the check before a turn ends, for a session that changed code; blocks risky
+│                               git and Azure commands; asks you before framework files change or an ADR is
+│                               accepted; keeps out of director/
 └── .claude/settings.json       permissions, hooks, timeouts
 ```
 Machine-local and gitignored: `.satt/state/` (check logs and caches), `.claude/settings.local.json`, `product/ui/captures/`, `tools/ui/node_modules/` and `tools/ui/.auth/` (test users' saved sign-ins).
