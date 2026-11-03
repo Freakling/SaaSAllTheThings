@@ -135,16 +135,20 @@ str_swap() {
 }
 view_of() {
   local s="" k line jb=$'\x5c\x5c' jb4=$'\x5c\x5c\x5c\x5c' bsl=$'\x5c'
+  # Each line is kept with its line break, written as the two characters \n, and the pieces are joined once at the end (appending to
+  # a growing text costs a pass over it per line). A joined line (2 = $2) keeps no break.
+  local -a vl=()
   for ((k = $1; k < nphys; k++)); do
     line="${phys[k]}"
     if [[ $line == *"$x4" ]]; then
       line="${line%"$x4"}"
-      if (($2)); then s+="$line"; continue; fi
+      if (($2)); then vl+=("$line"); continue; fi
     fi
-    s+="$line"
-    if ((k < nphys - 1)); then s+="$nl"; fi
+    if ((k < nphys - 1)); then vl+=("$line${bsl}n"); else vl+=("$line"); fi
   done
-  str_swap "$s" "$x2" "$jb4"; str_swap "$SW" "$x1" "$jb"; str_swap "$SW" "$nl" "${bsl}n"; s="$SW"
+  local IFS=''   # "${vl[*]}" joins the pieces with nothing between them
+  s="${vl[*]}"
+  str_swap "$s" "$x2" "$jb4"; str_swap "$SW" "$x1" "$jb"; s="$SW"
   view="$s"
 }
 
@@ -1215,6 +1219,10 @@ wrap_read() {
 # A comment starts at a # that begins a word: after a blank, a line start or a metacharacter, as Bash reads it. PowerShell's
 # comment starts the same way and ends at the line break (B35).
 cmt_re='(^|[[:blank:]|&;()<>])#'
+# The per-view flags and arrays start empty. A variable of the same name in the hook's environment (an exported vhang=1) would
+# otherwise be element 0 of one, and vhang=1 would skip the git rules. vdep is a view's wrapper depth, vcov its timeout bound,
+# vpx whether it is Bash text a POSIX shell runs, and vhang whether only the hang rules read it; cn_all and hsubb start empty too.
+vdep=(); vcov=(); vpx=(); vhang=(); cn_all=""; hsubb=0
 views=("$raw")
 # vps (B55) is 1 for a view that is PowerShell text: the command itself under the PowerShell tool, its readings, a PowerShell
 # script a wrapper runs, and a substitution inside one. A view that is Bash text has 0.
@@ -1230,11 +1238,15 @@ fi
 # The readings: as written, as joined, and joined from each line after one that holds a comment marker and ends in a
 # continuation (B31). A command with no continuation (and no PowerShell escape to read) has one reading.
 if [[ $tool == PowerShell || $pl == *"$x4"* ]]; then
-  phys=(); rest="$pl"
-  while [[ $rest == *"$nl"* ]]; do phys+=("${rest%%"$nl"*}"); rest="${rest#*"$nl"}"; done
-  phys+=("$rest"); nphys=${#phys[@]}
+  # The lines, read in one pass: a here-string ends in a line break, so this gives the same lines as splitting on each break,
+  # with an empty last line when the text ends in one. (Splitting with %% and # on the rest costs a pass over it per line.)
+  phys=(); while IFS= read -r line || [ -n "$line" ]; do phys+=("$line"); done <<<"$pl"; nphys=${#phys[@]}
   view_of 0 0; views=("$view")
-  reading_of 0 1; [[ $view == "${views[0]}" ]] || { vps[${#views[@]}]=${vps[0]:-0}; views+=("$view"); }
+  # The joined reading differs only where a line is continued or a PowerShell backtick escapes a character (ps_clean): without either
+  # it's the same text, so it isn't built (a pass over the command).
+  if [[ $pl == *"$bt"* || $pl == *"$x4"* ]]; then
+    reading_of 0 1; [[ $view == "${views[0]}" ]] || { vps[${#views[@]}]=${vps[0]:-0}; views+=("$view"); }
+  fi
   for ((k = 1; k < nphys; k++)); do
     [[ ${phys[k-1]} == *"$x4" && ${phys[k-1]} =~ $cmt_re ]] || continue
     # Each such line costs a pass of the rules, so a command with very many can't run past the hook's time limit.
@@ -1251,21 +1263,14 @@ fi
 for ((vi = 0; vi < ${#views[@]}; vi++)); do
 raw="${views[vi]}"
 
-# The command as the shell reads its line breaks and tabs: a JSON \n ends a command, as ; does, and \t
-# is a space. A real backslash (the pair \\) stays as it is, so \\n is text, not a line break. The early
-# tests read this text, so a git command on any line is seen (B23). A backslash at the end of a line
-# continues the command on the next line, as the shell does, so `git push \` with `--force` below is one
-# command (B25). Expansions only, so no process starts. x1 is one shell backslash, x2 an escaped pair (\\).
-# (SaaSAllTheThings: PowerShell's backslash is a path separator, not a continuation, so only Bash's joins the lines. A comment
-# that ends in a backslash then can't glue its last word onto the command on the next line.)
-detect="${raw//\\\\/$x1}"; detect="${detect//$x1$x1/$x2}"; [[ $tool == PowerShell ]] || detect="${detect//$x1\\n/}"
-detect="${detect//\\n/;}"; detect="${detect//\\t/ }"; detect="${detect//$x2/$x1$x1}"
-detect="${detect//$x1/$bs$bs}"
-
 # The same command with its quotes decoded, for the rules that read words: the git flags below and the
 # reads of credential files. A line break that ends a command stays a newline; a continued line (B25) has
 # none. A pair of backslashes is an escaped backslash, so a newline after it still ends the command.
-# Expansions only.
+# A JSON \n ends a command, as ; does, and \t is a space. A backslash at the end of a line continues the
+# command on the next line, as the shell does, so `git push \` with `--force` below is one command (B25).
+# Expansions only, so no process starts. x1 is one shell backslash, x2 an escaped pair (\\). PowerShell's
+# backslash is a path separator, not a continuation, so only Bash's joins the lines (a comment that ends in
+# a backslash then can't glue its last word onto the command on the next line).
 real="${raw//\\\\/$x1}"; real="${real//\\\"/\"}"; real="${real//$x1$x1/$x2}"; [[ $tool == PowerShell ]] || real="${real//$x1\\n/}"
 real="${real//\\n/$nl}"; real="${real//\\t/ }"; real="${real//\\r/}"; real="${real//$x2/$x1$x1}"
 real="${real//$x1/$bs}"
@@ -1342,21 +1347,6 @@ if in_prototype; then
     echo "SaaSAllTheThings: blocked: a prototype never deploys or changes anything in Azure, dev included, and starts no pipeline. It is tried on this machine; the real build, from main, is deployed with release.md and the human's approval (.satt/procedures/prototype.md)." >&2
     exit 2
   fi
-fi
-
-# B37: a variable as a command's name, followed by -c or -Command, runs a shell or an interpreter the guard can't tell apart.
-# The words are read as the shell reads them (a quoted "& $X -c" is text, a quoted "$SHELL" is a name), and a precheck
-# keeps the common command from the walk. Only the words before the name may be assignments or wrappers (env, sudo, ...).
-if [[ $real == *'$'* && $real =~ $vsh_pre_re ]]; then
-  var_walk "$real"
-  for ((vk = 0; vk + 1 < ${#vbw[@]}; vk++)); do
-    [[ ${vbw[vk]} == *$'\x07'* ]] || continue
-    vq=$vk; vok=1
-    while ((vq > 0 && vbs[vq - 1] == vbs[vk])); do
-      ((vq--)); [[ ${vbw[vq]} =~ $vsh_prefix_re ]] || { vok=0; break; }
-    done
-    ((vok && vbs[vk + 1] == vbs[vk])) && [[ ${vbw[vk + 1]} =~ $vsh_opt_re ]] && block "$MSG_SHVAR"
-  done
 fi
 
 # --- Credential file reads ------------------------------------------------------------------------
@@ -1583,6 +1573,32 @@ hang() {
 }
 limit_s=280
 
+# ps_here_strip <text>: sets PH to the text with the bodies of its PowerShell here-strings left out. A here-string opens with @' or @"
+# at a line's end and closes with '@ or "@ at a line's start. Its body is a string, not commands, so a single-quoted one is left out
+# (PowerShell expands nothing in it); a @"...@" body that holds $( keeps its text, since PowerShell runs that substitution. A
+# here-string that never closes keeps its body: a false block beats a miss.
+ps_here_strip() {
+  local line open="" out="" t keep=0 k
+  local -a bl=()   # the body's lines, joined only when the body is kept (appending to a growing string costs a pass per line)
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [ -n "$open" ]; then
+      t="${line#"${line%%[![:space:]]*}"}"
+      if [[ $t == "$open@"* ]]; then
+        if [[ $open == '"' && $keep == 1 ]]; then for ((k = 0; k < ${#bl[@]}; k++)); do out+="${bl[k]}$nl"; done; fi
+        out+="$line$nl"; open=""; bl=(); keep=0
+      else
+        bl+=("$line"); [[ $line == *'$('* ]] && keep=1
+      fi
+      continue
+    fi
+    out+="$line$nl"
+    [[ $line =~ @([\"\'])[[:space:]]*$ ]] && open="${BASH_REMATCH[1]}"
+  done <<<"$1"
+  # A here-string that never closes keeps its body (the array is empty when every one closed).
+  for ((k = 0; k < ${#bl[@]}; k++)); do out+="${bl[k]}$nl"; done
+  PH="$out"
+}
+
 # hang_strip (B50): sets hbt, the text the hang rules read, and hst, the text whose substitutions the shell runs. Both are the command
 # as the shell reads it (real), with the bodies no shell runs left out: a commit's, tag's or gh message, and a cat or tee body that
 # nothing in the command runs (body_kind, the classification's reading). A body a shell or an interpreter may run stays, and so does
@@ -1590,12 +1606,15 @@ limit_s=280
 # expands them, as gtext does, with its quotes read as text), and drops a quoted one, which the shell doesn't expand.
 hang_strip() {
   local line delim="" body="" q="" bk="" hk="" hs="" hgt="" hsp="" hrt="" hrk="" hrs="" hrun=0 k=0
-  local -a hcb=() hcm=()
+  local -a hcb=() hcm=() bl=()
+  local IFS=$nl   # for "${bl[*]}" below, which joins the body's lines with line breaks
   if [[ $real != *'<<'* ]]; then hbt="$real"; hst="$real"; return 0; fi
   while IFS= read -r line || [ -n "$line" ]; do
     if [ -n "$delim" ]; then
       if [ "${line#"${line%%[![:space:]]*}"}" = "$delim" ]; then
         delim=""; hsp=""
+        # The body's lines are joined once, here: appending each line to a growing body costs a pass over it per line.
+        body="${bl[*]}"; ((${#bl[@]})) && body+="$nl"; bl=()
         [[ -z $q && ( $body == *'$('* || $body == *'`'* ) ]] && hsp="${body//[\'\"]/_}"
         hgt+="$hsp"
         case $bk in
@@ -1603,16 +1622,16 @@ hang_strip() {
           msg) hs+="$hsp" ;;
           cat) hk+=$'\x1d'"$k"$'\x1e'; hs+=$'\x1f'"$k"$'\x1f'; hcb+=("$body$line$nl"); hcm+=("$hsp"); k=$((k + 1)) ;;
         esac
-      else body+="$line$nl"; fi
+      else bl+=("$line"); fi
       continue
     fi
     hk+="$line$nl"; hs+="$line$nl"; hgt+="$line$nl"
     if [[ $line =~ $hre ]]; then
-      delim="${BASH_REMATCH[3]}"; q="${BASH_REMATCH[2]}"; body=""
+      delim="${BASH_REMATCH[3]}"; q="${BASH_REMATCH[2]}"; body=""; bl=()
       body_kind "$line" "$q"
     fi
   done <<<"$real"
-  if [ -n "$delim" ]; then hk+="$body"; hs+="$body"; hgt+="$body"; fi
+  if [ -n "$delim" ]; then body="${bl[*]}"; ((${#bl[@]})) && body+="$nl"; hk+="$body"; hs+="$body"; hgt+="$body"; fi
   # The runner test reads the command without its bodies, as the classification does (its gtext and hrt)
   hrt="$hgt"
   while [[ $hrt == *'> '* ]]; do str_swap "$hrt" '> ' '>'; hrt="$SW"; done
@@ -1630,33 +1649,69 @@ hang_strip() {
 }
 hang_strip
 
+# cntext is the text the per-character walks read: the variable walks here and below, and the substitution views. It's hst with the
+# bodies of a PowerShell command's here-strings left out (ps_here_strip). A walk costs time for each character, so a body nothing runs
+# (a cat or tee body, a message, a here-string's text) costs none, and a 30 KB file written from a heredoc or a here-string is judged in
+# time. Each walk's text is the command as the shell runs it, so no rule sees less of a command that runs.
+cntext="$hst"
+if ((${vps[vi]:-0})) && [[ $cntext == *"@'"* || $cntext == *'@"'* ]]; then ps_here_strip "$cntext"; cntext="$PH"; fi
+
+# B37: a variable as a command's name, followed by -c or -Command, runs a shell or an interpreter the guard can't tell apart.
+# The words are read as the shell reads them (a quoted "& $X -c" is text, a quoted "$SHELL" is a name), and a precheck
+# keeps the common command from the walk. Only the words before the name may be assignments or wrappers (env, sudo, ...).
+if [[ $cntext == *'$'* && $cntext =~ $vsh_pre_re ]]; then
+  var_walk "$cntext"
+  for ((vk = 0; vk + 1 < ${#vbw[@]}; vk++)); do
+    [[ ${vbw[vk]} == *$'\x07'* ]] || continue
+    vq=$vk; vok=1
+    while ((vq > 0 && vbs[vq - 1] == vbs[vk])); do
+      ((vq--)); [[ ${vbw[vq]} =~ $vsh_prefix_re ]] || { vok=0; break; }
+    done
+    ((vok && vbs[vk + 1] == vbs[vk])) && [[ ${vbw[vk + 1]} =~ $vsh_opt_re ]] && block "$MSG_SHVAR"
+  done
+fi
+
 # The text the rules read (B50) is hbt as code is detect: its quoted strings blanked, and its line breaks as ;.
 hcode="${hbt//$nl/;}"
-hdq='"[^"]*"'
-while [[ $hcode =~ $hdq ]]; do hcode="${hcode/"${BASH_REMATCH[0]}"/ Q }"; done
-while [[ $hcode =~ $sq ]]; do hcode="${hcode/"${BASH_REMATCH[0]}"/ Q }"; done
+hdq='"[^"]*"'   # a quoted string, as a glob: one pass over the text per kind of quote, as the regex loops it replaces did for each string
+hcode="${hcode//$hdq/ Q }"; hcode="${hcode//$sq/ Q }"
 
 # 1. `python - <<'EOF'` whose body is empty: Python waits for console input and never returns on
 #    Windows. Typically the "is Python here?" probe. The probe reads hbt: an interpreter's body stays in it, and a message's doesn't.
 #    A body of blank lines is not empty (the lines are read one by one, so a blank line stays a line), and python may sit behind a path.
 text="$hbt"
 heredoc_re='(^|[^[:alnum:]_.-])(python3?|py)(\.exe)?[[:space:]]+-[[:space:]]*<<-?[[:space:]]*\\?["'"'"']?([A-Za-z_][A-Za-z0-9_]*)'
-lines=(); while IFS= read -r line || [ -n "$line" ]; do lines+=("$line"); done <<<"$text"
-for ((i = 0; i + 1 < ${#lines[@]}; i++)); do
-  if [[ ${lines[i]} =~ $heredoc_re ]]; then
-    delim="${BASH_REMATCH[4]}"; next="${lines[i + 1]//[[:space:]]/}"
-    [ "$next" = "$delim" ] && hang "python reading an empty heredoc waits for console input and never returns (on Windows)." \
-      "To test whether Python is there, run: python3 --version"
-  fi
-done
+if [[ $text == *py* ]]; then   # the pattern needs py in the text, so a command without it has no lines to read
+  lines=(); while IFS= read -r line || [ -n "$line" ]; do lines+=("$line"); done <<<"$text"
+  for ((i = 0; i + 1 < ${#lines[@]}; i++)); do
+    if [[ ${lines[i]} =~ $heredoc_re ]]; then
+      delim="${BASH_REMATCH[4]}"; next="${lines[i + 1]//[[:space:]]/}"
+      [ "$next" = "$delim" ] && hang "python reading an empty heredoc waits for console input and never returns (on Windows)." \
+        "To test whether Python is there, run: python3 --version"
+    fi
+  done
+fi
 
-# 3. A lone sleep over 280 seconds.
-sleep_re='(^|[^[:alnum:]_./-])sleep[[:space:]]+([0-9]+)([smhd]?)([[:space:]]|$|[;&|)])'
+# pause_ts <whole> <fraction>: sets PT to a pause in thousandths of a second. The fraction is a dot and its digits, or empty, and it's read
+# to the thousandth and rounded up, so sleep 600.5 is 600500, and sleep 4.7m is read in its unit. A whole part past six digits is past any
+# limit, so PT is capped there (and no product below overflows).
+pause_ts() {
+  local w="$1" f="${2#.}000" t
+  w="${w#"${w%%[!0]*}"}"
+  if ((${#w} > 6)); then PT=10000000000; return 0; fi
+  t=$((10#${f:0:3}))
+  [[ ${f:3} == *[1-9]* ]] && t=$((t + 1))
+  PT=$((${w:-0} * 1000 + t))
+}
+
+# 3. A lone sleep over 280 seconds. A count may have a fraction (sleep 600.5, sleep 4.7m), which is read as its whole count is.
+sleep_re='(^|[^[:alnum:]_./-])sleep[[:space:]]+([0-9]+)(\.[0-9]*)?([smhd]?)([[:space:]]|$|[;&|)])'
 rest="$hcode"
 while [[ $rest =~ $sleep_re ]]; do
-  n="${BASH_REMATCH[2]}"; unit="${BASH_REMATCH[3]}"; secs=$((10#$n))
-  case "$unit" in m) secs=$((secs * 60)) ;; h) secs=$((secs * 3600)) ;; d) secs=$((secs * 86400)) ;; esac
-  [ "$secs" -gt "$limit_s" ] && hang "sleep $n$unit is longer than $limit_s seconds, and a wait past five minutes lets the prompt cache expire." \
+  n="${BASH_REMATCH[2]}"; frac="${BASH_REMATCH[3]}"; unit="${BASH_REMATCH[4]}"
+  pause_ts "$n" "$frac"
+  case "$unit" in m) PT=$((PT * 60)) ;; h) PT=$((PT * 3600)) ;; d) PT=$((PT * 86400)) ;; esac
+  [ "$PT" -gt $((limit_s * 1000)) ] && hang "sleep $n$frac$unit is longer than $limit_s seconds, and a wait past five minutes lets the prompt cache expire." \
     "Start the work with run_in_background and keep working until its completion notice, or wait in steps of $limit_s seconds or less."
   rest="${rest#*"${BASH_REMATCH[0]}"}"
 done
@@ -1665,14 +1720,17 @@ done
 #     (-Milliseconds or -m, rounded up to whole seconds), and cmd's timeout /t N, which waits N seconds (-1 waits for a key press for
 #     ever). cmd's timeout is a wait, not a time limit: coreutils' timeout N cmd is one, read in the loop rule below.
 shopt -s nocasematch
-ps_sleep_re='(^|[^[:alnum:]_./-])((start-)?sleep)[[:space:]]+(-[sm][[:alpha:]]*:?[[:space:]]*)?([0-9]+)([[:space:]]|$|[;&|)}])'
+# A count may have a fraction (Start-Sleep -Seconds 600.5), read as in the shell's sleep above. A count of milliseconds is rounded up
+# to the next whole millisecond, which is a thousandth of a second, so PT is in thousandths of a second for both.
+ps_sleep_re='(^|[^[:alnum:]_./-])((start-)?sleep)[[:space:]]+(-[sm][[:alpha:]]*:?[[:space:]]*)?([0-9]+)(\.[0-9]*)?([[:space:]]|$|[;&|)}])'
 cmd_wait_re='(^|[^[:alnum:]_./-])timeout(\.exe)?[[:space:]]+/t[[:space:]]+(-?[0-9]+)([[:space:]]|$|[;&|)}])'
 rest="$hcode"
 while [[ $rest =~ $ps_sleep_re ]]; do
-  m="${BASH_REMATCH[0]}"; p="${BASH_REMATCH[4]}"; n="${BASH_REMATCH[5]}"
-  if [[ $p == -[mM]* ]]; then secs=$(((10#$n + 999) / 1000)); what="a sleep of $n milliseconds"
-  else secs=$((10#$n)); what="a sleep of $n seconds"; fi
-  [ "$secs" -gt "$limit_s" ] && hang "$what is longer than $limit_s seconds, and a wait past five minutes lets the prompt cache expire." \
+  m="${BASH_REMATCH[0]}"; p="${BASH_REMATCH[4]}"; n="${BASH_REMATCH[5]}"; frac="${BASH_REMATCH[6]}"
+  pause_ts "$n" "$frac"
+  if [[ $p == -[mM]* ]]; then PT=$(((PT + 999) / 1000)); what="a sleep of $n$frac milliseconds"
+  else what="a sleep of $n$frac seconds"; fi
+  [ "$PT" -gt $((limit_s * 1000)) ] && hang "$what is longer than $limit_s seconds, and a wait past five minutes lets the prompt cache expire." \
     "Start the work with run_in_background and keep working until its completion notice, or wait in steps of $limit_s seconds or less."
   rest="${rest#*"$m"}"
 done
@@ -1687,6 +1745,30 @@ while [[ $rest =~ $cmd_wait_re ]]; do
   rest="${rest#*"$m"}"
 done
 shopt -u nocasematch
+
+# loop_end <text after a loop's keyword>: sets loop to the text up to the done that closes the loop, counting the do and done of each
+# loop nested in it, so an inner loop's done (while true; do for f in a; do :; done; sleep 5; done) and a done in the condition
+# ([ -f done ]) don't end it. A keyword starts a command: it follows ; & | ( or a line break, or it's at the text's start. With no
+# closing done (PowerShell's while (...) { }), loop is the whole text.
+kw_re="(^|[;&|($nl])[[:space:]]*(do|done)([;&|)<>[:space:]\"']|\$)"
+loop_end() {
+  local t="$1" d=0 m kw pre last
+  loop=""
+  while [[ $t =~ $kw_re ]]; do
+    m="${BASH_REMATCH[0]}"; kw="${BASH_REMATCH[2]}"
+    pre="${t%%"$m"*}"
+    if [[ $kw == done ]]; then
+      d=$((d - 1))
+      if ((d <= 0)); then loop+="$pre"; return 0; fi
+    else d=$((d + 1)); fi
+    # The character after the keyword may start the next one (done;done), so a separator goes back into the text.
+    last="${m:${#m}-1:1}"
+    loop+="$pre${m%?}"; t="${t#*"$m"}"
+    case $last in ';' | '&' | '|' | "$nl") t="$last$t" ;; *) loop+="$last" ;; esac
+  done
+  loop+="$t"
+  return 0
+}
 
 # 2. until/while loops that sleep: under `timeout N` (N <= 280), or ended by the exit line Claude Code
 #    appends to a background command's output. A loop quoted into `bash -c '...'` is read from the text too (hbt, B50).
@@ -1706,7 +1788,7 @@ shopt -s nocasematch
 while [[ $rest =~ $loop_re ]]; do
   before="$before${rest%%"${BASH_REMATCH[0]}"*}${BASH_REMATCH[1]}"
   rest="${rest#*"${BASH_REMATCH[0]}"}"
-  loop="${rest%%[;[:space:]]done[;[:space:])\'\"]*}"
+  loop_end "$rest"
   [[ $loop =~ $sleep_loop_re ]] || continue
   [[ $hbt == *"exited with code"* || $hbt == *"[killed]"* ]] && continue
   covered=0
@@ -1741,15 +1823,21 @@ if ((${vcov[vi]:-0} == 0)); then
 fi
 shopt -u nocasematch
 
+# hq is hst with its quotes and backslashes removed, as a word reads: one pass over the text, shared by the shell-name gate, the git,
+# shell, Azure and Remove-Az names below and the credential-print rules (each of those read the words with the quotes removed). It reads
+# hst, so a body nothing runs costs no pass (a 30 KB heredoc is one of those).
+hq="${hst//[\"\'\\]/}"
+
 # B34: the scripts that the shells and interpreters in this text run become views, each a level deeper than this one. The
 # text is read only when a shell's name shows in it with its quotes removed, so a command that names none goes no further.
 wscripts=()
-shl="${raw//\\\\/$x1}"; shl="${shl//\\\"/\"}"; shl="${shl//\\n/$nl}"; shl="${shl//\\t/ }"; shl="${shl//\\r/}"; shl="${shl//$x1/$bs}"
 shopt -s nocasematch
-bare="${shl//[\"\'\\]/}"
-# B60: a PowerShell view that names iex or Invoke-Expression is read too (no Bash view does: iex isn't a Bash command). shl keeps
+bare="$hq"
+# B60: a PowerShell view that names iex or Invoke-Expression is read too (no Bash view does: iex isn't a Bash command). hst keeps
 # the backslash of a module-qualified name (Microsoft.PowerShell.Utility\Invoke-Expression), which bare drops.
-if [[ $bare =~ $wrap_gate ]] || { ((${vps[vi]:-0})) && { [[ $bare =~ $iex_gate ]] || [[ $shl =~ $iex_gate ]]; }; }; then
+if [[ $bare =~ $wrap_gate ]] || { ((${vps[vi]:-0})) && { [[ $bare =~ $iex_gate ]] || [[ $hst =~ $iex_gate ]]; }; }; then
+  # shl is the command as the shell reads its escapes (the text the heredoc loop below reads). It's built only here.
+  shl="${raw//\\\\/$x1}"; shl="${shl//\\\"/\"}"; shl="${shl//\\n/$nl}"; shl="${shl//\\t/ }"; shl="${shl//\\r/}"; shl="${shl//$x1/$bs}"
   # The heredoc bodies gtext leaves out (below) are left out here too, so a message that names a shell isn't read as a script.
   wtext=""; wdelim=""; wq=""; wbody=""
   while IFS= read -r line || [ -n "$line" ]; do
@@ -1784,14 +1872,14 @@ shopt -u nocasematch
 # --- git-specific rules --------------------------------------------------------------------------
 # A substitution's brackets are read as blanks, so $(echo git) counts as a git command (B32).
 # The git name is read as the shell reads it, quotes removed, so "git", 'git' and g"it" are git (B39).
-bare_g="${detect//$brackets/ }"; bare_g="${bare_g//[\"\'\\]/}"
+bare_g="${hq//$brackets/ }"
 isgit=0; [[ $bare_g =~ (^|[^[:alnum:]_.-])[Gg][Ii][Tt](\.[Ee][Xx][Ee])?([[:space:]]|$) ]] && isgit=1
 # The shell's name is read as the git name is (B47): quotes removed, and in any case, so "bash", 'sh' and BASH are a shell.
 isbash=0; [[ $bare_g =~ (^|[^[:alnum:]_.-])([Bb][Aa])?[Ss][Hh]([[:space:]]|$) ]] && isbash=1
 # An az or azd command (quotes removed, in any case, with .cmd, .exe or .bat after it, after a path or a blank) is read for the
 # Azure rules below (SaaSAllTheThings). The name is matched in the text with its backslashes kept too, so a Windows path
 # that ends in \az.cmd is az as well.
-az_txt="${detect//[\"\']/}"
+az_txt="${hst//[\"\']/}"
 az_cmd_re='(^|[^[:alnum:]_.-])[Aa][Zz]([Dd])?(\.[Cc][Mm][Dd]|\.[Ee][Xx][Ee]|\.[Bb][Aa][Tt])?([[:space:];&|)]|$)'
 isaz=0
 [[ $bare_g$nl$az_txt =~ $az_cmd_re ]] && isaz=1
@@ -1801,22 +1889,22 @@ isaz=0
 rm_gate='[Rr][Ee][Mm][Oo][Vv][Ee]-[Aa][Zz]'
 isrm=0; [[ $bare_g =~ $rm_gate ]] && isrm=1
 # A gh command (quotes removed, as the shell reads it) is read for the gh auth token rule too (B39).
-gh_pre=0; [[ ${real//[\"\'\\]/} =~ (^|[^[:alnum:]_.-])gh[[:space:]] ]] && gh_pre=1
-# B45: a variable as a command's name runs what it holds, so a command that has one is read too (cname_judge, mode 0).
+gh_pre=0; [[ $hq =~ (^|[^[:alnum:]_.-])gh[[:space:]] ]] && gh_pre=1
+# B45: a variable as a command's name runs what it holds, so a command that has one is read too (cname_judge, mode 0), in cntext.
 cnv=0
-[[ $real =~ $cn_pre_re || $real =~ $cn_exec_re ]] && cname_judge "$real" 0
+[[ $cntext =~ $cn_pre_re || $cntext =~ $cn_exec_re ]] && cname_judge "$cntext" 0
 
 # B49: a command substitution runs before the command it's an argument of, so a timeout above it doesn't bound it: timeout 60
 # echo "$(until false; do sleep 1; done)" loops for ever. A Bash command that isn't git's has each substitution read as a view for
 # the hang rules alone (vhang): the gate below skips it, and it has the view's own bound (vcov), not the timeout in front of its
-# command. The text read is hst (B50): the command with the bodies no shell runs left out, so a quoted message's substitution, which
+# command. The text read is cntext (hst, B50, with a PowerShell here-string's body left out): the command with the bodies no shell runs left out, so a quoted message's substitution, which
 # the shell doesn't expand, isn't read, and an unquoted message's is. git's substitutions are read in the git section (B32), and
 # these views are read by the rules that come before the git section. B52: a PowerShell command's $(...) gets the same views, for the
 # hang rules and the credential-read check, so a Bash command in it (bash -c 'c\at .env.local' inside $(...)) is read as the Bash
 # command it is. PowerShell has no backtick or <( >( substitution, so only $( counts there.
-if ((!isgit)) && [[ $real == *'$('* || ( $tool != PowerShell && ( $real == *'`'* || $real == *'<('* || $real == *'>('* ) ) ]]; then
+if ((!isgit)) && [[ $cntext == *'$('* || ( $tool != PowerShell && ( $cntext == *'`'* || $cntext == *'<('* || $cntext == *'>('* ) ) ]]; then
   hsubb=0
-  if subst_cut "$hst"; then
+  if subst_cut "$cntext"; then
     for ((vn = 0; vn < sn; vn++)); do
       ((${#views[@]} < 64)) || break
       c="${subc[vn]}"; c="${c#"${c%%[![:space:]]*}"}"; c="${c%"${c##*[![:space:];]}"}"
@@ -2085,10 +2173,12 @@ dcode="$gcode;$bcode"
 ncode=""
 if [[ ${hnm//[\"\'\\]/} =~ [Gg][Ii][Tt] ]]; then bdecode "$hnm"; ncode="$dec"; fi
 fcode="$gcode;$ncode"
-# B39: the credential-print rules read the command's decoded words, bodies included, with the quotes removed as the shell removes them.
-# The decode runs only when gh or credential is named in the quote-free text (it's the costly part for a long message).
+# B39: the credential-print rules read the command's decoded words, with the quotes removed as the shell removes them. They read hst,
+# so a commit's, tag's or gh message, and a cat or tee body nothing runs, is text that may name gh auth token or git credential fill
+# (B48, B50); a body a shell runs is in hst. The decode runs only when gh or credential is named in the quote-free text (it's the
+# costly part for a long message).
 rdec=""
-if [[ ${real//[\"\'\\]/} =~ (^|[^[:alnum:]_.-])(gh|credential)[[:space:]] ]]; then decode_words "$real"; rdec="$dec"; fi
+if [[ $hq =~ (^|[^[:alnum:]_.-])(gh|credential)[[:space:]] ]]; then decode_words "$hst"; rdec="$dec"; fi
 [[ $rdec =~ $gh_print_re ]] && block "gh auth token and gh auth status -t print the gh CLI's stored token"
 [[ $rdec =~ $git_print_re ]] && block "git credential fill and get print a credential from git's credential store"
 # B32: each substitution's text is read as a command of its own (a view), so git's rules judge the git inside it.

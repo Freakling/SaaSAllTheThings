@@ -1245,6 +1245,7 @@ for cmd in \
     'cat .env.local' 'cat ~/.ssh/id_rsa' 'Get-Content .env' 'gh auth token' 'bash -c "git push --force"' 'eval "cat .env"' \
     'echo $(git push --force)' 'git push "$(echo --force)"' $'git commit \\\n-n -m x' $'# note\\\ngit push --force' \
     'until test -f x; do sleep 1; done' 'sleep 300' 'for ((i=0;i<9;i++)); do sleep 1; done' $'python3 - <<\'EOF\'\nEOF' \
+    'until [ -f done ]; do sleep 5; done' 'sleep 600.5' $'$gd = @\'\nx\n\'@\nSet-Content x.gd -Value $gd' \
     'azd down' 'az group delete -n rg' 'az keyvault secret show --name x' 'bash -c "az group delete -n rg"' 'echo $(az ad sp credential reset --id 1)' \
     'Invoke-Expression "git push --force"' 'bash tools/../x.sh' $'cat <<EOF | bash\ngit push --force\nEOF' 'git status' 'ls'; do
   json_str "$cmd"
@@ -2351,6 +2352,95 @@ EOF
   fi
   guard_run
   guard_report "$git_fail" "the guard hook blocks a message or an unrun cat body that names a loop, a pause or a timed wait, or passes a body a shell, an interpreter or a runner executes (B50)" "the guard hook passes a commit's, tag's or gh message, and a cat or tee body nothing runs, that names a loop, a pause or a timed wait, and blocks a body a shell, an interpreter or a runner executes (B50)"
+
+  # The hang check's loops and pauses (T39, as Godot-Director's T278 has them). A wait loop ends at the done that closes it as a command,
+  # not at a done in its condition or in a quoted word, and the do and done of a loop nested in it are counted, so each loop below runs
+  # to its own done. A pause with a fraction is judged as its whole part is (sleep 600.5, sleep 4.7m, Start-Sleep -Seconds 280.5).
+  git_fail=""
+  if [ -f .claude/hooks/guard-commands.sh ]; then
+    for cmd in \
+        'until [ -f done ]; do sleep 5; done' \
+        'while [ "$x" = done ]; do sleep 5; done' \
+        'while true; do for f in a b; do :; done; sleep 5; done' \
+        'while true; do while read l; do :; done < f; sleep 5; done' \
+        $'until false\ndo\n  for f in a; do echo $f; done\n  sleep 5\ndone' \
+        'for ((;;)); do until true; do :; done; sleep 1; done' \
+        'while true; do for f in a; do :; done;sleep 9;done' \
+        'until [ -f done ]; do echo x; for f in a; do :; done; sleep 5; done' \
+        'while true; do echo "done"; sleep 5; done' \
+        "while true; do echo '; done'; sleep 5; done" \
+        'sleep 600.5' 'sleep 280.5' 'echo x; sleep 300.0' 'sleep 4.7m'; do
+      guard 2 "$cmd"
+    done
+    for cmd in \
+        'while read l; do for f in a; do :; done; done < x; sleep 5' \
+        'for f in a b; do while read l; do :; done < f; done' \
+        'while true; do for f in a; do :; done; done; sleep 5' \
+        'until [ -f x ]; do echo done; done' \
+        'timeout 240 bash -c "while true; do for f in a; do :; done; sleep 5; done"' \
+        'sleep 0.5' 'sleep 280.0' 'sleep 4.5m' 'sleep 1.'; do
+      guard 0 "$cmd"
+    done
+    for cmd in 'Start-Sleep -Seconds 600.5' 'Start-Sleep 280.5' 'Start-Sleep -Milliseconds 280000.5'; do guard 2 "$cmd" PowerShell; done
+    for cmd in 'Start-Sleep -Seconds 0.5' 'Start-Sleep -Milliseconds 280000.0' 'Start-Sleep -Milliseconds 279999.5'; do guard 0 "$cmd" PowerShell; done
+  fi
+  guard_run
+  guard_report "$git_fail" "the guard hook doesn't end a wait loop at the done that closes it, doesn't read a pause with a fraction as its whole part, or blocks a loop a timeout bounds or a plain pause" "the guard hook reads each wait loop to its own done, judges a pause with a fraction as its whole part is, and passes the bounded and the short forms"
+
+  # The view flags start empty (T39): a variable of the same name in the hook's environment changes nothing, so an exported vhang=1
+  # doesn't skip the git rules, and the other per-view names (vcov, vdep, vpx, vps, cn_all, hsubb) change nothing either.
+  env_fail=""
+  printf '%s' '{"session_id":"s","tool_name":"Bash","tool_input":{"command":"git push --force origin main","description":"run"}}' > "$guard_dir/env.json"
+  for v in vhang vcov vdep vpx vps cn_all hsubb; do
+    env "$v=1" bash .claude/hooks/guard-commands.sh < "$guard_dir/env.json" >/dev/null 2>&1
+    [ $? -eq 2 ] || env_fail="$env_fail"$'\n'"  with $v=1 in the environment the guard passes git push --force"
+  done
+  rm -f "$guard_dir/env.json"
+  guard_report "$env_fail" "a variable in the hook's environment named like a per-view flag changes what the guard blocks" "a variable in the hook's environment named like a per-view flag changes nothing"
+
+  # The credential-print rules read the text without a commit's, tag's or gh message, or a cat body nothing runs (T39): a message may
+  # name gh auth token or git credential fill. A body a shell runs, a substitution in a message and a command after a message still block.
+  git_fail=""
+  if [ -f .claude/hooks/guard-commands.sh ]; then
+    for cmd in 'git commit -q -m "docs: gh auth token is blocked"' \
+        $'git commit -q -F - <<\'EOF\'\nfix: gh auth token is blocked\nEOF' \
+        $'git commit -q -F - <<\'EOF\'\ndocs: git credential fill prints a token\nEOF' \
+        $'gh pr edit 5 --body-file - <<\'EOF\'\nThe guard blocks gh auth token and git credential get.\nEOF' \
+        $'cat > notes.md <<\'EOF\'\ngh auth token\nEOF'; do
+      guard 0 "$cmd"
+    done
+    for cmd in 'gh auth token' \
+        $'bash <<\'EOF\'\ngh auth token\nEOF' \
+        $'git commit -q -F - <<EOF\n$(gh auth token)\nEOF' \
+        $'git commit -q -F - <<\'EOF\'\nmsg\nEOF\ngh auth token' \
+        $'cat > x.sh <<\'EOF\'\ngit credential fill\nEOF\nbash x.sh'; do
+      guard 2 "$cmd"
+    done
+  fi
+  guard_run
+  guard_report "$git_fail" "the guard hook blocks a message or a cat body that names a credential print and runs nothing, or doesn't block one that runs" "the guard hook passes a message that names gh auth token or git credential fill, and blocks the commands that print a credential, a body a shell runs, and a substitution in a message"
+
+  # The guard judges a 30 KB body in time (the hook's timeout is 10 seconds): 900 GDScript-like lines of $AnimationPlayer.play("walk_N"),
+  # written by a Bash heredoc into cat > and by a PowerShell here-string assigned and written with Set-Content. Each runs under a UTF-8
+  # locale, where the per-character walks cost the most, and must exit 0 in under 5 seconds (bash's time keyword starts no process).
+  gd_body=""
+  for ((gi = 1; gi <= 900; gi++)); do gd_body+="\$AnimationPlayer.play(\"walk_$gi\")"$'\n'; done
+  slow_cmds=("cat > scripts/hero.gd <<'EOF'"$'\n'"$gd_body""EOF" "\$gd = @'"$'\n'"$gd_body""'@"$'\n'"Set-Content -Path scripts/hero.gd -Value \$gd")
+  slow_tools=(Bash PowerShell); slow_fail=""; slow_times=""
+  TIMEFORMAT=%R
+  for ((si = 0; si < ${#slow_cmds[@]}; si++)); do
+    json_str "${slow_cmds[si]}"
+    printf '{"session_id":"s","tool_name":"%s","tool_input":{"command":"%s","description":"run"}}' "${slow_tools[si]}" "$JSON_STR" > "$guard_dir/slow.json"
+    { time LC_ALL=C.UTF-8 bash .claude/hooks/guard-commands.sh < "$guard_dir/slow.json" >/dev/null 2>&1; } 2>"$guard_dir/slow.time"
+    slow_rc=$?
+    slow_s="$(cat "$guard_dir/slow.time")"
+    slow_times="$slow_times ${slow_tools[si]} ${slow_s}s"
+    [ "$slow_rc" = 0 ] || slow_fail="$slow_fail"$'\n'"  (${slow_tools[si]}) the guard exited $slow_rc on a 30 KB body, expected 0"
+    [ "${slow_s%%.*}" -lt 5 ] 2>/dev/null || slow_fail="$slow_fail"$'\n'"  (${slow_tools[si]}) the guard took ${slow_s}s on a 30 KB body, over 5 seconds"
+  done
+  unset TIMEFORMAT
+  rm -f "$guard_dir/slow.json" "$guard_dir/slow.time"
+  guard_report "$slow_fail" "the guard is too slow on a 30 KB body, or it exits non-zero on one" "the guard reads a 30 KB heredoc and here-string in under 5 seconds each:$slow_times"
 
   # A variable in a git command's words (B37): the guard can't read what it holds. A variable that the command assigns once,
   # to a plain value, is read as that value, so FLAG=--force; git push $FLAG is the force push it is. Any other unquoted

@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T39 · B3 · R1
+**Next IDs:** T40 · B3 · R1
 
 ## Queue
+
+### T39 · The guard reads a wait loop to its own done, a fractional pause, empty view flags, a 30 KB body in time, and a message's names as text · done · S · agent
+- Touches: framework/.claude/hooks/guard-commands.sh, selftest.sh, CHANGELOG.md
+- Done when: the hang check ends an until or while loop at the done that closes it as a command, with a nested loop's do and done counted (`until [ -f done ]; do sleep 5; done` and `while true; do for f in a b; do :; done; sleep 5; done` are blocked); a pause with a fraction is judged as its whole part is (`sleep 600.5`, `Start-Sleep -Seconds 600.5`); the view flags and the arrays they're read from start empty, so an exported vhang=1 skips no git rule; the checks over the command's text skip the bodies nothing runs (a cat or tee body, a commit's or gh message, a PowerShell here-string), so a 30 KB heredoc and here-string are judged in under 5 seconds, timed in each shell by the selftest; the credential-print rules read the text without a commit's or gh message, so `git commit -q -m "... gh auth token ..."` passes and `gh auth token` still blocks; the selftest covers each (check) and passes (check) · the entry sits under the Unreleased heading
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T288
 
 ### T38 · The Azure delete rule covers the Az PowerShell module's Remove-Az cmdlets · done · S · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, selftest.sh, CHANGELOG.md
