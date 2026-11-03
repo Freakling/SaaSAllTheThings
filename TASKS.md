@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T36 · B3 · R1
+**Next IDs:** T37 · B3 · R1
 
 ## Queue
+
+### T36 · The guard and the deny rules reach the PowerShell tool, and a continuation, a tab or a PowerShell read can't hide from it · done · M · agent
+- Touches: framework/.claude/settings.json, framework/.claude/hooks/guard-commands.sh, selftest.sh, CHANGELOG.md
+- Done when: the guard hook's matcher names `Bash|Monitor|PowerShell` and every Bash deny and ask rule in `framework/.claude/settings.json` has a `PowerShell(...)` twin, with no PowerShell allow rule; the guard closes the gaps Director-Driven-Development closed in its B25, B27 to B40, B42 to B52, B55 and B60 (a line continuation, a tab, PowerShell's readers and backtick, comments, command substitutions, variables, shell wrappers, wait loops, heredoc bodies, git configuration and program flags, a quoted or capitalised name, Invoke-Expression), including the readings of a continued command (as written, as joined, and joined from each line after a comment), and reads SaaSAllTheThings' own rules (deleting Azure resources, a complete-mode deployment, a Key Vault secret read, a client secret, a prototype that never deploys) the same way; every case is in the selftest, run in parallel batches; the hook uses no bash 4 form (case conversion, a negative substring offset, a quoted replacement string) and starts no other process; the selftest passes (check) · the entry sits under the Unreleased heading
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T277
 
 ### T35 · A quoted no-verify and a gate edit can't get a commit past the hooks · done · S · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/hooks/guard-authority.sh, framework/tools/prototype.sh, selftest.sh, CHANGELOG.md
