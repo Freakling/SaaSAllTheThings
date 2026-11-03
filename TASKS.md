@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T38 · B3 · R1
+**Next IDs:** T39 · B3 · R1
 
 ## Queue
+
+### T38 · The Azure delete rule covers the Az PowerShell module's Remove-Az cmdlets · done · S · agent
+- Touches: framework/.claude/hooks/guard-commands.sh, framework/.claude/settings.json, selftest.sh, CHANGELOG.md
+- Done when: the guard blocks each `Remove-Az*` cmdlet (`Remove-AzResourceGroup`, `Remove-AzResource` and the rest) in any case, after a module or a path (`Az.Resources\Remove-AzResourceGroup`), through every reading the `az ... delete` rule takes (as written, joined after a continuation, after a comment, inside a substitution, a `powershell -Command` or `pwsh -c` script, `Invoke-Expression` in PowerShell, a heredoc body a shell runs), in the Bash and the PowerShell tool, and passes the `Get-Az` reads and a commit's or tag's `-m` value or a heredoc body that names one and runs nothing; `framework/.claude/settings.json` denies `PowerShell(Remove-Az*)` next to `PowerShell(az group delete *)`; the selftest covers each and checks the settings rule (check) and passes (check) · the entry sits under the Unreleased heading
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T286
 
 ### T37 · Nothing is written until the director approves a summary of it · done · L · agent
 - Touches: framework/.satt/rules.md, framework/.satt/procedures/design.md, framework/.satt/procedures/research.md, framework/.satt/procedures/next-task.md, framework/.satt/procedures/drift-reset.md, framework/.satt/procedures/ui-design.md, framework/.satt/procedures/acceptance.md, framework/.satt/procedures/feedback.md, framework/.satt/procedures/architect.md, framework/.satt/procedures/integrate.md, framework/.satt/procedures/assess.md, framework/.satt/procedures/align.md, framework/.satt/procedures/roadmap.md, framework/.satt/workshops/README.md, framework/.claude/skills/design/SKILL.md, framework/validation/README.md, skills/saas-design-session/SKILL.md (and its references/, from bundle.sh), ONBOARDING.md, README.md, examples/scenarios.md, selftest.sh, CHANGELOG.md

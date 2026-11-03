@@ -79,6 +79,7 @@
       "PowerShell(azd down *)",
       "Bash(az group delete *)",
       "PowerShell(az group delete *)",
+      "PowerShell(Remove-Az*)",
       "Bash(git *--output*)",
       "PowerShell(git *--output*)",
       "Bash(git *--no-index*)",

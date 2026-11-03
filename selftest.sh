@@ -3174,6 +3174,75 @@ EOF
   guard_run
   guard_report "$git_fail" "the guard hook doesn't read an az or azd command that deletes a resource, a complete-mode deployment, a Key Vault secret read or a client secret reset as the shell does, or blocks a plain Azure command or a message that names one" "the guard hook blocks azd down, az ... delete, a complete-mode deployment, a Key Vault secret read and az ad app or sp credential reset in the Bash and the PowerShell tool, with the name in any case, quoted, with .cmd or .exe or after a path, on a continued line, after a comment, in a tab-separated command, in a wrapper's script, a substitution or a heredoc body a shell runs, and passes the plain Azure commands and the messages that name them"
 
+  # SaaSAllTheThings' Az PowerShell module: a Remove-Az cmdlet deletes Azure resources as az ... delete does, so the guard reads it the
+  # same way. The name is blocked in any case, after a module or a path (Az.Resources\Remove-AzResourceGroup, .\Remove-AzResource), in
+  # each reading the az rule takes: a continued line, a comment, a wrapper's script, a substitution, a PowerShell backtick, a
+  # heredoc body a shell runs. The Get-Az reads pass, and so does a message that only names a cmdlet: a commit's or tag's -m value
+  # (one word or more) and a heredoc body nothing runs. Both tools get the same cases, except the ones that depend on a line break.
+  git_fail=""
+  if [ -f .claude/hooks/guard-commands.sh ]; then
+    for cmd in \
+        'Remove-AzResourceGroup -Name rg -Force' \
+        'remove-azresourcegroup -Name rg' \
+        'REMOVE-AZRESOURCE -ResourceId x' \
+        'Remove-AzStorageAccount -Name x -ResourceGroupName rg' \
+        'Remove-AzureRmResourceGroup -Name rg' \
+        'Remove-AzContext -Force' \
+        'Az.Resources\Remove-AzResourceGroup -Name rg' \
+        'Az.Resources\remove-azresourcegroup -Name rg' \
+        'Microsoft.PowerShell.Management\Remove-AzResource -ResourceId x' \
+        '.\Remove-AzResourceGroup -Name rg' \
+        'C:\Modules\Az\Remove-AzResource -ResourceId x' \
+        "'Remove-AzResourceGroup' -Name rg" \
+        '"Remove-AzResourceGroup" -Name rg' \
+        "& 'Az.Resources\\Remove-AzResourceGroup' -Name rg" \
+        'Get-AzResourceGroup -Name rg | Remove-AzResourceGroup -Force' \
+        'Get-AzResourceGroup -Name rg; Remove-AzResourceGroup -Name rg' \
+        'bash tools/check.sh && Remove-AzResourceGroup -Name rg' \
+        'git commit -m "Remove-AzResourceGroup" && Remove-AzResourceGroup -Name rg' \
+        'git commit -m Remove-AzResourceGroup; Remove-AzResourceGroup -Name rg' \
+        'echo $(Remove-AzResourceGroup -Name rg)' \
+        'echo "$(Remove-AzResourceGroup -Name rg)"' \
+        'powershell -Command "Remove-AzResourceGroup -Name rg -Force"' \
+        "pwsh -c 'Remove-AzResourceGroup -Name rg'" \
+        'bash -c "Remove-AzResourceGroup -Name rg"' \
+        'timeout 60 Remove-AzResourceGroup -Name rg' \
+        'Start-Job { Remove-AzResourceGroup -Name rg }' \
+        "Start-Process powershell -ArgumentList 'Remove-AzResourceGroup -Name rg'" \
+        $'Get-AzResource -Name x\nRemove-AzResource -ResourceId y' \
+        $'# note\\\nRemove-AzResourceGroup -Name rg' \
+        $'bash <<\'EOF\'\nRemove-AzResourceGroup -Name rg\nEOF'; do
+      guard 2 "$cmd"
+      guard 2 "$cmd" PowerShell
+    done
+    # A line break that a shell joins (a backslash in Bash) joins the name, and a PowerShell backtick does; PowerShell's backslash is a
+    # path separator, so the same split name passes there, as it does for az group delete above.
+    guard 2 $'Remove-Az\\\nResourceGroup -Name rg'
+    guard 0 $'Remove-Az\\\nResourceGroup -Name rg' PowerShell
+    guard 2 $'Remove-Az`\nResourceGroup -Name rg' PowerShell
+    guard 2 'Remo`ve-AzResourceGroup -Name rg' PowerShell
+    guard 2 'Invoke-Expression "Remove-AzResourceGroup -Name rg"' PowerShell
+    guard 2 'iex "Remove-AzResource -ResourceId x"' PowerShell
+    for cmd in \
+        'Get-AzResourceGroup -Name rg' \
+        'Get-AzResource -Name x | Select-Object Name' \
+        'Remove-Item -Path x' \
+        'git commit -m "Remove-AzResourceGroup"' \
+        'git commit -m "docs: Remove-AzResourceGroup is for the human" -- a.md' \
+        'git commit -am Remove-AzResourceGroup' \
+        'git commit --message=Remove-AzResourceGroup -- a.md' \
+        'git tag -a v1 -m Remove-AzResource' \
+        'echo "Remove-AzResourceGroup is for the human"' \
+        'Write-Output "Remove-AzResourceGroup is for the human"' \
+        $'git commit -q -F - <<\'EOF\'\nRemove-AzResourceGroup is for the human\nEOF' \
+        $'cat > notes.md <<\'EOF\'\nRemove-AzResourceGroup -Name rg\nEOF\ngit add notes.md'; do
+      guard 0 "$cmd"
+      guard 0 "$cmd" PowerShell
+    done
+  fi
+  guard_run
+  guard_report "$git_fail" "the guard hook doesn't read a Remove-Az cmdlet (the Az PowerShell module's delete) as it reads az ... delete, or blocks a Get-Az read or a message that names a cmdlet" "the guard hook blocks a Remove-Az cmdlet in any case, after a module or a path, quoted, joined, after a comment, in a wrapper's script, a substitution, Invoke-Expression or a heredoc body a shell runs, in the Bash and the PowerShell tool, and passes the Get-Az reads and the messages that name a cmdlet"
+
   # The PowerShell tool (B24) has its own name. The guard runs for it only when the hook's matcher names it,
   # and a Bash(...) deny or ask rule stops the same command in PowerShell only through its PowerShell(...)
   # twin, in the same list. The allow list names no PowerShell command, so nothing PowerShell runs is allowed
@@ -3197,7 +3266,10 @@ EOF
   done
   printf '%s\n' "$perm_allow" | grep -q 'PowerShell(' \
     && ps_fail="$ps_fail"$'\n'"  settings.json's allow list names a PowerShell command, so PowerShell would run it without a prompt"
-  guard_report "$ps_fail" "the PowerShell tool isn't wired to the guard and the deny rules (B24)" "the guard hook's matcher names PowerShell, every Bash deny rule has a PowerShell twin, and the allow list names no PowerShell command"
+  # The Az PowerShell module's delete (the Remove-Az rule): the PowerShell tool denies every Remove-Az cmdlet, as it denies az group delete.
+  sed -n '/"deny": *\[/,/\]/p' .claude/settings.json | grep -qF '"PowerShell(Remove-Az*)"' \
+    || ps_fail="$ps_fail"$'\n'"  settings.json's deny list lacks PowerShell(Remove-Az*), so the PowerShell tool would run a Remove-Az cmdlet without a prompt"
+  guard_report "$ps_fail" "the PowerShell tool isn't wired to the guard and the deny rules (B24), or its deny list lacks the Remove-Az cmdlets" "the guard hook's matcher names PowerShell, every Bash deny rule has a PowerShell twin, the allow list names no PowerShell command, and the deny list denies PowerShell(Remove-Az*)"
 fi
 
 # --- guard-protected hook -------------------------------------------------------------------------

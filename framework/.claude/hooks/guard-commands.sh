@@ -26,8 +26,9 @@
 #
 # SaaSAllTheThings' own rules, read as the git rules are (every reading of the command, wrappers, substitutions,
 # the name in any case, quotes and continuations resolved): az and azd commands that delete Azure resources
-# (azd down, az ... delete), a complete-mode deployment, a Key Vault secret read (az keyvault secret show,
-# download, backup) and az ad app or sp credential reset, which creates a client secret; see "Azure" below. In a
+# (azd down, az ... delete), the Az PowerShell module's Remove-Az cmdlets, a complete-mode deployment, a Key Vault
+# secret read (az keyvault secret show, download, backup) and az ad app or sp credential reset, which creates a client
+# secret; see "Azure" below. In a
 # prototype session (.satt/procedures/prototype.md) every command that reaches Azure (az, azd, func azure) or
 # starts a deploy pipeline (gh workflow run) is blocked: see "A prototype never deploys" below. The prototype
 # rules for git: forced worktree removal (git worktree remove --force), branch deletion and overwrites (git branch
@@ -1794,6 +1795,11 @@ az_txt="${detect//[\"\']/}"
 az_cmd_re='(^|[^[:alnum:]_.-])[Aa][Zz]([Dd])?(\.[Cc][Mm][Dd]|\.[Ee][Xx][Ee]|\.[Bb][Aa][Tt])?([[:space:];&|)]|$)'
 isaz=0
 [[ $bare_g$nl$az_txt =~ $az_cmd_re ]] && isaz=1
+# SaaSAllTheThings' Az PowerShell module: a Remove-Az cmdlet deletes Azure resources as az ... delete does, so a command that
+# names one (in any case, after a module or a path) is read for the Remove-Az rule in the Azure section below. The name is read
+# in bare_g, which has the quotes and the backslashes removed, as the words are.
+rm_gate='[Rr][Ee][Mm][Oo][Vv][Ee]-[Aa][Zz]'
+isrm=0; [[ $bare_g =~ $rm_gate ]] && isrm=1
 # A gh command (quotes removed, as the shell reads it) is read for the gh auth token rule too (B39).
 gh_pre=0; [[ ${real//[\"\'\\]/} =~ (^|[^[:alnum:]_.-])gh[[:space:]] ]] && gh_pre=1
 # B45: a variable as a command's name runs what it holds, so a command that has one is read too (cname_judge, mode 0).
@@ -1821,7 +1827,7 @@ if ((!isgit)) && [[ $real == *'$('* || ( $tool != PowerShell && ( $real == *'`'*
 fi
 
 # B49: a view of a substitution in a command that isn't git's (vhang) is read by the hang rules only; no rule below judges it.
-((${vhang[vi]:-0} == 0)) && ((isgit || isbash || gh_pre || cnv || isaz)) || continue
+((${vhang[vi]:-0} == 0)) && ((isgit || isbash || gh_pre || cnv || isaz || isrm)) || continue
 
 seg='[^;&|]*'   # the destructive git rules are below the decoding of the command (B33)
 
@@ -2086,8 +2092,9 @@ if [[ ${real//[\"\'\\]/} =~ (^|[^[:alnum:]_.-])(gh|credential)[[:space:]] ]]; th
 [[ $rdec =~ $gh_print_re ]] && block "gh auth token and gh auth status -t print the gh CLI's stored token"
 [[ $rdec =~ $git_print_re ]] && block "git credential fill and get print a credential from git's credential store"
 # B32: each substitution's text is read as a command of its own (a view), so git's rules judge the git inside it.
-# SaaSAllTheThings: an az or azd command's substitutions are read the same way, so the Azure rules below judge the az inside one.
-if ((isgit || isaz)); then
+# SaaSAllTheThings: an az or azd command's substitutions are read the same way, so the Azure rules below judge the az inside one,
+# and a Remove-Az cmdlet's are read too.
+if ((isgit || isaz || isrm)); then
   for ((vn = 0; vn < ${#subc[@]}; vn++)); do
     ((${#views[@]} < 64)) || block "the command has more command substitutions than the guard reads in time"
     c="${subc[vn]}"; c="${c#"${c%%[![:space:]]*}"}"; c="${c%"${c##*[![:space:];]}"}"
@@ -2130,6 +2137,33 @@ if ((isaz)); then
   shopt -u nocasematch
   [[ $acode =~ keyvault[[:space:]]+secret[[:space:]]+(show|download|backup)$az_end ]] && block "never read a secret into the session"
   [[ $acode =~ $az_w[[:space:]]+ad[[:space:]]+(app|sp)[[:space:]]+credential[[:space:]]+reset$az_end ]] && block "this creates a client secret; use a federated credential (.satt/reference/identity.md)"
+fi
+
+# --- Az PowerShell module -------------------------------------------------------------------------
+# A Remove-Az cmdlet (Remove-AzResourceGroup, Remove-AzResource and every other Remove-Az*) deletes Azure resources, as az ... delete
+# does, so it's read the same way: in any case, after a path or a module, in each reading and in the bodies a shell runs. A module
+# or a path is written with a backslash (Az.Resources\Remove-AzResourceGroup), which decode_words drops, so the name may follow letters
+# or dots here. The name is blocked only as a word: a commit's or tag's -m value is text, and rm_msg blanks a one-word one as
+# decode_words blanks a quoted message with a space in it.
+# rm_msg <text>: sets RM to the text with each one-word -m value of a git commit or tag blanked: -m x, -am x, --message x and
+# --message=x. The loop is bounded, so it can't run on.
+rm_msg_git_re='(^|[^[:alnum:]_.-])[Gg][Ii][Tt](\.[Ee][Xx][Ee])?[[:space:]]+([^;&|]*[[:space:]])?(commit|tag)([[:space:]]|$)'
+rm_msg_val_re='(^|[[:space:]])(-[[:alpha:]]*m|--message)([[:space:]]+|[[:space:]]*=[[:space:]]*)[^[:space:];&|]+'
+rm_msg() {
+  local n=0
+  RM="$1"
+  [[ $1 =~ $rm_msg_git_re ]] || return 0
+  while ((n < 64)) && [[ $RM =~ $rm_msg_val_re ]]; do
+    RM="${RM/"${BASH_REMATCH[0]}"/ Q }"
+    ((n++))
+  done
+  return 0
+}
+rm_cmd_re='(^|[^[:alnum:]_.-])[[:alnum:]_.]*[Rr][Ee][Mm][Oo][Vv][Ee]-[Aa][Zz][[:alnum:]]+([[:space:];&|),}]|$)'
+if ((isrm)); then
+  rm_msg "$gcode"; rmcode="$RM"
+  if [[ ${hnm//[\"\'\\]/} =~ $rm_gate ]]; then bdecode "$hnm"; rmcode+=";$dec"; fi
+  [[ $rmcode =~ $rm_cmd_re ]] && block "deleting Azure resources is for the human (a Remove-Az cmdlet)"
 fi
 
 # --- git: destructive rules (B33) ------------------------------------------------------------------
