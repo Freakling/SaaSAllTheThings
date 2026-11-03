@@ -3333,6 +3333,53 @@ EOF
   guard_run
   guard_report "$git_fail" "the guard hook doesn't read a Remove-Az cmdlet (the Az PowerShell module's delete) as it reads az ... delete, or blocks a Get-Az read or a message that names a cmdlet" "the guard hook blocks a Remove-Az cmdlet in any case, after a module or a path, quoted, joined, after a comment, in a wrapper's script, a substitution, Invoke-Expression or a heredoc body a shell runs, in the Bash and the PowerShell tool, and passes the Get-Az reads and the messages that name a cmdlet"
 
+  # A command's name written as a path (B61): a quoted command with a space in its path, or a backslash path, is read as its last part
+  # (git.exe, az.cmd, Remove-AzResourceGroup) in the Bash and the PowerShell tool, after a prefix, a separator or a call operator. A path
+  # that is an argument, a message or a heredoc body nothing runs is text, and an escaped name (g\it) is still the shell's name.
+  for cmd in \
+      '"C:\Program Files\Git\bin\git.exe" push --force' \
+      '& "C:\Program Files\Git\cmd\git.exe" push --force' \
+      '& '"'"'C:\Program Files\Az\Remove-AzResourceGroup'"'"' -Name rg' \
+      '"C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd" group delete -n rg' \
+      '"C:\Program Files\Azure CLI\az.cmd" group delete -n rg' \
+      'C:\bin\az.cmd group delete -n rg' \
+      '.\az.cmd group delete -n rg' \
+      '..\tools\az.cmd group delete -n rg' \
+      'C:\Git\bin\git.exe push --force' \
+      '"C:\Git\bin\git.exe" push --force' \
+      'FOO=1 "C:\Program Files\Git\bin\git.exe" push --force' \
+      'env "C:\Program Files\Git\bin\git.exe" push --force' \
+      'cd x && "C:\Program Files\Git\bin\git.exe" push --force' \
+      'true; "C:\Program Files\Git\bin\git.exe" push --force' \
+      '"/usr/bin/git" push --force' \
+      'echo $("C:\Program Files\Git\bin\git.exe" push --force)' \
+      "bash -c '\"C:\\Program Files\\Git\\bin\\git.exe\" push --force'" \
+      "powershell -Command \"& 'C:\\Program Files\\Az\\Remove-AzResourceGroup' -Name rg\"" \
+      $'bash <<\'EOF\'\n"C:\\Program Files\\Git\\bin\\git.exe" push --force\nEOF'; do
+    guard 2 "$cmd"
+    guard 2 "$cmd" PowerShell
+  done
+  guard 2 'g\it push --force' # Bash only: in PowerShell a backslash is a path, so g\it is not git there
+  for cmd in \
+      'git commit -q -m "docs: C:\Program Files\Git\bin\git.exe push --force is blocked"' \
+      'echo "C:\Program Files\Az"' \
+      "& 'C:\\Program Files\\Git\\bin\\git.exe' status" \
+      '"C:\Program Files\Git\bin\git.exe" log -1' \
+      '"C:\Program Files\Git\bin\git.exe" push origin main' \
+      'git log "C:\Program Files\Git\bin\git.exe"' \
+      'cp "C:\x y\git.exe" backup' \
+      'echo C:\bin\az.cmd group delete' \
+      "bash -c '\"C:\\Program Files\\Git\\bin\\git.exe\" log -1'" \
+      $'cat > notes.md <<\'EOF\'\n"C:\\Program Files\\Git\\bin\\git.exe" push --force\nEOF\ngit add notes.md' \
+      'Write-Output "C:\Program Files\Az\Remove-AzResourceGroup"' \
+      'Get-AzResource -Name "C:\x y\Remove-AzResourceGroup"' \
+      '& "C:\Program Files\Az\Get-AzResourceGroup" -Name rg'; do
+    guard 0 "$cmd"
+    guard 0 "$cmd" PowerShell
+  done
+  guard_run
+  guard_report "$git_fail" "the guard hook doesn't read a quoted command's path, or a backslash path, as the command's name, so git, az or a Remove-Az cmdlet passes behind it, or it blocks a path that is an argument, a message or a body nothing runs" "the guard hook blocks git, az and Remove-Az behind a quoted path with a space, a backslash path, a prefix, a separator, a call operator, a wrapper and a heredoc body a shell runs, in the Bash and the PowerShell tool, and passes the paths that are arguments, messages and bodies nothing runs, and an escaped name"
+
   # The PowerShell tool (B24) has its own name. The guard runs for it only when the hook's matcher names it,
   # and a Bash(...) deny or ask rule stops the same command in PowerShell only through its PowerShell(...)
   # twin, in the same list. The allow list names no PowerShell command, so nothing PowerShell runs is allowed

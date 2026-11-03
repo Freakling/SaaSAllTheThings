@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T40 · B3 · R1
+**Next IDs:** T41 · B3 · R1
 
 ## Queue
+
+### T40 · The guard reads a command's name written as a path, so a quoted or backslash path can't hide git, az or a Remove-Az cmdlet · done · S · agent
+- Touches: framework/.claude/hooks/guard-commands.sh, selftest.sh, CHANGELOG.md
+- Done when: the guard blocks `"C:\Program Files\Git\bin\git.exe" push --force`, `& "C:\Program Files\Git\cmd\git.exe" push --force`, `& 'C:\Program Files\Az\Remove-AzResourceGroup' -Name rg`, `"C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd" group delete -n rg` and `C:\bin\az.cmd group delete -n rg` in the Bash and the PowerShell tool, as it blocks the bare names: a quoted command name with a space, and a backslash path, is read as its last part without .exe, .cmd or .bat, in any case, when it is the first word of a segment (after NAME=value or a wrapper) or the word after a PowerShell & or . call operator; `git commit -m "... C:\Program Files\Git\bin\git.exe push --force ..."`, `echo "C:\Program Files\Az"`, `& 'C:\Program Files\Git\bin\git.exe' status` and `"C:\Program Files\Git\bin\git.exe" log -1` still pass; the selftest covers each in both tools (check) and passes (check) · the entry sits under the Unreleased heading
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T290
 
 ### T39 · The guard reads a wait loop to its own done, a fractional pause, empty view flags, a 30 KB body in time, and a message's names as text · done · S · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, selftest.sh, CHANGELOG.md
