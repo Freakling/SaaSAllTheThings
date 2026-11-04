@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T43 · B3 · R1
+**Next IDs:** T44 · B3 · R1
 
 ## Queue
+
+### T43 · The guard blocks any Python that reads its script from a heredoc · done · M · agent
+- Touches: framework/.claude/hooks/guard-commands.sh, framework/.satt/rules.md, skills/saas-design-session/references/ (`bash bundle.sh`), selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: the guard blocks a Python interpreter (`python`, `python3`, `python3.13`, `pythonw`, `py`, with or without `.exe`, bare or behind a path with `/` or `\`, quoted or not) that reads its script from a heredoc or a here-string, whatever the body, in place of the empty-body check: with `-` or without it, with options before it (`-u`, `-X utf8`, `py -3`), in each heredoc form (`<<E`, `<<'E'`, `<<"E"`, `<<\E`, `<<-E`), behind a wrapper or in a chain (`timeout 60`, `env X=1`, `cd x &&`, `2>/dev/null || true`), piped in from a heredoc (`cat <<'E' | python -`) or, in PowerShell, from a here-string (`@'` ... `'@ | python -`), split by a continuation, inside a heredoc body a shell runs, and as the first half of the node fallback form (`python3 - <<'E' 2>/dev/null || node -e "` on a line, its string closed on the next, then `E`), in the Bash and the PowerShell tool, with a message that names python and says what to do (check) · a script file fed data from a heredoc (`python tool.py <<'E'`), `python -c`, `python -m`, `python3 --version` and a message that names the form (a commit's or tag's body, `gh pr create --body-file - <<'E'`, an `echo` or `grep` of the text, a `cat > notes.md <<'E'` body that isn't run) still pass (check) · `rules.md` › Commands that may run long says never to feed Python its script from a heredoc, to put it in a file, and to probe with `python3 --version`, in place of the empty heredoc probe, and the `saas-design-session` copy is rewritten by `bash bundle.sh` (check) · the guard's own comments describe no empty-heredoc rule, a 30 KB body is still judged in the guard's timed case, the selftest has a case for each blocked and each allowed form above in both tools, with the cases that expected a Python heredoc with a body to pass now expecting a block, and passes (check) · the entry sits under the 0.16.0 heading
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T309
 
 ### T42 · Subagents write no shell heredocs, and the background commands they leave are stopped · done · M · agent
 - Touches: framework/.satt/rules.md, framework/.satt/procedures/build.md, research.md, review.md and next-task.md, framework/.claude/agents/builder.md, researcher.md and reviewer.md, skills/saas-design-session/references/ (`bash bundle.sh`), CHANGELOG.md, TASKS.md
