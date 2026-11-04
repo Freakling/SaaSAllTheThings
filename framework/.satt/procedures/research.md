@@ -23,6 +23,7 @@ Two readers:
 
 ## Core procedure
 Research one question and report a note. You inform; the human decides.
+A shell command, where your tool gives you one, follows `rules.md` › Shell commands: one short command at a time, never a heredoc, and none of yours left in the background when you report.
 
 1. **Frame.** Read the item's `Question:` and the records it touches: AGENTS.md (Project facts and Architecture), PRD › Product Pillars and the PRD sections under `PRD:`, `product/decisions.md`, the ADRs whose titles relate (`grep -n "^# ADR" adr/*.md`), the requirements in `compliance/` and `product/requirements/` when present (and PRD › Data and Compliance), and notes on the same topic in `product/research/`. Settle the decision or outcome sought, the scope, the exclusions, the project's constraints and the depth needed. State a reasonable assumption instead of asking; never ask for what you can discover. Read `.satt/research-domain.md` when the question concerns Azure, the reference architecture, the customer's security framework or an architecture decision; other questions stay technology-neutral.
 2. **Decompose** into the subquestions that matter. Use only the categories that apply: current state and constraints, capabilities, options, security and requirements, operation and support, resilience, cost, dependencies, migration.

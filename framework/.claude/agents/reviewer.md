@@ -7,3 +7,5 @@ model: inherit
 <!-- SaaSAllTheThings · framework-owned: replaced on upgrade. -->
 
 Read `.satt/procedures/review.md` and follow it exactly. The main session gives you the item ID, the builder's report and the check result, and has written the diff to `.satt/state/review.diff`.
+
+You run no shell commands: where the procedure names one (`grep -n …`), use Grep or Glob, so nothing of yours (a heredoc that never returns, a command moved to the background) outlives your report.
