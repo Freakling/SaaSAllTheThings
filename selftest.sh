@@ -3485,6 +3485,224 @@ EOF
   guard_run
   guard_report "$git_fail" "the guard hook doesn't block a Python that reads its script from a heredoc, a here-string or a heredoc piped into it, whatever the body is, or it blocks a script file fed data from a heredoc, -c, -m or a message that names the form (T309, B64)" "the guard hook blocks python, python3, python3.13, pythonw and py, path-qualified or quoted, reading a script from a heredoc in every form, a here-string, a pipe from a heredoc or a PowerShell here-string, behind a wrapper, in a chain, after a continuation, in a heredoc body a shell runs and before a node fallback, in the Bash and the PowerShell tool, and passes a script file fed data, -c, -m, --version and the messages that name the form (T309, B64)"
 
+  # Python with nothing to run (Director-Driven-Development B66): python3 -, python or py -3 with no script, no -c, no -m and nothing
+  # fed to it waits for input that never comes, so it is blocked bare, with options, behind a path, a quote or a wrapper, in a chain,
+  # with a time limit above it or a redirect after it, in the Bash and the PowerShell tool, and the refusal names it. A file fed to it
+  # (python3 - < x.py), a pipe into it, a script file, -c, -m, --version and the like, and text that names Python (command -v python3,
+  # pip install python, a quoted message) pass.
+  bare_msg='python with no script'
+  for cmd in \
+    'python3 -' \
+    'python' \
+    'py -3' \
+    'python3 2>/dev/null || true' \
+    'python3 - 2>/dev/null; sed -n 1p x' \
+    'python -' \
+    'python3' \
+    'pythonw' \
+    'python3.13 -' \
+    'python.exe' \
+    'py' \
+    'py -3.13' \
+    'PYTHON3' \
+    'Python.EXE -' \
+    '/usr/bin/python3 -' \
+    'C:/Python313/python.exe -' \
+    'C:\Python313\python.exe' \
+    '"C:/Program Files/Python313/python.exe" -' \
+    $'\'/usr/bin/python3\' -' \
+    'python3 -u' \
+    'python3 -u -' \
+    'python3 -X utf8' \
+    'python3 -Xutf8 -' \
+    'python -W ignore -' \
+    'python3 -B -E' \
+    'cd x && python3 -' \
+    'cd x; python3 -' \
+    'false || python3 -' \
+    'python3 - && echo ok' \
+    'python3 - | tee log' \
+    'python3 2>&1 | head' \
+    'python3 - &' \
+    'python3 >out.txt' \
+    'python3 > out.txt 2>&1' \
+    'python3 &> out.txt' \
+    'timeout 60 python3 -' \
+    'timeout -k 5 60 python3 -' \
+    'timeout 2m python' \
+    'env python3 -' \
+    '/usr/bin/env python3 -' \
+    'env X=1 python3 -' \
+    'X=1 python3 -' \
+    'PYTHONPATH="a b" python3 -' \
+    'sudo python3 -' \
+    'nohup python3 -' \
+    'nice -n 5 python3 -' \
+    'time python3 -' \
+    'exec python3 -' \
+    'command python3 -' \
+    'winpty python' \
+    'uv run python' \
+    'poetry run python3 -' \
+    'if python3 -; then echo x; fi' \
+    'x=$(python3 -)' \
+    '(python3 -)' \
+    '{ python3 -; }' \
+    '! python3 -' \
+    'echo "a"; python3 -; echo "b"' \
+    $'echo \'a\'; python3 -; echo \'b\'' \
+    $'cd x\npython3 -\necho done' \
+    'python3 -c "print(1)"; python3 -' \
+    'cat x | head; python3 -' \
+    'bash -c "python3 -"' \
+    'eval "python3 -"' \
+    $'python3 \\\n  -' \
+    $'python3 \\\n  -u \\\n  -' \
+    $'timeout 60 \\\n  python3 -' \
+    $'# note \\\npython3 -' \
+    $'bash <<\'X\'\npython3 -\nX'; do
+    guard 2 "$cmd" Bash "$bare_msg"
+  done
+  for cmd in \
+    'python -' \
+    'python' \
+    'python | Out-Null' \
+    'python 2>$null' \
+    'python *> $null' \
+    '& python -' \
+    '& python.exe' \
+    'py -3' \
+    'Set-Location x; python -' \
+    $'python `\n  -' \
+    $'echo \'a\'; python -; echo \'b\''; do
+    guard 2 "$cmd" PowerShell "$bare_msg"
+  done
+  for cmd in \
+    'python3 - < x.py' \
+    'python3 < x.py' \
+    'python3 -u - < x.py' \
+    'python3 - </dev/null' \
+    'cat x.py | python3 -' \
+    'cat x.py | python3' \
+    'cat x | timeout 60 python3 -' \
+    'git show HEAD:x.py | python3 -' \
+    'cat x |& python3 -' \
+    'python3 --version' \
+    'python --version 2>&1' \
+    'python3 -V' \
+    'python3 -VV' \
+    'python3 -h' \
+    'python3 --help' \
+    'python3 --help-env' \
+    'python -?' \
+    'py --list' \
+    'py --list-paths' \
+    'py -0' \
+    'py -0p' \
+    'py -V:3.13 x.py' \
+    'python3 -c "print(1)"' \
+    'python3 -c print' \
+    'python -m pytest' \
+    'python3 -mpytest' \
+    'python3 -um pip list' \
+    'python3 -Bc "x"' \
+    'python3 x.py' \
+    'python3 tool.py --flag' \
+    'python -I script.py' \
+    'python3 -u x.py' \
+    'python3 -X utf8 x.py' \
+    'python3 -Xdev x.py' \
+    'python -W ignore x.py' \
+    'py -3 x.py' \
+    'py -3 -c "x"' \
+    'py install 3.13' \
+    'python3 "$f"' \
+    'python3 $f' \
+    'python3 "x y.py"' \
+    'python3 $(ls x.py)' \
+    'if python3 --version; then echo x; fi' \
+    'command -v python' \
+    'command -V python3' \
+    'command -v python3 >/dev/null || echo no' \
+    'which python3' \
+    'where python' \
+    'where.exe python' \
+    'type python' \
+    'type -p python3' \
+    'hash python' \
+    'pip install python' \
+    'winget install python' \
+    'brew install python' \
+    'apt install python3' \
+    'choco install python' \
+    'echo python' \
+    'echo python3 -' \
+    'printf "%s" python' \
+    'grep -rn python .' \
+    'rg python' \
+    'ls python' \
+    'cd python' \
+    'mkdir py' \
+    'cat py' \
+    'git add python' \
+    'git log --grep python' \
+    'case "$x" in python) echo y ;; esac' \
+    'PY=python3' \
+    'PY="python3"' \
+    'PY=python3; $PY x.py' \
+    'export PY=python3' \
+    'export PY="python3"' \
+    'x=$(command -v python3)' \
+    '[ -x python ]' \
+    'test -f python' \
+    'git commit -m "python3 -"' \
+    $'git commit -m \'run python\'' \
+    'echo "a; python3 -; b"' \
+    'gh pr view 1 --json body -q .body' \
+    'find . -name "*.py" -exec python3 {} \;' \
+    'ls *.py | xargs python3' \
+    'xargs python3' \
+    'python3 <(cat x.py)' \
+    'sed -n "/python/p" x' \
+    'node -e "python"' \
+    $'git commit -m "a\npython\nb"' \
+    $'echo \'x\npython3 -\ny\'' \
+    $'cat > x.sh <<\'E\'\npython3 -\nE' \
+    $'git commit -F - <<\'E\'\npython\nE' \
+    $'python3 \\\n  tool.py' \
+    $'python3 \\\n  tool.py --flag \\\n  --other' \
+    $'python3 \\\n  -c "print(1)"' \
+    $'python3 -u \\\n  x.py' \
+    $'timeout 60 \\\n  python3 tool.py' \
+    $'python3 \\\n  - < x.py' \
+    $'cat x.py | \\\n  python3 -' \
+    $'cat x.py |\n  python3 -' \
+    $'# note \\\npython3 tool.py' \
+    $'gh pr create --title t --body-file - <<\'E\'\npython3 -\nE'; do
+    guard 0 "$cmd"
+  done
+  for cmd in \
+    'Get-Content x.py -Raw | python -' \
+    'Get-Command python' \
+    '(Get-Command python).Source' \
+    'gcm python' \
+    'Write-Output python' \
+    'Write-Host python' \
+    'python --version' \
+    $'python -c \'print(1)\'' \
+    'python x.py' \
+    'Start-Process python' \
+    $'python `\n  x.py' \
+    $'python `\n  -c \'print(1)\'' \
+    $'Get-Content x.py -Raw |\n  python -' \
+    'if (Get-Command python -ErrorAction SilentlyContinue) { python --version }'; do
+    guard 0 "$cmd" PowerShell
+  done
+  # Each quoted string is blanked on its own: a command between two of them is still read (a long sleep between two echoes).
+  guard 2 'echo "a"; sleep 999; echo "b"' Bash 'sleep 999'
+  guard_run
+  guard_report "$git_fail" "the guard hook passes a Python with no script, no -c, no -m and nothing fed to it, or blocks one that has a script, a file or a pipe fed to it, or text that names Python (B66)" "the guard hook blocks a Python with nothing to run, bare, behind a path, a quote or a wrapper, in a chain, in the Bash and the PowerShell tool, and passes one that has a script, a file or a pipe fed to it, and text that names Python (B66)"
+
   # The PowerShell tool (B24) has its own name. The guard runs for it only when the hook's matcher names it,
   # and a Bash(...) deny or ask rule stops the same command in PowerShell only through its PowerShell(...)
   # twin, in the same list. The allow list names no PowerShell command, so nothing PowerShell runs is allowed

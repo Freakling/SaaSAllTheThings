@@ -2,6 +2,13 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## Unreleased
+
+- **The guard blocks a Python with nothing to run.** `python3 -`, `python` or `py -3` with no script, no `-c`, no `-m` and nothing fed to it waits for input that never comes, and a time limit doesn't change that. The guard blocked only a Python reading a heredoc; now this form is blocked too, behind a path, a wrapper or a chain. `python3 - < x.py`, `cat x.py | python3 -`, a script file, `python3 --version` and `command -v python3` still pass.
+  - **Upgrade steps:** none; the hook is framework-owned and arrives with the upgrade.
+- **A command between two quoted strings reaches the hang rules.** The guard blanked everything from a command's first quote to its last, so `echo "a"; sleep 999; echo "b"` passed. It now blanks each quoted string on its own.
+  - **Upgrade steps:** none; the hook is framework-owned and arrives with the upgrade.
+
 ## 0.16.0 (2026-11-04)
 
 - **The guard and the deny rules reach the PowerShell tool.** Claude Code's PowerShell tool has its own name, so a hook matched on `Bash|Monitor` never saw its commands, and a `Bash(...)` deny or ask rule didn't cover the same command there. The guard's matcher now names `Bash|Monitor|PowerShell`, and each Bash deny and ask rule has a `PowerShell(...)` twin. The allow list names no PowerShell command, so PowerShell runs nothing without a prompt. `selftest.sh` checks the matcher, each twin and the allow list, and runs the guard's cases for the PowerShell tool too.
