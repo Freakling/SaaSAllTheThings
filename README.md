@@ -202,7 +202,8 @@ your-app/
 ├── .claude/agents/             builder (builds each item in a fresh context) · reviewer and researcher (read-only)
 ├── .claude/hooks/              runs the check before a turn ends, for a session that changed code; blocks risky
 │                               git and Azure commands; asks you before framework files change or an ADR is
-│                               accepted; keeps out of director/
+│                               accepted; keeps out of director/; says at session start when the project
+│                               is behind the latest release
 └── .claude/settings.json       permissions, hooks, timeouts
 ```
 Machine-local and gitignored: `.satt/state/` (check logs and caches), `.claude/settings.local.json`, `product/ui/captures/`, `tools/ui/node_modules/` and `tools/ui/.auth/` (test users' saved sign-ins).
@@ -316,7 +317,7 @@ sequenceDiagram
 | `CHANGELOG.md` | what changed, and the upgrade steps for apps |
 | `.claude/CLAUDE.md` | instructions for an assistant working on SaaSAllTheThings itself |
 
-Privacy: SaaSAllTheThings runs on your machine and sends nothing anywhere; see [PRIVACY.md](PRIVACY.md).
+Privacy: SaaSAllTheThings runs on your machine and sends nothing anywhere, apart from a release check at most once a day; see [PRIVACY.md](PRIVACY.md).
 
 ## License
 MIT © 2026 Vikingur Saemundsson: see [LICENSE](LICENSE). Installed apps carry a copy in `.satt/LICENSE`.

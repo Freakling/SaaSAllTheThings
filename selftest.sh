@@ -660,6 +660,8 @@ grep -qx '/product/ui/captures/' .gitignore && grep -qx '/tools/ui/node_modules/
 [ -f .claude/hooks/session-touched.sh ] && grep -q "$(printf '\t').claude/hooks/session-touched.sh$" .satt/manifest \
   && git check-ignore -q .satt/state/sessions/design.touched && git check-ignore -q .satt/state/sessions/design.before \
   && ok "installs the session record hook, and git ignores the records it keeps" || bad "installs the session record hook, and git ignores the records it keeps" "$(cat .gitignore)"
+[ -f .claude/hooks/release-check.sh ] && grep -q "$(printf '\t').claude/hooks/release-check.sh$" .satt/manifest && git check-ignore -q .satt/state/latest-release \
+  && ok "installs the release check hook, and git ignores the answer it keeps" || bad "installs the release check hook, and git ignores the answer it keeps" "$(cat .gitignore)"
 grep -q "$(printf '\t')tools/ui/capture.mjs$" .satt/manifest && ! grep -q "$(printf '\t')tools/ui/screens.mjs$" .satt/manifest \
   && ok "the manifest lists the capture tools, not the app's own catalog" || bad "the manifest lists the capture tools, not the app's own catalog"
 grep -q "Order Desk" AGENTS.md && ok "keeps the project's own files" || bad "keeps the project's own files"
@@ -4050,9 +4052,162 @@ wiring="$(awk '/^    "[A-Za-z]+": \[/ { ev = $1; gsub(/[":]/, "", ev) } /"matche
   && ok "settings.json runs the record hook before Bash and PowerShell, after them (a failing one too) and after Edit, Write, MultiEdit and NotebookEdit" \
   || bad "settings.json runs the record hook before Bash and PowerShell, after them (a failing one too) and after Edit, Write, MultiEdit and NotebookEdit" "$wiring"
 bash4=$(grep -nE '^[^#]*(\$\{[A-Za-z_0-9]+(\[[^]]*\])?(,,|\^\^)\}|(declare|local|typeset) +-[a-zA-Z]*A|(^|[;&| ])(mapfile|readarray) +|(^|[;&| ])coproc +[A-Za-z]|[[:space:]]\|&[[:space:]]|\$\{[A-Za-z_0-9@*]+(\[[^]]*\])?: -[0-9]|stat +-c|date +-d|sed +-i|readlink +-f|-printf|-delete)' \
-  "$sr_hooks/session-touched.sh" "$sr_hooks/stop-check.sh" || true)
-if [ -z "$bash4" ]; then ok "the Stop hook and the record hook use no bash 4 form and no GNU-only tool flag"
-else bad "the Stop hook and the record hook use no bash 4 form and no GNU-only tool flag" "$bash4"; fi
+  "$sr_hooks/session-touched.sh" "$sr_hooks/stop-check.sh" "$sr_hooks/release-check.sh" || true)
+if [ -z "$bash4" ]; then ok "the Stop hook, the record hook and the release check use no bash 4 form and no GNU-only tool flag"
+else bad "the Stop hook, the record hook and the release check use no bash 4 form and no GNU-only tool flag" "$bash4"; fi
+
+# --- Release check hook -------------------------------------------------------------------------
+# A SessionStart hook says when the installed version is older than the latest release tag on GitHub. The tests run it
+# in a throwaway project with stubs first on PATH: a git that records its calls and prints a scripted tag list, and a
+# timeout that records its arguments. No request leaves the machine.
+echo "release check hook"
+rc_hook="$src/framework/.claude/hooks/release-check.sh"
+rc="$work/release-check"; rc_proj="$rc/proj"; rc_state="$rc_proj/.satt/state"
+mkdir -p "$rc_proj/.satt" "$rc/bin" "$rc/bin_nt" "$rc/bin_none"
+put "$rc/bin/git" '#!/bin/bash
+printf "%s\n" "git $* prompt=${GIT_TERMINAL_PROMPT:-unset}" >> "$RC_LOG"
+if [ -n "${RC_GIT_FAIL:-}" ]; then exit "$RC_GIT_FAIL"; fi
+while IFS= read -r l; do printf "%s\n" "$l"; done < "$RC_TAGS"'
+put "$rc/bin/timeout" '#!/bin/bash
+printf "%s\n" "timeout $*" >> "$RC_LOG"
+shift
+exec "$@"'
+cp "$rc/bin/git" "$rc/bin_nt/git"
+chmod +x "$rc/bin/git" "$rc/bin/timeout" "$rc/bin_nt/git"
+rc_tags() { # rc_tags <tag>…: what the stub git lists, each as a line of git ls-remote
+  : > "$rc/tags"
+  for t in "$@"; do printf '8cb76061505469ebdd9a3488e9892e4e36f398ba\trefs/tags/%s\n' "$t" >> "$rc/tags"; done
+}
+rc_project() { # rc_project <manifest version line text>: a fresh project, with no cache and no recorded calls
+  rm -rf "$rc_state" "$rc/calls"
+  printf '# saasallthethings %s\n# source abc1234\n# tools claude\n0000\t.satt/rules.md\n' "$1" > "$rc_proj/.satt/manifest"
+}
+rc_run() { # rc_run [VAR=value…]: the hook from outside the project (CLAUDE_PROJECT_DIR names it), stubs first on PATH
+  (cd "$rc" && printf '{"hook_event_name":"SessionStart","source":"startup"}' \
+    | env CLAUDE_PROJECT_DIR="$rc_proj" PATH="$rc/bin:$PATH" RC_LOG="$rc/calls" RC_TAGS="$rc/tags" "$@" "$BASH" "$rc_hook" 2>&1)
+}
+rc_git_calls() { local n; n="$(grep -c '^git ' "$rc/calls" 2>/dev/null)"; echo "${n:-0}"; }
+rc_says() { # rc_says <installed> <latest>: the hook's one line of JSON
+  local t="SaaSAllTheThings $1 is installed, and the latest release is $2. Ask the agent to upgrade it when it suits you."
+  printf '{"systemMessage":"%s","hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s Tell the human this once, in your first reply."}}' "$t" "$t"
+}
+rc_expect_silent() { # rc_expect_silent <what> <output> <status>
+  if [ -z "$2" ] && [ "$3" -eq 0 ]; then ok "$1"; else bad "$1 (exit $3)" "$2"; fi
+  return 0
+}
+
+rc_tags v0.14.0 v0.15.0 v0.16.0
+rc_project "0.15.0"
+out="$(rc_run)"; status=$?
+[ "$out" = "$(rc_says 0.15.0 0.16.0)" ] && [ "$status" -eq 0 ] && ok "a project behind the latest release is told so, as one line of JSON for the human and for Claude" \
+  || bad "a project behind the latest release is told so, as one line of JSON for the human and for Claude (exit $status)" "$out"
+if command -v node >/dev/null 2>&1; then
+  if printf '%s' "$out" | node -e 'const j = JSON.parse(require("fs").readFileSync(0, "utf8")); process.exit(j.systemMessage.indexOf("0.15.0") > 0 && j.systemMessage.indexOf("0.16.0") > 0 && j.hookSpecificOutput.hookEventName === "SessionStart" && j.hookSpecificOutput.additionalContext.indexOf(j.systemMessage) === 0 ? 0 : 1)' 2>/dev/null; then
+    ok "and the line parses as JSON, with the installed and the latest version in the message and the instruction in Claude's text"
+  else bad "and the line parses as JSON, with the installed and the latest version in the message and the instruction in Claude's text" "$out"; fi
+fi
+expect_output "the instruction to Claude is to say it once, in the first reply" 'additionalContext":"[^"]* Tell the human this once, in your first reply\."' "$out"
+[ -s "$rc_state/latest-release" ] && [ "$(cat "$rc_state/latest-release")" = "0.16.0" ] && ok "the version found is kept in .satt/state/latest-release" \
+  || bad "the version found is kept in .satt/state/latest-release" "$(cat "$rc_state/latest-release" 2>/dev/null)"
+expect_output "the lookup is git ls-remote of the release tags, with no prompt, under timeout 5" \
+  '^timeout 5 git ls-remote --tags --refs https://github.com/Freakling/SaaSAllTheThings.git refs/tags/v\*'$'\n''git ls-remote --tags --refs https://github.com/Freakling/SaaSAllTheThings.git refs/tags/v\* prompt=0$' "$(cat "$rc/calls")"
+
+rc_tags v1.14.0; rc_project "1.9.0"
+out="$(rc_run)"; [ "$out" = "$(rc_says 1.9.0 1.14.0)" ] && ok "1.9.0 is below 1.14.0: the versions are compared as numbers" || bad "1.9.0 is below 1.14.0: the versions are compared as numbers" "$out"
+rc_tags v1.9.0; rc_project "1.14.0"
+out="$(rc_run)"; status=$?; rc_expect_silent "1.14.0 is not below 1.9.0" "$out" "$status"
+rc_tags v0.9.0 v0.9.1 v0.10.0 v0.2.0; rc_project "0.9.1"
+out="$(rc_run)"; [ "$out" = "$(rc_says 0.9.1 0.10.0)" ] && ok "the highest tag is chosen by numeric fields: v0.10.0 is above v0.9.1" || bad "the highest tag is chosen by numeric fields: v0.10.0 is above v0.9.1" "$out"
+
+rc_tags v0.15.0 v0.16.0; rc_project "0.16.0"
+out="$(rc_run)"; status=$?; rc_expect_silent "an install at the latest release is silent" "$out" "$status"
+rc_project "0.17.0"
+out="$(rc_run)"; status=$?; rc_expect_silent "an install newer than the latest release is silent" "$out" "$status"
+rc_project "0.15.0 + unreleased (abc1234)"
+out="$(rc_run)"; [ "$out" = "$(rc_says 0.15.0 0.16.0)" ] && ok "' + unreleased (abc)' is read as its version" || bad "' + unreleased (abc)' is read as its version" "$out"
+rc_project "0.16.0 + unreleased (abc1234)"
+out="$(rc_run)"; status=$?; rc_expect_silent "an unreleased install of the latest version is silent" "$out" "$status"
+printf '# saasallthethings 0.15.0\r\n# tools claude\r\n' > "$rc_proj/.satt/manifest"; rm -rf "$rc_state"
+out="$(rc_run)"; [ "$out" = "$(rc_says 0.15.0 0.16.0)" ] && ok "a manifest with CRLF line ends is read" || bad "a manifest with CRLF line ends is read" "$out"
+
+# The answer is looked up at most once a day.
+rc_project "0.15.0"; mkdir -p "$rc_state"; printf '0.16.0\n' > "$rc_state/latest-release"
+out="$(rc_run)"; status=$?
+[ "$out" = "$(rc_says 0.15.0 0.16.0)" ] && [ "$(rc_git_calls)" -eq 0 ] && ok "a cache less than a day old answers without calling git" \
+  || bad "a cache less than a day old answers without calling git (exit $status, $(rc_git_calls) calls)" "$out"
+touch -t 202001010000 "$rc_state/latest-release"; rc_tags v0.15.0 v0.17.0
+out="$(rc_run)"
+[ "$out" = "$(rc_says 0.15.0 0.17.0)" ] && [ "$(rc_git_calls)" -eq 1 ] && ok "a cache a day old calls git once and takes the new answer" \
+  || bad "a cache a day old calls git once and takes the new answer ($(rc_git_calls) calls)" "$out"
+out="$(rc_run)"
+[ "$out" = "$(rc_says 0.15.0 0.17.0)" ] && [ "$(rc_git_calls)" -eq 1 ] && ok "and the next session that day calls it no more" \
+  || bad "and the next session that day calls it no more ($(rc_git_calls) calls)" "$out"
+rc_project "0.15.0"; mkdir -p "$rc_state"; printf 'rubbish\n' > "$rc_state/latest-release"
+out="$(rc_run)"; status=$?; rc_expect_silent "a cache that holds no version is silent" "$out" "$status"
+[ "$(rc_git_calls)" -eq 0 ] && ok "and is not looked up again that day" || bad "and is not looked up again that day ($(rc_git_calls) calls)"
+
+# A lookup that fails prints nothing, exits 0 and is not tried again that day.
+rc_project "0.15.0"
+out="$(rc_run RC_GIT_FAIL=128)"; status=$?
+rc_expect_silent "a failed git prints nothing and exits 0" "$out" "$status"
+[ -f "$rc_state/latest-release" ] && [ ! -s "$rc_state/latest-release" ] && ok "and leaves an empty cache, so the next try is tomorrow" || bad "and leaves an empty cache, so the next try is tomorrow"
+out="$(rc_run RC_GIT_FAIL=128)"; status=$?
+[ "$(rc_git_calls)" -eq 1 ] && rc_expect_silent "and git isn't called again that day" "$out" "$status" || bad "and git isn't called again that day ($(rc_git_calls) calls)"
+rc_project "0.15.0"
+out="$(rc_run RC_GIT_FAIL=124)"; status=$?; rc_expect_silent "a git that times out prints nothing and exits 0" "$out" "$status"
+rc_project "0.15.0"; mkdir -p "$rc_state"; printf '0.16.0\n' > "$rc_state/latest-release"; touch -t 202001010000 "$rc_state/latest-release"
+out="$(rc_run RC_GIT_FAIL=128)"
+[ "$out" = "$(rc_says 0.15.0 0.16.0)" ] && [ "$(cat "$rc_state/latest-release")" = "0.16.0" ] && ok "a failed lookup keeps the old value" || bad "a failed lookup keeps the old value" "$out"
+out="$(rc_run RC_GIT_FAIL=128)"
+[ "$(rc_git_calls)" -eq 1 ] && ok "and touches the file, so the next try is tomorrow" || bad "and touches the file, so the next try is tomorrow ($(rc_git_calls) calls)"
+rc_project "0.15.0"; mkdir -p "$rc_state"   # the state folder exists, as PATH holds no mkdir below
+out="$(cd "$rc" && printf '{}' | env CLAUDE_PROJECT_DIR="$rc_proj" PATH="$rc/bin_none" "$BASH" "$rc_hook" 2>&1)"; status=$?
+rc_expect_silent "no git on the machine prints nothing and exits 0" "$out" "$status"
+[ -f "$rc_state/latest-release" ] && [ ! -s "$rc_state/latest-release" ] && ok "and leaves an empty cache" || bad "and leaves an empty cache"
+rc_tags v0.16.0; rc_project "0.15.0"; mkdir -p "$rc_state"
+out="$(cd "$rc" && printf '{}' | env CLAUDE_PROJECT_DIR="$rc_proj" PATH="$rc/bin_nt" RC_LOG="$rc/calls" RC_TAGS="$rc/tags" "$BASH" "$rc_hook" 2>&1)"
+[ "$out" = "$(rc_says 0.15.0 0.16.0)" ] && ok "without timeout on the machine the lookup still runs" || bad "without timeout on the machine the lookup still runs" "$out"
+
+# Tags of another shape are ignored.
+rc_tags v2.0.0-rc1 latest v1.0 v1.2.3.4 v3.0.0x vv4.0.0 'v9.9.9^{}' v0.16.0 v0.15.0
+rc_project "0.15.0"
+out="$(rc_run)"; [ "$out" = "$(rc_says 0.15.0 0.16.0)" ] && ok "tags such as v2.0.0-rc1, latest and v1.0 are ignored" || bad "tags such as v2.0.0-rc1, latest and v1.0 are ignored" "$out"
+rc_tags v2.0.0-rc1 latest v1.0
+rc_project "0.15.0"
+out="$(rc_run)"; status=$?
+rc_expect_silent "a list with no v<major>.<minor>.<patch> tag is silent" "$out" "$status"
+[ -f "$rc_state/latest-release" ] && [ ! -s "$rc_state/latest-release" ] && ok "and keeps no version" || bad "and keeps no version" "$(cat "$rc_state/latest-release" 2>/dev/null)"
+
+# The switch, a missing manifest, and a manifest with no version.
+rc_tags v0.16.0
+rc_project "0.15.0"
+out="$(rc_run SATT_RELEASE_CHECK=0)"; status=$?
+if [ ! -e "$rc/calls" ] && [ ! -e "$rc_state" ]; then rc_expect_silent "SATT_RELEASE_CHECK=0 turns it off: silent, no request and no state" "$out" "$status"
+else bad "SATT_RELEASE_CHECK=0 turns it off: silent, no request and no state" "$(cat "$rc/calls" 2>/dev/null)"; fi
+rc_project "0.15.0"; rm -f "$rc_proj/.satt/manifest"
+out="$(rc_run)"; status=$?
+[ ! -e "$rc/calls" ] && rc_expect_silent "no .satt/manifest is silent and makes no request" "$out" "$status" || bad "no .satt/manifest is silent and makes no request"
+printf '# tools claude\n0000\t.satt/rules.md\n' > "$rc_proj/.satt/manifest"
+out="$(rc_run)"; status=$?
+[ ! -e "$rc/calls" ] && rc_expect_silent "a manifest with no version line is silent and makes no request" "$out" "$status" || bad "a manifest with no version line is silent and makes no request"
+rc_project "dev"
+out="$(rc_run)"; status=$?
+[ ! -e "$rc/calls" ] && rc_expect_silent "a version line that isn't a version is silent and makes no request" "$out" "$status" || bad "a version line that isn't a version is silent and makes no request"
+out="$(cd "$rc" && printf '{}' | env CLAUDE_PROJECT_DIR="$rc/nowhere" PATH="$rc/bin:$PATH" RC_LOG="$rc/calls" RC_TAGS="$rc/tags" "$BASH" "$rc_hook" 2>&1)"; status=$?
+rc_expect_silent "a project folder that doesn't exist is silent" "$out" "$status"
+
+# The hook is not part of the check, so a warning can't fail it; it is wired at session start, and installed.
+if grep -rqF 'release-check' "$src/framework/tools" "$src/framework/.githooks" "$src/framework/.claude/hooks/stop-check.sh"; then
+  bad "the check, the git hooks and the Stop hook don't run the release check, so a warning never fails them"
+else ok "the check, the git hooks and the Stop hook don't run the release check, so a warning never fails them"; fi
+wiring="$(awk '/^    "[A-Za-z]+": \[/ { ev = $1; gsub(/[":]/, "", ev) } /"matcher"/ { split($0, a, "\""); m = a[4] }
+  /release-check\.sh/ { hit = 1 } hit && /"timeout"/ { t = $0; gsub(/[^0-9]/, "", t); print ev ";" m ";" t; hit = 0 }' "$src/framework/.claude/settings.json")"
+[ "$wiring" = "SessionStart;startup|resume;10" ] && ok "settings.json runs the release check at SessionStart, on startup and resume, with a 10 second timeout" \
+  || bad "settings.json runs the release check at SessionStart, on startup and resume, with a 10 second timeout" "$wiring"
+expect_output "the hook says what it is in the header the other hooks use" '^# SaaSAllTheThings release check · Claude Code hook · framework-owned: replaced on upgrade\.' "$(sed -n 2p "$rc_hook")"
+expect_output "and how to turn it off" 'SATT_RELEASE_CHECK=0 turns it off' "$(cat "$rc_hook")"
+grep -qF 'release check' "$src/PRIVACY.md" && grep -qF 'SATT_RELEASE_CHECK=0' "$src/PRIVACY.md" && grep -qF 'apart from the release check below' "$src/PRIVACY.md" \
+  && ok "PRIVACY.md says what the release check reads, and how to turn it off" || bad "PRIVACY.md says what the release check reads, and how to turn it off"
 
 # --- pre-commit hook ----------------------------------------------------------------------------
 echo "pre-commit hook"

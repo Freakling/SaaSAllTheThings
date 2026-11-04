@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T44 · B3 · R1
+**Next IDs:** T45 · B3 · R1
 
 ## Queue
+
+### T44 · A session says when the project is behind the latest release · done · M · agent
+- Touches: framework/.claude/hooks/release-check.sh (new), framework/.claude/settings.json, PRIVACY.md, README.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: a new SessionStart hook, `release-check.sh`, wired in `.claude/settings.json` with the matcher `startup|resume` and a 10 second timeout, compares the version on the first line of `.satt/manifest` (without any ` + unreleased ...` tail) with the highest `v<major>.<minor>.<patch>` tag of `https://github.com/Freakling/SaaSAllTheThings.git`, compared field by field as numbers, and prints one line of JSON with a `systemMessage` for the human and an `additionalContext` for Claude (`SaaSAllTheThings <installed> is installed, and the latest release is <latest>. Ask the agent to upgrade it when it suits you.`, with the instruction to tell the human once, in the first reply) only when the latest is above the installed version (check) · the tag list is read with `GIT_TERMINAL_PROMPT=0 git ls-remote --tags --refs`, under `timeout 5` when `timeout` exists, at most once a day: the version found last is kept in `.satt/state/latest-release`, looked up again only when the file is missing or a day old, and a failed lookup keeps the old value and touches the file (creating it empty), so an offline machine pays for one try a day; tags of any other shape are ignored (check) · `SATT_RELEASE_CHECK=0`, no `.satt/manifest` and no version line exit at once, every path ends in exit 0, a healthy session prints nothing, and the check, the git hooks and the Stop hook don't run it, so a warning never fails `tools/check.sh` (check) · `PRIVACY.md` says the framework sends nothing apart from the release check, with a Release check paragraph that says what is read, that no project data is sent and how to turn it off, and the README's privacy line agrees (check) · the selftest runs the hook against stub `git` and `timeout` with a case for behind, 1.9.0 against 1.14.0 and the reverse, equal and newer, an unreleased install, a fresh cache, a day-old cache, a failed or timed out git, no git, no timeout, other tags, the switch, a missing manifest, the wiring and the install, and passes (check) · the entry sits under the 0.16.0 heading, with upgrade steps
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T308
 
 ### T43 · The guard blocks any Python that reads its script from a heredoc · done · M · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, framework/.satt/rules.md, skills/saas-design-session/references/ (`bash bundle.sh`), selftest.sh, CHANGELOG.md, TASKS.md
