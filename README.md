@@ -203,7 +203,8 @@ your-app/
 ├── .claude/hooks/              runs the check before a turn ends, for a session that changed code; blocks risky
 │                               git and Azure commands; asks you before framework files change or an ADR is
 │                               accepted; keeps out of director/; says at session start when the project
-│                               is behind the latest release
+│                               is behind the latest release and which processes outlived the shell that
+│                               started them
 └── .claude/settings.json       permissions, hooks, timeouts
 ```
 Machine-local and gitignored: `.satt/state/` (check logs and caches), `.claude/settings.local.json`, `product/ui/captures/`, `tools/ui/node_modules/` and `tools/ui/.auth/` (test users' saved sign-ins).

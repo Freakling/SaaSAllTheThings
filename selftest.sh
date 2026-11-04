@@ -662,6 +662,8 @@ grep -qx '/product/ui/captures/' .gitignore && grep -qx '/tools/ui/node_modules/
   && ok "installs the session record hook, and git ignores the records it keeps" || bad "installs the session record hook, and git ignores the records it keeps" "$(cat .gitignore)"
 [ -f .claude/hooks/release-check.sh ] && grep -q "$(printf '\t').claude/hooks/release-check.sh$" .satt/manifest && git check-ignore -q .satt/state/latest-release \
   && ok "installs the release check hook, and git ignores the answer it keeps" || bad "installs the release check hook, and git ignores the answer it keeps" "$(cat .gitignore)"
+[ -x .claude/hooks/orphan-report.sh ] && grep -q "$(printf '\t').claude/hooks/orphan-report.sh$" .satt/manifest \
+  && ok "installs the orphan report hook" || bad "installs the orphan report hook"
 grep -q "$(printf '\t')tools/ui/capture.mjs$" .satt/manifest && ! grep -q "$(printf '\t')tools/ui/screens.mjs$" .satt/manifest \
   && ok "the manifest lists the capture tools, not the app's own catalog" || bad "the manifest lists the capture tools, not the app's own catalog"
 grep -q "Order Desk" AGENTS.md && ok "keeps the project's own files" || bad "keeps the project's own files"
@@ -4052,9 +4054,9 @@ wiring="$(awk '/^    "[A-Za-z]+": \[/ { ev = $1; gsub(/[":]/, "", ev) } /"matche
   && ok "settings.json runs the record hook before Bash and PowerShell, after them (a failing one too) and after Edit, Write, MultiEdit and NotebookEdit" \
   || bad "settings.json runs the record hook before Bash and PowerShell, after them (a failing one too) and after Edit, Write, MultiEdit and NotebookEdit" "$wiring"
 bash4=$(grep -nE '^[^#]*(\$\{[A-Za-z_0-9]+(\[[^]]*\])?(,,|\^\^)\}|(declare|local|typeset) +-[a-zA-Z]*A|(^|[;&| ])(mapfile|readarray) +|(^|[;&| ])coproc +[A-Za-z]|[[:space:]]\|&[[:space:]]|\$\{[A-Za-z_0-9@*]+(\[[^]]*\])?: -[0-9]|stat +-c|date +-d|sed +-i|readlink +-f|-printf|-delete)' \
-  "$sr_hooks/session-touched.sh" "$sr_hooks/stop-check.sh" "$sr_hooks/release-check.sh" || true)
-if [ -z "$bash4" ]; then ok "the Stop hook, the record hook and the release check use no bash 4 form and no GNU-only tool flag"
-else bad "the Stop hook, the record hook and the release check use no bash 4 form and no GNU-only tool flag" "$bash4"; fi
+  "$sr_hooks/session-touched.sh" "$sr_hooks/stop-check.sh" "$sr_hooks/release-check.sh" "$sr_hooks/orphan-report.sh" || true)
+if [ -z "$bash4" ]; then ok "the Stop hook, the record hook, the release check and the orphan report use no bash 4 form and no GNU-only tool flag"
+else bad "the Stop hook, the record hook, the release check and the orphan report use no bash 4 form and no GNU-only tool flag" "$bash4"; fi
 
 # --- Release check hook -------------------------------------------------------------------------
 # A SessionStart hook says when the installed version is older than the latest release tag on GitHub. The tests run it
@@ -4208,6 +4210,164 @@ expect_output "the hook says what it is in the header the other hooks use" '^# S
 expect_output "and how to turn it off" 'SATT_RELEASE_CHECK=0 turns it off' "$(cat "$rc_hook")"
 grep -qF 'release check' "$src/PRIVACY.md" && grep -qF 'SATT_RELEASE_CHECK=0' "$src/PRIVACY.md" && grep -qF 'apart from the release check below' "$src/PRIVACY.md" \
   && ok "PRIVACY.md says what the release check reads, and how to turn it off" || bad "PRIVACY.md says what the release check reads, and how to turn it off"
+
+# --- Orphan report hook -------------------------------------------------------------------------
+# A SessionStart hook lists long-running processes whose parent is gone. The tests run it with stubs first on PATH: a
+# uname that names the system, a ps and a powershell.exe that print scripted process rows, a timeout that records its
+# first argument, and a kill, a taskkill and a pkill that record any call (there must be none). No real process list is
+# read, and nothing is stopped.
+echo "orphan report hook"
+op_hook="$src/framework/.claude/hooks/orphan-report.sh"
+op="$work/orphan-report"; op_cwd="$op/cwd"
+mkdir -p "$op/bin" "$op/bin_nt" "$op/bin_nops" "$op/bin_none" "$op_cwd"
+put "$op/bin/uname" '#!/bin/bash
+printf "%s\n" "uname $*" >> "$OP_LOG"
+printf "%s\n" "$OP_UNAME"'
+put "$op/bin/ps" '#!/bin/bash
+printf "%s\n" "ps $*" >> "$OP_LOG"
+while IFS= read -r l; do printf "%s\n" "$l"; done < "$OP_ROWS"
+exit "${OP_EXIT:-0}"'
+put "$op/bin/powershell.exe" '#!/bin/bash
+printf "%s\n" "powershell.exe $*" >> "$OP_LOG"
+while IFS= read -r l; do printf "%s\r\n" "$l"; done < "$OP_ROWS"
+exit "${OP_EXIT:-0}"'
+put "$op/bin/timeout" '#!/bin/bash
+printf "%s\n" "timeout $1" >> "$OP_LOG"
+if [ -n "${OP_TIMED_OUT:-}" ]; then exit 124; fi
+shift
+exec "$@"'
+for s in kill taskkill pkill; do put "$op/bin/$s" '#!/bin/bash
+printf "%s\n" "$0 $*" >> "$OP_SIGNALS"'; done
+cp "$op/bin/uname" "$op/bin_nt/uname"; cp "$op/bin/powershell.exe" "$op/bin_nt/powershell.exe"; cp "$op/bin/uname" "$op/bin_nops/uname"
+chmod +x "$op/bin/"* "$op/bin_nt/"* "$op/bin_nops/"*
+op_rows() { # op_rows <row>…: the process list the stubs print
+  : > "$op/rows"
+  local l; for l in "$@"; do printf '%s\n' "$l" >> "$op/rows"; done
+}
+op_run() { # op_run <win|ps> [VAR=value…]: the hook from an empty folder, stubs first on PATH
+  local u=Linux; [ "$1" = win ] && u="MINGW64_NT-10.0-26300"; shift
+  rm -f "$op/calls"
+  (cd "$op_cwd" && printf '{"hook_event_name":"SessionStart","source":"startup"}' \
+    | env PATH="$op/bin:$PATH" OP_LOG="$op/calls" OP_ROWS="$op/rows" OP_UNAME="$u" OP_SIGNALS="$op/signals" "$@" "$BASH" "$op_hook" 2>&1)
+}
+op_says() { # op_says <list>: the hook's one line of JSON for that list of processes
+  local t="Processes that outlived the shell that started them (parent gone, over an hour old): $1. They may be left over from an ended session. Stopping them is your call."
+  printf '{"systemMessage":"%s","hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s Tell the human this once, in your first reply, and don'"'"'t stop them unless the human asks."}}' "$t" "$t"
+}
+op_expect_silent() { # op_expect_silent <what> <output> <status>
+  if [ -z "$2" ] && [ "$3" -eq 0 ]; then ok "$1"; else bad "$1 (exit $3)" "$2"; fi
+  return 0
+}
+
+# Windows: the rows are pid, ppid, age in seconds and name, as the PowerShell script prints them (CRLF line ends).
+op_rows "4 0 90000 System" "35660 8000 50400 python3.13.exe" "100 4 999999 Registry"
+out="$(op_run win)"; status=$?
+[ "$out" = "$(op_says 'pid 35660 python3.13 (14 h)')" ] && [ "$status" -eq 0 ] && ok "an hour-old python3.13.exe whose parent row is gone is listed, as one line of JSON for the human and for Claude" \
+  || bad "an hour-old python3.13.exe whose parent row is gone is listed, as one line of JSON for the human and for Claude (exit $status)" "$out"
+expect_output "on Windows the list is read with PowerShell's Get-CimInstance Win32_Process, under timeout 8" \
+  '^uname -s'$'\n''timeout 8'$'\n''powershell.exe -NoProfile -NonInteractive -Command [^'$'\n'']*Get-CimInstance Win32_Process[^'$'\n'']*CreationDate' "$(cat "$op/calls")"
+op_rows "500 4 90000 explorer.exe" "35660 500 50400 python3.13.exe"
+out="$(op_run win)"; status=$?; op_expect_silent "a process whose parent is alive and older is not listed" "$out" "$status"
+op_rows "35660 8000 3540 python3.13.exe"
+out="$(op_run win)"; status=$?; op_expect_silent "one that is 59 minutes old is not listed" "$out" "$status"
+op_rows "35660 8000 3600 python3.13.exe"
+out="$(op_run win)"; [ "$out" = "$(op_says 'pid 35660 python3.13 (1 h)')" ] && ok "and one an hour old is" || bad "and one an hour old is" "$out"
+op_rows "500 4 600 cmd.exe" "35660 500 50400 python3.13.exe"
+out="$(op_run win)"; [ "$out" = "$(op_says 'pid 35660 python3.13 (14 h)')" ] && ok "a process whose parent row is younger than it (a reused id) is listed" || bad "a process whose parent row is younger than it (a reused id) is listed" "$out"
+op_rows "700 0 7200 node.exe"
+out="$(op_run win)"; [ "$out" = "$(op_says 'pid 700 node (2 h)')" ] && ok "a ppid of 0 counts as a parent that is gone" || bad "a ppid of 0 counts as a parent that is gone" "$out"
+op_rows "21 9 90000 notepad.exe" "22 9 90000 explorer.exe" "23 9 90000 pythonista.exe" "24 9 90000 python2.exe" "25 9 90000 nodemon.exe" "26 9 90000 shell.exe" "27 9 90000 godo.exe" "28 9 90000 python3.x.exe" "29 9 90000 chrome.exe"
+out="$(op_run win)"; status=$?; op_expect_silent "notepad.exe, explorer.exe and names that only look like a listed one (pythonista, python2, nodemon, shell, godo, chrome) are not listed" "$out" "$status"
+op_rows "31 9 72060 PYTHON.EXE" "32 9 68460 pythonw.exe" "33 9 64860 py.exe" "34 9 61260 Node.exe" "35 9 57660 bash.exe" "36 9 54060 sh.exe" \
+  "37 9 50460 Godot_v4.5-stable_win64.exe" "38 9 46860 chrome-headless-shell.exe" "39 9 43260 python3.9.exe" "40 9 39660 python3.exe"
+out="$(op_run win)"
+[ "$out" = "$(op_says 'pid 31 PYTHON (20 h), pid 32 pythonw (19 h), pid 33 py (18 h), pid 34 Node (17 h), pid 35 bash (16 h), pid 36 sh (15 h), pid 37 Godot_v4.5-stable_win64 (14 h), pid 38 chrome-headless-shell (13 h), pid 39 python3.9 (12 h), pid 40 python3 (11 h)')" ] \
+  && ok "python, pythonw, py, node, bash, sh, godot*, chrome-headless-shell, python3 and python3.<n> are listed, in any case and without .exe" \
+  || bad "python, pythonw, py, node, bash, sh, godot*, chrome-headless-shell, python3 and python3.<n> are listed, in any case and without .exe" "$out"
+
+# Eleven orphans print the oldest ten, oldest first, and how many more there are.
+op_list=(); op_want=""; i=0
+while [ $i -le 10 ]; do op_list+=("$((31 + i)) 9 $(((3 + i) * 3600 + 60)) node.exe"); i=$((i + 1)); done
+i=10; while [ $i -ge 1 ]; do op_want="${op_want:+$op_want, }pid $((31 + i)) node ($((3 + i)) h)"; i=$((i - 1)); done
+op_rows "${op_list[@]}"
+out="$(op_run win)"
+[ "$out" = "$(op_says "$op_want, and 1 more")" ] && ok "eleven orphans print the oldest ten, oldest first, and \"and 1 more\"" || bad "eleven orphans print the oldest ten, oldest first, and \"and 1 more\"" "$out"
+op_rows "${op_list[@]}" "50 9 7200 node.exe" "51 9 7200 node.exe"
+out="$(op_run win)"
+[ "$out" = "$(op_says "$op_want, and 3 more")" ] && ok "and with thirteen, \"and 3 more\"" || bad "and with thirteen, \"and 3 more\"" "$out"
+op_rows "41 9 172800 node.exe" "42 9 176400 node.exe" "43 9 259200 node.exe" "44 9 3599 node.exe"
+out="$(op_run win)"
+[ "$out" = "$(op_says 'pid 43 node (3 d), pid 42 node (2 d), pid 41 node (48 h)')" ] && ok "ages read as hours up to 48 and as days after" || bad "ages read as hours up to 48 and as days after" "$out"
+
+# A name with odd characters is reduced to [A-Za-z0-9._-] and can't break the JSON.
+op_rows '777 8000 7200 Godot"}],"a":"\x'$'\x01''.exe' '778 8000 7300 no"de'
+out="$(op_run win)"
+[ "$out" = "$(op_says 'pid 778 node (2 h), pid 777 Godotax (2 h)')" ] && ok "a name with quotes, brackets, a backslash and a control character is reduced to its safe characters" \
+  || bad "a name with quotes, brackets, a backslash and a control character is reduced to its safe characters" "$out"
+if command -v node >/dev/null 2>&1; then
+  if printf '%s' "$out" | node -e 'const j = JSON.parse(require("fs").readFileSync(0, "utf8")); process.exit(j.systemMessage.indexOf("Godotax") > 0 && j.hookSpecificOutput.hookEventName === "SessionStart" && j.hookSpecificOutput.additionalContext.indexOf(j.systemMessage) === 0 ? 0 : 1)' 2>/dev/null; then
+    ok "and the line parses as JSON, with the same text for the human and for Claude"
+  else bad "and the line parses as JSON, with the same text for the human and for Claude" "$out"; fi
+fi
+
+# Elsewhere: ps -A -o pid=,ppid=,etime=,comm=, with [[dd-]hh:]mm:ss read into seconds and comm reduced to its base name.
+op_rows "  35660     1 14:00:00 python3.13" "  25748     1 2-03:00:00 node" "   4000     1    59:59 bash" "   4001     1 1-00:00:00 sh" \
+  "   4002     1 02:00:00 /usr/bin/python3" "   4003     1 2-00:00:00 /Applications/Godot.app/Contents/MacOS/Godot" \
+  "   4004     1 2-01:00:00 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome" "   4005     1 03:00:00 sshd" "   4006     1 2-01:00:00 python"
+out="$(op_run ps)"; status=$?
+[ "$out" = "$(op_says 'pid 25748 node (2 d), pid 4006 python (2 d), pid 4003 Godot (48 h), pid 4001 sh (24 h), pid 35660 python3.13 (14 h), pid 4002 python3 (2 h)')" ] && [ "$status" -eq 0 ] \
+  && ok "ps rows are read: dd-hh:mm:ss, hh:mm:ss and mm:ss (59:59 is under the hour), a path in comm is cut to its base name, sshd and a browser are not listed" \
+  || bad "ps rows are read: dd-hh:mm:ss, hh:mm:ss and mm:ss (59:59 is under the hour), a path in comm is cut to its base name, sshd and a browser are not listed (exit $status)" "$out"
+expect_output "elsewhere the list is read with ps -A -o pid=,ppid=,etime=,comm=" '^uname -s'$'\n''ps -A -o pid=,ppid=,etime=,comm=$' "$(cat "$op/calls")"
+op_rows "  100     1 10-00:00:00 launchd" "  200   100       05:00 zsh" "  201   200 03:00:00 python3" "  300   100 10:00:00 bash" "  301   300 09:00:00 node" "  302   999 08:00:00 py"
+out="$(op_run ps)"
+[ "$out" = "$(op_says 'pid 302 py (8 h), pid 201 python3 (3 h)')" ] && ok "with ps: a live older parent keeps its child out, a younger parent row and a missing one put it in" \
+  || bad "with ps: a live older parent keeps its child out, a younger parent row and a missing one put it in" "$out"
+
+# Silent, and exit 0: the off switch, a list that is empty or garbled, a tool that fails or times out, or is missing.
+op_rows "35660 8000 50400 python3.13.exe"
+out="$(op_run win SATT_ORPHAN_REPORT=0)"; status=$?
+if [ ! -e "$op/calls" ]; then op_expect_silent "SATT_ORPHAN_REPORT=0 turns it off: silent, and the process list isn't read" "$out" "$status"
+else bad "SATT_ORPHAN_REPORT=0 turns it off: silent, and the process list isn't read" "$(cat "$op/calls")"; fi
+op_rows "35660 8000 50400 python3.13.exe"
+out="$(op_run win OP_EXIT=1)"; status=$?; op_expect_silent "a PowerShell that fails prints nothing and exits 0, whatever it printed" "$out" "$status"
+out="$(op_run ps OP_EXIT=1)"; status=$?; op_expect_silent "a ps that fails prints nothing and exits 0" "$out" "$status"
+out="$(op_run win OP_TIMED_OUT=1)"; status=$?; op_expect_silent "a PowerShell that times out prints nothing and exits 0" "$out" "$status"
+op_rows
+out="$(op_run win)"; status=$?; op_expect_silent "an empty list is silent" "$out" "$status"
+op_rows "not a process list" "x y z" "1 2 notatime python3" "-5 1 99999 node.exe"
+out="$(op_run ps)"; status=$?; op_expect_silent "rows that aren't rows are skipped" "$out" "$status"
+op_rows "35660 8000 50400 python3.13.exe"
+out="$(cd "$op_cwd" && printf '{}' | env PATH="$op/bin_nops" OP_LOG="$op/calls" OP_UNAME=MINGW64_NT-10.0-26300 "$BASH" "$op_hook" 2>&1)"; status=$?
+op_expect_silent "no powershell.exe on a Windows machine is silent, and exits 0" "$out" "$status"
+out="$(cd "$op_cwd" && printf '{}' | env PATH="$op/bin_nops" OP_LOG="$op/calls" OP_UNAME=Linux "$BASH" "$op_hook" 2>&1)"; status=$?
+op_expect_silent "no ps elsewhere is silent, and exits 0" "$out" "$status"
+out="$(cd "$op_cwd" && printf '{}' | env PATH="$op/bin_none" "$BASH" "$op_hook" 2>&1)"; status=$?
+op_expect_silent "no uname, no ps and no PowerShell is silent, and exits 0" "$out" "$status"
+out="$(cd "$op_cwd" && printf '{}' | env PATH="$op/bin_nt" OP_LOG="$op/calls" OP_ROWS="$op/rows" OP_UNAME=MINGW64_NT-10.0-26300 "$BASH" "$op_hook" 2>&1)"
+[ "$out" = "$(op_says 'pid 35660 python3.13 (14 h)')" ] && ok "without timeout on the machine the list is still read" || bad "without timeout on the machine the list is still read" "$out"
+
+# It stops nothing and writes nothing.
+[ ! -e "$op/signals" ] && ok "a stub kill, taskkill and pkill on PATH are never called" || bad "a stub kill, taskkill and pkill on PATH are never called" "$(cat "$op/signals")"
+if [ -z "$(ls -A "$op_cwd")" ]; then ok "the hook writes no file in the folder it runs from"; else bad "the hook writes no file in the folder it runs from" "$(ls -A "$op_cwd")"; fi
+sig="$(grep -vE '^[[:space:]]*#' "$op_hook" | grep -iE '(^|[^A-Za-z_-])(kill|taskkill|pkill|killall|Stop-Process|Set-Process|wmic)([^A-Za-z_-]|$)')"
+[ -z "$sig" ] && ok "the hook's code names no command that stops or changes a process" || bad "the hook's code names no command that stops or changes a process" "$sig"
+
+# The hook is not part of the check, so a report can't fail it; it is wired at session start, and installed.
+if grep -rqF 'orphan-report' "$src/framework/tools" "$src/framework/.githooks" "$src/framework/.claude/hooks/stop-check.sh"; then
+  bad "the check, the git hooks and the Stop hook don't run the orphan report, so it never fails them"
+else ok "the check, the git hooks and the Stop hook don't run the orphan report, so it never fails them"; fi
+wiring="$(awk '/^    "[A-Za-z]+": \[/ { ev = $1; gsub(/[":]/, "", ev) } /"matcher"/ { split($0, a, "\""); m = a[4] }
+  /orphan-report\.sh/ { hit = 1 } hit && /"timeout"/ { t = $0; gsub(/[^0-9]/, "", t); print ev ";" m ";" t; hit = 0 }' "$src/framework/.claude/settings.json")"
+[ "$wiring" = "SessionStart;startup|resume;10" ] && ok "settings.json runs the orphan report at SessionStart, on startup and resume, with a 10 second timeout" \
+  || bad "settings.json runs the orphan report at SessionStart, on startup and resume, with a 10 second timeout" "$wiring"
+wiring="$(awk '/^    "SessionStart": \[/ { on = 1 } on && /"matcher"/ { n++ } on && /\.claude\/hooks\// { h++ } on && /^    \],?$/ { print n ";" h; on = 0 }' "$src/framework/.claude/settings.json")"
+[ "$wiring" = "1;2" ] && ok "and it shares the release check's session-start entry: one matcher, two hooks" || bad "and it shares the release check's session-start entry: one matcher, two hooks" "$wiring"
+expect_output "the hook says what it is in the header the other hooks use" '^# SaaSAllTheThings orphan report · Claude Code hook · framework-owned: replaced on upgrade\.' "$(sed -n 2p "$op_hook")"
+expect_output "and how to turn it off" 'SATT_ORPHAN_REPORT=0' "$(cat "$op_hook")"
+grep -qF 'names, ids and ages of the processes' "$src/PRIVACY.md" && grep -qF 'SATT_ORPHAN_REPORT=0' "$src/PRIVACY.md" && ! grep -qF "Only your app's repository" "$src/PRIVACY.md" \
+  && ok "PRIVACY.md says the hook reads process names, ids and ages, stores and sends nothing, and how to turn it off" \
+  || bad "PRIVACY.md says the hook reads process names, ids and ages, stores and sends nothing, and how to turn it off"
 
 # --- pre-commit hook ----------------------------------------------------------------------------
 echo "pre-commit hook"

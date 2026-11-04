@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T45 · B3 · R1
+**Next IDs:** T46 · B3 · R1
 
 ## Queue
+
+### T45 · A session reports processes that outlived the shell that started them · done · M · agent
+- Touches: framework/.claude/hooks/orphan-report.sh (new), framework/.claude/settings.json, PRIVACY.md, README.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: a new SessionStart hook, `orphan-report.sh`, added to the `startup|resume` entry of `.claude/settings.json` that already runs the release check, with a 10 second timeout, reads the process list and prints one line of JSON with a `systemMessage` for the human and an `additionalContext` for Claude (`Processes that outlived the shell that started them (parent gone, over an hour old): pid 35660 python3.13 (14 h), pid 25748 node (2 d). They may be left over from an ended session. Stopping them is your call.`, with the instruction to tell the human once, in the first reply, and not to stop them unless the human asks) only when a process is listed (check) · the list is PowerShell's `Get-CimInstance Win32_Process` on Windows (`uname -s` is `MINGW*`, `MSYS*` or `CYGWIN*`), under `timeout 8` when `timeout` exists, and `ps -A -o pid=,ppid=,etime=,comm=` elsewhere, with `etime`'s `[[dd-]hh:]mm:ss` read into seconds and `comm` cut to its base name; an orphan is named `python`, `python3`, `python3.<n>`, `pythonw`, `py`, `node`, `bash`, `sh`, `godot*` or `chrome-headless-shell` (any case, `.exe` dropped), an hour old or more, with a parent that is gone (a ppid of 0 or 1, no row with that id, or a parent row younger than the process); the oldest ten are listed, oldest first, ages as `<n> h` up to 48 hours and `<n> d` after, and `, and <n> more` ends a longer list; whatever comes from the list is reduced to `[A-Za-z0-9._-]` (check) · the hook only reads: it never stops, signals or changes a process and writes no file, `SATT_ORPHAN_REPORT=0` exits at once, a failed, timed out or missing process tool prints nothing, every path ends in exit 0, a healthy session prints nothing, and the check, the git hooks and the Stop hook don't run it (check) · `PRIVACY.md` says the hook reads the names, ids and ages of the processes on the machine, stores nothing and sends nothing, and how to turn it off, with "Only your app's repository" no longer claimed, and the README's hooks list names it (check) · the selftest runs the hook against stub `uname`, `ps`, `powershell.exe` and `timeout`, with a case for an hour-old `python3.13.exe` with a dead parent, a live parent, 59 minutes, a younger parent row, names that are and aren't listed, eleven orphans printing ten and `and 1 more`, odd characters in a name, the three `etime` shapes, the off switch, a failed, timed out or missing tool, and a stub `kill`, `taskkill` and `pkill` that are never called, plus the wiring and the install, and passes (check) · the entry sits under the 0.16.0 heading, with upgrade steps
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T310
 
 ### T44 · A session says when the project is behind the latest release · done · M · agent
 - Touches: framework/.claude/hooks/release-check.sh (new), framework/.claude/settings.json, PRIVACY.md, README.md, selftest.sh, CHANGELOG.md, TASKS.md
