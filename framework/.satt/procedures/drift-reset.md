@@ -7,7 +7,7 @@ When a design principle has been read in more than one way across the project, p
 
 **Scope: the product design the director owns:** Product Pillars, the PRD, `product/decisions.md`, and the business rules in integration contracts. The architecture is not in scope. Never propose a change to tenancy, identity, cost or any other rule the check enforces, and never relax a check rule or add an ADR exception inside a reset. If the analysis shows a framework rule genuinely conflicts with the product, that's an architecture call: follow `architect.md`, where complying is option one and only the director accepts the ADR. Accepted ADRs are part of the design: a reset never drops or overrides one without a new ADR.
 
-**No application code.** A reset writes the reset folder, the PRD, `product/decisions.md`, integration contracts, ADR drafts and TASKS.md items. The rebuild runs through `next-task.md`.
+**No application code.** A reset writes the reset folder, the PRD, `product/decisions.md`, integration contracts, ADR drafts and TASKS.md items. The analysis files are written as the analysis runs; everything else waits for the director's approval of one summary (Summary and approval). The rebuild runs through `next-task.md`.
 
 **Safety.** Recommend running the reset on its own branch (`git switch -c reset/YYYY-MM-DD`), and ask before creating it. Never run a destructive git command (`reset --hard`, `clean`, `checkout --`, `restore`, a force push). Never delete the old design or the analysis: the reset folder only grows.
 
@@ -35,26 +35,29 @@ For each Product Pillar, each PRD rule the analysis touched, each integration co
 - for an ADR, whether it's still honoured, and where it isn't;
 - for anything not consistent, the failure mode in one line: what goes wrong for a user, a tenant or the data. The postmortem checks each one.
 
-Write `resets/YYYY-MM-DD/interpretations.md`, one table per kind (pillars, PRD rules, contract rules, ADRs). Then present the summary to the director: the count per classification, then each divergent or contradictory item in one line, security findings first.
+Write `resets/YYYY-MM-DD/interpretations.md`, one table per kind (pillars, PRD rules, contract rules, ADRs). Then present the findings to the director: the count per classification, then each divergent or contradictory item in one line, security findings first.
 
 ## 3. Rewrite the design (the director decides)
-1. **Archive first.** Copy `product/prd.md` to `resets/YYYY-MM-DD/prd-before.md` before changing anything.
-2. **One design call per divergent or contradictory item,** following `design.md` › For each question: surface the context (the text, the related decisions, and each interpretation found with where it lives), offer 2-4 options with a recommendation, and say the director can write their own answer instead. Prefer the option that keeps most of the system as built, unless it strains a pillar. Wait for each answer.
-   - An ADR not honoured, or a framework rule in the way: stop and follow `architect.md`. Complying is option one; a new ADR stays proposed until the director accepts it.
+1. **One design call per divergent or contradictory item,** following `design.md` › For each question: surface the context (the text, the related decisions, and each interpretation found with where it lives), offer 2-4 options with a recommendation, and say the director can write their own answer instead. Prefer the option that keeps most of the system as built, unless it strains a pillar. Wait for each answer, and hold it in the conversation, as that step says: nothing is recorded yet.
+   - An ADR not honoured, or a framework rule in the way: stop and follow `architect.md`. Complying is option one; a new ADR is accepted only by the director's approval of the summary that lists it, and its records join this reset's summary.
    - A pillar in question: ask which gives way, the pillar or the implementation.
-3. **Record** only the director's choices, following `design.md` › Record each decision: rewrite the PRD sections as the current requirements, append one line per choice to `product/decisions.md` with `from: resets/YYYY-MM-DD`, turn follow-up questions into `Q<n>`, and update `integrations/<system>/contract.md` where a choice changes one.
-4. **Hooks.** If a hook asks the director to confirm an edit (an ADR's status, a framework-owned file), let it ask; never bypass or work around one. If the director declines, write the change as a proposal in the reset folder (`resets/YYYY-MM-DD/proposal-<file>.md`) and ask them to apply it.
+2. **Draft** only the director's choices, in the conversation and not in a file, following `design.md` › Record each decision: the PRD sections rewritten as the current requirements, one line per choice for `product/decisions.md` with `from: resets/YYYY-MM-DD`, the follow-up questions as `Q<n>`, and the rows of `integrations/<system>/contract.md` a choice changes.
 
 ## 4. Plan the rebuild (no code)
-Compare the approved design with `as-built.md`. For every place the system differs, add items to TASKS.md in the format in `.satt/tasks.md`: a Size, `Depends on`, `Touches` naming the exact files the item may change, tagged `Done when` outcomes, `PRD:` the heading, its `Stories:`, and `ADR:` where one applies.
+Compare the drafted design with `as-built.md`. For every place the system differs, draft items for TASKS.md in the format in `.satt/tasks.md`: a Size, `Depends on`, `Touches` naming the exact files the item may change, tagged `Done when` outcomes, `PRD:` the heading, its `Stories:`, and `ADR:` where one applies.
 - Security findings from step 1 come first, as `high` bugs with `Found in: resets/YYYY-MM-DD/as-built.md`.
 - Then contracts and stored schemas, then the rest as slices: contract, then domain and application, then the host, then the client.
 - Split anything `L` or bigger, as `.satt/tasks.md` › Size says.
 - Last, a `human` item: "Run the drift-reset postmortem", depending on all the others.
 
+## Summary and approval
+Show one summary of everything the reset will write, and wait: the decision lines word for word, the design diff (each changed PRD section as it will read, and `prd-before.md`, the copy of the current PRD), the open questions, the contract rows, each ADR with its status, and the rebuild plan (each TASKS.md item in full). Write nothing until the director approves a summary of all of it (`design.md` › Summary and approval); a chat message or an "Other" answer before then re-opens the options. The reset then restarts from the first affected item or continues, and shows a new summary.
+
 ## Finish
+- **Write it** once the director approves. Copy `product/prd.md` to `resets/YYYY-MM-DD/prd-before.md` first, then write the PRD sections, the lines in `product/decisions.md`, the open questions, the contracts, the ADRs and the items in TASKS.md (bumping `Next IDs`).
+- **Hooks.** If a hook asks the director to confirm an edit (an ADR's status, a framework-owned file), let it ask; never bypass or work around one. If the director declines, write the change as a proposal in the reset folder (`resets/YYYY-MM-DD/proposal-<file>.md`) and ask them to apply it.
 - Summarise what was decided, what's still open, the items created, and the first one.
-- Commit the reset folder and the records as `docs: drift reset YYYY-MM-DD` after the director approves. Merge the reset branch the way the director usually does.
+- Commit the reset folder and the records as one change, `docs: drift reset YYYY-MM-DD`; the approval of the summary is the approval to commit. Merge the reset branch the way the director usually does.
 - Tell the director to start the rebuild with `next-task.md` in a fresh session (in Claude Code: `/clear`, then `/next-task`). The reset folder and the records hold everything.
 
 ## Postmortem
@@ -62,5 +65,6 @@ Runs when the director asks (`drift-reset postmortem`), after the reset's items 
 1. Check the reset's items are `done` (TASKS.md or `TASKS-archive.md`). If some aren't, list them and ask whether to go on.
 2. For each failure mode in `interpretations.md`, check the rebuilt system: fixed (with `file:line`), still present, or moved elsewhere. Repeat step 1's tenancy and identity analysis for the areas the rebuild touched.
 3. Write `resets/YYYY-MM-DD/postmortem.md`: per failure mode, the outcome, why the drift happened (an ambiguous rule, a missing decision, a missing check), and what would have caught it sooner.
-4. **Turn repeated judgment into checks.** For each drift a script could catch next time, propose a rule as a design call: 2-4 options with a recommendation, and the director decides. A rule for this project goes in its `tools/check.local.sh`. A rule every project would need is a framework gap, for SaaSAllTheThings upstream (`architect.md` › Prepare). Never change the framework's check or relax a limit in `tools/check.cfg` to add one. Each agreed rule becomes an item.
-5. Commit as `docs: drift reset postmortem YYYY-MM-DD` after the director approves.
+4. **Turn repeated judgment into checks.** For each drift a script could catch next time, propose a rule as a design call: 2-4 options with a recommendation, and the director decides. Hold the answers in the conversation. A rule for this project goes in its `tools/check.local.sh`. A rule every project would need is a framework gap, for SaaSAllTheThings upstream (`architect.md` › Prepare). Never change the framework's check or relax a limit in `tools/check.cfg` to add one. Each agreed rule becomes an item.
+5. **Summary and approval.** Show one summary of what the postmortem will write beyond `postmortem.md`: each check the director chose, with its TASKS.md item in full. Write nothing until the director approves a summary of all of it (`design.md` › Summary and approval); a chat message or an "Other" answer before then re-opens the options.
+6. Write the items (bumping `Next IDs`) once the director approves, and commit them with `postmortem.md` as `docs: drift reset postmortem YYYY-MM-DD`; the approval of the summary is the approval to commit.

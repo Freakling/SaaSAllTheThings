@@ -23,7 +23,7 @@ Stages 4-6 can overlap once stage 3 is done. The human may reorder them; file or
 ## Plan
 1. **Read** TASKS.md › Milestones and the queue, PRD › Capabilities, Clients and Integrations, `AGENTS.md` › Layout and Architecture, and the ADRs' titles and statuses. If `assessment/` has an assessment report, read its Roadmap and Target sections: they're the starting point, corrected by everything decided since.
 2. **Where are we?** The current stage is the first one not `✅`. Say which, and what's left in it.
-3. **Write items for the current stage and the next one only.** Later stages stay as table rows; they'll be planned with what the earlier ones teach.
+3. **Draft items for the current stage and the next one only.** Later stages stay as table rows; they'll be planned with what the earlier ones teach.
    - Follow `.satt/tasks.md`: each item with a Size, `Depends on`, `Touches`, tagged `Done when`, `PRD:` and `Stories:`.
    - Small: prefer `S`, split anything `L`. One capability's slice is contract, then domain and application with tests, then the host, then the client.
    - `human` items for what only the human can do: app registrations and consent, a Business Central sandbox, the budget amount, a production deploy.
@@ -35,7 +35,8 @@ Stages 4-6 can overlap once stage 3 is done. The human may reorder them; file or
    - **First slice:** the first capability in PRD order, end to end, with its event through the outbox and one consumer.
    - **Delivery:** one Bicep module per resource, the dev parameters, the budget (`PLACEHOLDER` amount), CI with workload identity federation, the first deploy (via `release.md`).
    - **Clients:** per client, "Decide: <client> UI technology", then the shell with sign-in, then the first capability.
-   - **Integrations:** per system, run `integrate.md`; it writes that system's items.
+   - **Integrations:** per system, run `integrate.md`; its contract and that system's items join the summary in step 6.
    - **Second tenant:** tenant export and deletion, the stamp-move procedure, a tenant onboarding dry run with `tenant.md`.
-5. **Milestones.** Keep the stage table in TASKS.md › Milestones current: `✅ done · 🟨 in progress · ⬜ not started`.
-6. **Report** the stage, the new items, the human items, and the decisions waiting. Commit as `docs: plan <stage>` after the human approves.
+5. **Milestones.** Draft the stage table for TASKS.md › Milestones, kept current: `✅ done · 🟨 in progress · ⬜ not started`.
+6. **Summary and approval.** Show the stage, the Milestones rows as they will read, each new item in full (the human items among them), and the decisions waiting, and wait. Write nothing until the human approves a summary of all of it (`design.md` › Summary and approval); a chat message or an "Other" answer before then re-opens the options. During onboarding the rows and the items join its summary instead (`ONBOARDING.md` › Content, by mode), and go into the install commit.
+7. **Write and report.** Once the human approves, write the Milestones rows and the items (bumping `Next IDs`), and commit them as `docs: plan <stage>`; the approval of the summary is the approval to commit.

@@ -13,14 +13,14 @@ Rules that can be tested automatically are proven by `bash tools/check.sh` on ev
 ## Feedback
 1. Say "new feedback report" (in Claude Code also `/feedback new`). This creates `validation/YYYY-MM-DD-feedback.md` from `TEMPLATE.md`, with the build filled in.
 2. Fill it in during or after the session. Skip capabilities you didn't reach. Write roles and tenant labels, never names or contact details.
-3. Say "process this feedback". Bugs are filed straight away. Product findings come back as options with a recommendation, and nothing in the PRD changes until you choose. Scores are compared with earlier reports that use the same statement.
+3. Say "process this feedback". Bugs become bug items and product findings come back as options with a recommendation; nothing is written until you approve a summary of all of it. Scores are compared with earlier reports that use the same statement.
 
 Each capability in the template has one fixed scored statement, so scores stay comparable across builds. If you reword a statement, it starts a new series.
 
 ## Acceptance check
 1. Say "prepare an acceptance check" (in Claude Code also `/acceptance`). This writes `validation/YYYY-MM-DD-acceptance.md` with everything built since the last check that needs a human eye. Say "acceptance all" for a full regression round.
 2. For each item, tick **Works** or **Broken / missing**, and say what went wrong in Notes. Leave both boxes empty for anything you didn't check; it comes back next time.
-3. Say "process the acceptance check". Broken items become bugs. A note saying the rule itself should change becomes a product question for you.
+3. Say "process the acceptance check". Broken items become bugs. A note saying the rule itself should change becomes a product question for you. Nothing is written until you approve a summary of all of it.
 
 ## Files
 - `TEMPLATE.md`: the feedback template. It's yours, with one section per capability.

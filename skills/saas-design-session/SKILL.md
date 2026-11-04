@@ -5,13 +5,13 @@ license: MIT
 compatibility: 'Needs no tools: works in Claude Code, Cowork and the Claude apps. With file access it saves the session notes as a file; otherwise it gives them as a download or in the conversation.'
 metadata:
   author: Freakling
-  version: 0.15.0
+  version: 0.16.0
 ---
 
 You run design sessions for a product built with SaaSAllTheThings: architecture and product sessions with the human, integration contract sessions, and group workshops, which you prepare, facilitate or scribe. You propose; the human decides, or in a workshop the decision owner does.
 
 ## 1. Where you are
-- **In an app with SaaSAllTheThings installed** (its folder has `.satt/procedures/architect.md`): use the app's own `.satt/` folder, records and procedures, which write the records directly. Steps 2 and 3 apply; for writing things down, follow the procedures instead of step 4.
+- **In an app with SaaSAllTheThings installed** (its folder has `.satt/procedures/architect.md`): use the app's own `.satt/` folder, records and procedures, which write the records directly once the human approves their summary. Steps 2 and 3 apply; for writing things down, follow the procedures instead of step 4.
 - **Anywhere else** (Claude Code or Cowork in a folder without it, or the Claude apps): the framework files are in this skill's `references/` folder. In them, `.satt/` means `references/`. You can't write the app's records, so step 4 says what you produce instead. `references/procedures/assess.md` is there only for its Process workshop notes section, which runs later, in the app; the assessment itself is the `saas-assessment` skill. The research assistant (`research.md`, the `researcher` subagent, `R<n>` items) isn't here: it needs a subagent and the app's `product/research/` folder. Where a procedure says to research first, check a single fact yourself if you can, and otherwise make the missing facts open questions or ask the human for them. Never put the app's confidential text into a public search. Screen design by drawing (`ui-design.md`, `/ui-design`) isn't here either: it captures the running product and reads the director's drawings with Node in the app's repository. Here, settle what a screen is for; where its elements sit is drawn and processed later, in the app. The security assessment (`security.md`, `/security`) isn't here either: it runs tools and reads the built code in the app's repository. `references/reference/owasp.md`, its checklist, is here for arguing a design against the OWASP baseline. Validating the user stories (`design.md` › Validate the stories) needs the app's history and `tools/stories.sh`, so it runs in the app; here, the stories a session drafts or changes go into its notes. Prototypes (`prototype.md`, `/prototype`) aren't here either: they are git worktrees of the app's repository, and harvesting one (`design.md` › Harvest a prototype) reads its branch, so that runs in the app too.
 
 What you know about the app comes from its files where you can read them, from what the human pastes or attaches (an assessment report, the PRD, ADRs, an integration contract), or from asking. Never guess a fact about the app: ask, or make it an open question.
@@ -32,17 +32,19 @@ Before offering options in any session, find out what the matching workshop need
 ## 3. Workshops
 Read `.satt/workshops/README.md`, then the workshop's own file.
 - **Prepare:** collect what you need: the assessment report if there is one, the app, the participants' roles, the decisions to reach, length and format. Then write the tailored agenda, the pre-read (purpose, the decisions to reach, the relevant findings, and options with a recommendation for each decision) and a short invitation. Roles, never names.
-- **Facilitate or scribe live:** keep each agenda block to its time and say when one runs over. Put each decision as options with a recommendation, record what the owner decides, and read it back before moving on (README › Running a workshop). Anything left undecided becomes an open question with an owner and a date.
-- **Close:** read back the decisions, then write the notes (step 4).
+- **Facilitate or scribe live:** keep each agenda block to its time and say when one runs over. Put each decision as options with a recommendation, hold what the owner decides in the conversation, and read it back before moving on (README › Running a workshop). Anything left undecided becomes an open question with an owner and a date.
+- **Close:** read back the decisions, stories, open questions, actions and ADR drafts. That read-back is the summary the room approves; then write the notes from it (step 4).
 
 ## 4. Writing it down
 Outside an installed app, each session produces one notes file, named and shaped as `.satt/workshops/README.md` › Notes says, including its rules for one-to-one sessions, declined deviations and ADR drafts.
 - Each decision is a line under Decisions, with why and the deciding role.
 - Each user story the session adds or changes is a line under User stories, in the form `.satt/procedures/design.md` › User stories gives, with whether its owner confirmed it. A story names a role from the product's personas; the app's `product/user-stories.md`, where you can read it or the human pastes it, says which stories exist and their IDs.
-- Each architecture decision also gets an ADR draft under ADR drafts, from `.satt/templates/adr.md`. It stays `ADR-?` and proposed: the human choosing an option is the decision, and accepting the ADR comes later, when the notes are processed.
+- Each architecture decision also gets an ADR draft under ADR drafts, from `.satt/templates/adr.md`. It stays `ADR-?` and proposed: the human choosing an option is the decision, and accepting the ADR comes later, when the notes are processed, by the human's approval of the summary that lists it.
 - An integration session's filled entity sheet and conflict rules go under Notes.
 
-Save it where the human says: with file access, in the app's `assessment/workshops/` folder; in the Claude apps, as a file to download, or in the conversation if files aren't available. Then tell the human how it becomes records: in the app, with SaaSAllTheThings installed, say "process the workshop notes" in Claude Code, or install it, and onboarding reads them. Never say a decision is recorded while it's only in the notes.
+A one-to-one session holds its decisions, stories, open questions, actions and ADR drafts in the conversation, shows them as the summary, and writes the notes file after the human approves it. In a live group workshop the scribe still confirms each decision aloud as the room moves on, and the read-back at the end is the summary the room approves; the notes file is written from it. Write nothing until the human (in a workshop, the room) approves a summary of all of it (`.satt/procedures/design.md` › Summary and approval); a chat message or an "Other" answer before then re-opens the options.
+
+Once it's approved, save it where the human says: with file access, in the app's `assessment/workshops/` folder; in the Claude apps, as a file to download, or in the conversation if files aren't available. Then tell the human how it becomes records: in the app, with SaaSAllTheThings installed, say "process the workshop notes" in Claude Code, or install it, and onboarding reads them. Never say a decision is recorded while it's only in the notes.
 
 Once the notes are saved, tell the human to start the next topic in a fresh session. In Claude Code: `/clear`. In the Claude apps or Cowork: open a new conversation. The notes hold everything; the conversation history is now noise.
 

@@ -38,14 +38,15 @@ The request is `prepare` (the default), `process`, or `all` (a full regression r
      It uses the item's own `(demo)` outcome for what to try, so the usual collection of outcomes picks it up. A note that the layout should change is a drawing for `ui-design.md`, not a bug.
 
 ## Process
+Read the whole ticked file first and work out what it leads to. Write nothing until the human approves a summary of all of it (`design.md` › Summary and approval); a chat message or an "Other" answer before then re-opens the options. The summary lists the `B` items, the story rewrites and ticks, the records of product findings (decision lines, PRD changes, Open Questions), and the Processed line.
 1. **Works:** nothing to record; the ticked file is the record.
-2. **Broken:** make a `B` item.
+2. **Broken:** draft a `B` item.
    - Take the repro from the notes, set `Found in:` to the file, and take `Stories:` from the item it was found under.
    - Judge the severity from the notes: `high` if it loses data, shows another tenant's data, fails sign-in or blocks work; `low` if it's cosmetic; `med` otherwise.
-   - If the notes say the rule itself should change, it's a product question instead: offer options (`design.md`), or add an Open Question.
+   - If the notes say the rule itself should change, it's a product question instead: offer options (`design.md`), or draft an Open Question.
 3. **Not ticked:** leave it. It comes back in the next round.
 4. **Stories** (`product/user-stories.md`):
-   - **Still right:** set its Confirmed to the check's date.
-   - **Needs a change:** rewrite the story from the notes and date it. If you had to interpret the notes, show your reading to the human and keep it `unconfirmed` until they confirm it. If the notes say the built behaviour should change too, it's a product question, as for Broken.
+   - **Still right:** its Confirmed becomes the check's date.
+   - **Needs a change:** draft the rewritten story from the notes and date it. If you had to interpret the notes, show your reading to the human and keep it `unconfirmed` until they confirm it. If the notes say the built behaviour should change too, it's a product question, as for Broken.
    - **Not ticked:** leave it as it is.
-5. **Finish:** under the header, add `**Processed:** YYYY-MM-DD → B7, Q9, US-1` (the new items and questions, and the corrected stories). Commit the file, the new items and the stories as `docs: process acceptance check YYYY-MM-DD` after the human approves.
+5. **Finish:** show the summary and wait. Once the human approves it, write everything it lists: under the header, add `**Processed:** YYYY-MM-DD → B7, Q9, US-1` (the new items and questions, and the corrected stories). Commit everything the summary lists (the file, the new items, the stories, and the decision lines, PRD changes and Open Questions) as `docs: process acceptance check YYYY-MM-DD`; the approval of the summary is the approval to commit.
