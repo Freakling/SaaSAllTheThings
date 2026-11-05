@@ -2,6 +2,13 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## 0.16.2 (2026-11-05)
+
+- **The guard reads a quoted or backslash path to git or a shell as it reads the bare name.** `"C:\Program Files\Git\bin\git.exe" -c core.pager=calc log`, `C:\Git\bin\git.exe fetch --upload-pack=calc origin`, `"C:\Program Files\Git\bin\bash.exe" -c "git push --force"` and `C:\Git\bin\sh.exe -c ...` are blocked as `git -c ...`, `git fetch --upload-pack=...` and `bash -c ...` are. The name is the path's last part without `.exe`, in any case, with forward slashes or backslashes, behind a prefix such as `env` or `timeout`, in the Bash and the PowerShell tool. A path that is only an argument or a message (`echo "C:\Program Files\Git\bin\bash.exe -c foo"`, `"C:\Program Files\tool\app.exe" -c x`) still passes.
+  - **Upgrade steps:** none; the hook is framework-owned and arrives with the upgrade.
+- **The check workflow template pins every action by commit.** `check-workflow.yml` named its actions by tags such as `actions/checkout@v4`, and a tag can move, so the OWASP A08 check "Actions in the workflow are pinned" held only in name. Each `uses:` is now a full commit SHA with its version in a trailing comment, at the commit its tag points at today, and the A08 check says pinned by commit. The self-test asked for a major version tag; it now asks for the SHA and the comment.
+  - **Upgrade steps:** if the app has `.github/workflows/check.yml`, replace each `uses:` line in it with the template's from `.satt/templates/check-workflow.yml`: the same actions at the same major versions. For a version of the app's own, read that version's commit from the action's repository and pin it the same way.
+
 ## 0.16.1 (2026-11-04)
 
 - **The guard blocks a Python with nothing to run.** `python3 -`, `python` or `py -3` with no script, no `-c`, no `-m` and nothing fed to it waits for input that never comes, and a time limit doesn't change that. The guard blocked only a Python reading a heredoc; now this form is blocked too, behind a path, a wrapper or a chain. `python3 - < x.py`, `cat x.py | python3 -`, a script file, `python3 --version` and `command -v python3` still pass, and so does a heredoc that ends in a line named `PY`.

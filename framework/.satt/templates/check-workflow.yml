@@ -13,6 +13,10 @@
 #
 # How long the artifact is kept is not set here: no retention-days, so the repository's or the
 # organisation's setting (Settings > Actions > General) decides.
+#
+# Every action is pinned to a full commit SHA, with its version in a trailing comment: a tag can move,
+# a commit can't. To update one, change the SHA and the comment together (Dependabot's github-actions
+# updates do both).
 name: check
 
 on:
@@ -30,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # The check reads the working tree (git ls-files), so the default shallow clone is enough.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # --- Stack setup: keep the steps for the stack the app uses (tools/check.cfg > [project] stack)
       # and delete the rest. Each step runs only when the app has that stack's files. Change the
@@ -38,19 +42,19 @@ jobs:
       # or newer). Extra tools a stack needs (a global tool, a browser) are installed here too.
       - name: Set up .NET
         if: ${{ hashFiles('**/*.sln', '**/*.slnx', '**/*.csproj') != '' }}
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: 8.0.x
 
       - name: Set up Node.js
         if: ${{ hashFiles('**/package.json') != '' }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
 
       - name: Set up Python
         if: ${{ hashFiles('**/pyproject.toml', '**/requirements*.txt') != '' }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12'
 
@@ -87,7 +91,7 @@ jobs:
       # No retention-days: the repository or organisation setting decides how long it is kept.
       - name: Keep the check's output as an artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: check-${{ github.run_number }}-${{ github.run_attempt }}
           path: check-output/
@@ -106,7 +110,7 @@ jobs:
       # critical advisory fails; moderate and low are reported but don't stop the merge. Lower it to
       # moderate or low for a stricter gate. The job doesn't comment on the pull request, which would
       # need pull-requests: write; its result is the job's own check.
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
         with:
           fail-on-severity: high
 
@@ -130,7 +134,7 @@ jobs:
 
       # No retention-days, as for the check's artifact: the repository or organisation setting decides.
       - name: Keep the SBOM as an artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sbom-${{ github.run_number }}-${{ github.run_attempt }}
           path: sbom.spdx.json

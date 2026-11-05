@@ -602,18 +602,19 @@ if [ -f "$wf" ]; then
   expect_no_output "the workflow grants no write permission" '(contents|actions|id-token|packages): write' "$wf_flat"
   expect_output "the workflow runs bash tools/check.sh and keeps its output" 'bash tools/check\.sh 2>&1 \| tee ' "$wf_flat"
   expect_output "the workflow fails on the check's exit code (pipefail)" 'set -o pipefail' "$wf_flat"
-  expect_output "the workflow uploads with if: always()" 'if: always\(\) uses: actions/upload-artifact@v[0-9]+ ' "$wf_flat"
+  expect_output "the workflow uploads with if: always()" 'if: always\(\) uses: actions/upload-artifact@[0-9a-f]{40} # v[0-9.]+ ' "$wf_flat"
   expect_output "the artifact name carries the run number" 'name: check-\$\{\{ github\.run_number \}\}' "$wf_flat"
   expect_no_output "the workflow sets no retention-days" 'retention-days' "$wf_flat"
-  expect_no_output "every action is pinned to a major version tag" 'uses: [^@ ]+@([^v ]|v[0-9]+\.)' "$wf_flat"
+  wf_unpinned="$(printf '%s' "$wf_flat" | sed -E 's/uses: [^@ ]+@[0-9a-f]{40} # v[0-9]+(\.[0-9]+)*( |$)//g')"   # what's left once the pinned ones are gone
+  expect_no_output "every action is pinned to a full commit SHA, with its version in a comment" 'uses: ' "$wf_unpinned"
   expect_output "the workflow skips secrets.txt when it collects logs" 'secrets\.txt\) continue' "$wf_flat"
   expect_output "dependency review runs only on pull requests" 'dependency-review: if: github\.event_name == .pull_request. runs-on' "$wf_flat"
-  expect_output "dependency review uses the v4 action at high severity" 'uses: actions/dependency-review-action@v4 with: fail-on-severity: high' "$wf_flat"
+  expect_output "dependency review uses the v4 action at high severity" 'uses: actions/dependency-review-action@[0-9a-f]{40} # v4[0-9.]* with: fail-on-severity: high' "$wf_flat"
   expect_no_output "dependency review comments on pull requests (needs pull-requests: write)" 'comment-summary-in-pr|pull-requests: write' "$wf_flat"
   expect_output "the SBOM job runs only on pushes" 'sbom: if: github\.event_name == .push. runs-on' "$wf_flat"
   expect_output "the SBOM comes from the dependency-graph endpoint with the job token" 'GH_TOKEN: \$\{\{ github\.token \}\} run: .*/repos/\$\{GITHUB_REPOSITORY\}/dependency-graph/sbom' "$wf_flat"
   expect_output "the SBOM is written to sbom.spdx.json and checked as SPDX" '--jq .\.sbom. > sbom\.spdx\.json grep -q .\"spdxVersion\". sbom\.spdx\.json' "$wf_flat"
-  expect_output "the SBOM is uploaded with upload-artifact v4" 'uses: actions/upload-artifact@v4 with: name: sbom-\$\{\{ github\.run_number \}\}-\$\{\{ github\.run_attempt \}\} path: sbom\.spdx\.json' "$wf_flat"
+  expect_output "the SBOM is uploaded with upload-artifact v4" 'uses: actions/upload-artifact@[0-9a-f]{40} # v4[0-9.]* with: name: sbom-\$\{\{ github\.run_number \}\}-\$\{\{ github\.run_attempt \}\} path: sbom\.spdx\.json' "$wf_flat"
 else
   bad "the check workflow template is missing: framework/.satt/templates/check-workflow.yml"
 fi
@@ -2462,6 +2463,41 @@ EOF
   rm -f "$guard_dir/slow.json" "$guard_dir/slow.time"
   guard_report "$slow_fail" "the guard is too slow on a 30 KB body, or it exits non-zero on one" "the guard reads a 30 KB heredoc and here-string in under 5 seconds each:$slow_times"
 
+  # The same, for a body that names the programs the shell and git rules look for (Director-Driven-Development T294): 300 lines of
+  # "see C:\Git\bin\bash.exe -c and git.exe -c here" (about 14 KB), in a Bash heredoc and a PowerShell here-string. Every line gives
+  # the wrapper gate and the git option rules something to read, so this body costs more than the one above, and its cost grows
+  # faster than its length (900 lines take about 5 seconds in the heredoc and 4 in the here-string; 300 take about 1). The body is
+  # short because this part runs beside the others, where a longer one took several times as long. Each must take under 5 seconds,
+  # the best of three runs counting. A here-string's body is no command, so the rules leave it out and it must cost about what the
+  # heredoc costs: the here-string must also take no more than 1.5 times the heredoc's time plus half a second (it took 25 seconds
+  # against 8 at 900 lines when the rules read it). The two are measured one after the other, so a busy machine slows both.
+  nm_body=""
+  for ((gi = 1; gi <= 300; gi++)); do nm_body+=$'see C:\\Git\\bin\\bash.exe -c and git.exe -c here\n'; done
+  slow_cmds=("cat > scripts/hero.gd <<'EOF'"$'\n'"$nm_body""EOF" "\$gd = @'"$'\n'"$nm_body""'@"$'\n'"Set-Content -Path scripts/hero.gd -Value \$gd")
+  slow_tools=(Bash PowerShell); slow_fail=""; slow_times=""; slow_bt_Bash=999
+  TIMEFORMAT=%R
+  for ((si = 0; si < ${#slow_cmds[@]}; si++)); do
+    json_str "${slow_cmds[si]}"
+    printf '{"session_id":"s","tool_name":"%s","tool_input":{"command":"%s","description":"run"}}' "${slow_tools[si]}" "$JSON_STR" > "$guard_dir/slow.json"
+    slow_best=999; slow_rc=0
+    for slow_try in 1 2 3; do
+      { time LC_ALL=C.UTF-8 bash .claude/hooks/guard-commands.sh < "$guard_dir/slow.json" >/dev/null 2>&1; } 2>"$guard_dir/slow.time"
+      slow_rc=$?
+      slow_s="$(cat "$guard_dir/slow.time")"
+      [ "${slow_s%%.*}" -lt "${slow_best%%.*}" ] 2>/dev/null && slow_best="$slow_s"
+    done
+    slow_times="$slow_times ${slow_tools[si]} ${slow_best}s"
+    [ "${slow_tools[si]}" = Bash ] && slow_bt_Bash="$slow_best"
+    [ "$slow_rc" = 0 ] || slow_fail="$slow_fail"$'\n'"  (${slow_tools[si]}) the guard exited $slow_rc on a 14 KB body that names bash.exe and git.exe, expected 0"
+    [ "${slow_best%%.*}" -lt 5 ] 2>/dev/null || slow_fail="$slow_fail"$'\n'"  (${slow_tools[si]}) the guard took ${slow_best}s on a 14 KB body that names bash.exe and git.exe, over 5 seconds"
+    if [ "${slow_tools[si]}" = PowerShell ] && ! awk -v p="$slow_best" -v b="$slow_bt_Bash" 'BEGIN { exit !(p <= 1.5 * b + 0.5) }'; then
+      slow_fail="$slow_fail"$'\n'"  (PowerShell) the here-string took ${slow_best}s against ${slow_bt_Bash}s for the heredoc: its body is read as commands"
+    fi
+  done
+  unset TIMEFORMAT
+  rm -f "$guard_dir/slow.json" "$guard_dir/slow.time"
+  guard_report "$slow_fail" "the guard is too slow on a long body that names bash.exe and git.exe -c, reads a here-string's body as commands, or exits non-zero on one" "the guard reads a 14 KB heredoc and here-string that name bash.exe and git.exe -c, each in under 5 seconds, the here-string in about the heredoc's time:$slow_times"
+
   # A variable in a git command's words (B37): the guard can't read what it holds. A variable that the command assigns once,
   # to a plain value, is read as that value, so FLAG=--force; git push $FLAG is the force push it is. Any other unquoted
   # variable in the words of a git subcommand the rules read is blocked, and so is a quoted one that a flag or a path could
@@ -3399,6 +3435,59 @@ EOF
   done
   guard_run
   guard_report "$git_fail" "the guard hook doesn't read a quoted command's path, or a backslash path, as the command's name, so git, az or a Remove-Az cmdlet passes behind it, or it blocks a path that is an argument, a message or a body nothing runs" "the guard hook blocks git, az and Remove-Az behind a quoted path with a space, a backslash path, a prefix, a separator, a call operator, a wrapper and a heredoc body a shell runs, in the Bash and the PowerShell tool, and passes the paths that are arguments, messages and bodies nothing runs, and an escaped name"
+
+  # The same paths in front of git's -c and program flags and in front of a shell (Director-Driven-Development T294): the name is its last
+  # part without .exe in any case, quoted with a space, as a backslash path, with forward slashes, behind a prefix, so the rules that read
+  # git's options and the shell wrapper's script judge them as they do the bare names.
+  for cmd in \
+      '"C:\Program Files\Git\bin\git.exe" -c core.pager=calc log' \
+      'C:\Git\bin\git.exe -c core.pager=calc log' \
+      '"C:/Program Files/Git/bin/git.exe" -c core.pager=calc log' \
+      '"C:\Program Files\Git\bin\GIT.EXE" -c core.sshCommand=calc fetch' \
+      'env "C:\Program Files\Git\bin\git.exe" -c core.pager=calc log' \
+      '..\bin\git.exe -c core.pager=calc log' \
+      '\\server\share\git.exe -c core.pager=calc log' \
+      '"C:\Program Files\Git\bin\git.exe" fetch --upload-pack=calc origin' \
+      '"C:\Program Files\Git\bin\git.exe" ls-remote --upload-pack calc origin' \
+      'C:\Git\bin\git.exe push --receive-pack=calc origin' \
+      '"C:\Program Files\Git\bin\git.exe" clone -u calc u' \
+      '"C:\Program Files\Git\bin\bash.exe" -c "git push --force"' \
+      'C:\Git\bin\bash.exe -c "git push --force"' \
+      '"C:\Program Files\Git\bin\sh.exe" -c "git reset --hard"' \
+      'C:\Git\usr\bin\sh.exe -c "git push --force"' \
+      '/c/Git/bin/BASH.EXE -c "git push --force"' \
+      '"C:/Program Files/Git/bin/bash.exe" -c "git push --force"' \
+      'C:/Git/bin/bash.exe -c "git push --force"' \
+      '"C:\Program Files\Git\bin\BASH.EXE" -c "git push --force"' \
+      '"C:\Program Files\Git\bin\zsh.exe" -c "git push --force"' \
+      'env "C:\Program Files\Git\bin\bash.exe" -c "git push --force"' \
+      'timeout 5 C:\Git\bin\bash.exe -c "git push --force"' \
+      'x && C:\Git\bin\bash.exe -lc "git push --force"' \
+      '..\bin\bash.exe -c "git push --force"' \
+      '\\server\share\bash.exe -c "git push --force"' \
+      '~\bin\sh.exe -c "git push --force"'; do
+    guard 2 "$cmd"
+    guard 2 "$cmd" PowerShell
+  done
+  for cmd in \
+      '"C:\Program Files\Git\bin\git.exe" -c user.name=x log' \
+      '"C:\Program Files\Git\bin\git.exe" log -1' \
+      '"C:\Program Files\tool\app.exe" -c x' \
+      'C:\tools\app.exe -c "git push --force"' \
+      'echo "C:\Program Files\Git\bin\bash.exe -c foo"' \
+      'echo "C:\Program Files\Git\bin\git.exe -c core.pager=calc log"' \
+      'cp "C:\Program Files\Git\bin\bash.exe" backup' \
+      'ls C:\Git\bin\bash.exe' \
+      'C:\Windows\System32\notepad.exe C:\Git\bin\bash.exe -c foo' \
+      'git log "C:\Program Files\Git\bin\bash.exe" -c' \
+      'git commit -q -m "docs: C:\Program Files\Git\bin\git.exe -c core.pager=calc log is blocked"' \
+      '"C:\Program Files\Git\bin\bash.exe" -c "echo hi"' \
+      'C:\Git\bin\bash.exe tools/check.sh'; do
+    guard 0 "$cmd"
+    guard 0 "$cmd" PowerShell
+  done
+  guard_run
+  guard_report "$git_fail" "the guard hook doesn't read a path in front of git's -c and program flags or in front of a shell, so they pass behind it, or it blocks a path that is an argument or a message (Director-Driven-Development T294)" "the guard hook blocks git's -c and program flags and a shell's script behind a quoted path with a space, a backslash path, forward slashes, .exe in any case and a prefix, in the Bash and the PowerShell tool, and passes the paths that are arguments, messages and other programs (T294)"
 
   # Python that reads its script from a heredoc (T309), whatever the body is. The interpreter is python, python3, python3.13, pythonw or py,
   # with or without .exe, bare or behind a path with / or \, quoted or not; with - or without it, with options before it (-u, -X utf8,
