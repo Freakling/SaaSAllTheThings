@@ -2,7 +2,7 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
-## Unreleased
+## 0.16.2 (2026-11-05)
 
 - **The guard reads a quoted or backslash path to git or a shell as it reads the bare name.** `"C:\Program Files\Git\bin\git.exe" -c core.pager=calc log`, `C:\Git\bin\git.exe fetch --upload-pack=calc origin`, `"C:\Program Files\Git\bin\bash.exe" -c "git push --force"` and `C:\Git\bin\sh.exe -c ...` are blocked as `git -c ...`, `git fetch --upload-pack=...` and `bash -c ...` are. The name is the path's last part without `.exe`, in any case, with forward slashes or backslashes, behind a prefix such as `env` or `timeout`, in the Bash and the PowerShell tool. A path that is only an argument or a message (`echo "C:\Program Files\Git\bin\bash.exe -c foo"`, `"C:\Program Files\tool\app.exe" -c x`) still passes.
   - **Upgrade steps:** none; the hook is framework-owned and arrives with the upgrade.
