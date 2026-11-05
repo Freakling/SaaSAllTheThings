@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T49 · B3 · R1
+**Next IDs:** T50 · B3 · R1
 
 ## Queue
+
+### T49 · The check workflow template pins every action by commit · done · S · agent
+- Touches: framework/.satt/templates/check-workflow.yml, framework/.satt/reference/owasp.md, skills/saas-design-session/references/reference/owasp.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: every `uses:` in the template is a full commit SHA with its version in a trailing comment, each SHA read from the action's own repository (check) · the A08 check in `owasp.md` says pinned by commit and the bundled copy matches it (check) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T317
 
 ### T48 · The guard reads a quoted or backslash path to git or a shell as it reads the bare name · done · M · agent
 - Touches: framework/.claude/hooks/guard-commands.sh, selftest.sh, CHANGELOG.md, TASKS.md

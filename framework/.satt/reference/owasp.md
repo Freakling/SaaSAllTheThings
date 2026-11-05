@@ -94,7 +94,7 @@ ASVS: V6 Authentication, V7 Session Management, V9 Self-contained Tokens, V10 OA
 ASVS: V15 Secure Coding and Architecture, V2 Validation and Business Logic.
 - `code` Message consumers take the tenant from the envelope only our code writes, are idempotent, and reject a message whose envelope is missing or invalid. Where: Service Bus functions, `messaging.md`.
 - `code` No untrusted data is deserialized into arbitrary types (no type names taken from the payload). Where: message and request handling.
-- `config` Actions in the workflow are pinned, and CI signs in to Azure with workload identity federation scoped to its environment. Where: `.github/workflows/`, `identity.md` › Pipelines.
+- `config` Actions in the workflow are pinned by commit (a full SHA, since a tag can move), and CI signs in to Azure with workload identity federation scoped to its environment. Where: `.github/workflows/`, `identity.md` › Pipelines.
 - `people` Who may merge to main and deploy to prod, with branch protection on main.
 
 ### A09 Security Logging and Alerting Failures

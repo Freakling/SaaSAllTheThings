@@ -602,18 +602,19 @@ if [ -f "$wf" ]; then
   expect_no_output "the workflow grants no write permission" '(contents|actions|id-token|packages): write' "$wf_flat"
   expect_output "the workflow runs bash tools/check.sh and keeps its output" 'bash tools/check\.sh 2>&1 \| tee ' "$wf_flat"
   expect_output "the workflow fails on the check's exit code (pipefail)" 'set -o pipefail' "$wf_flat"
-  expect_output "the workflow uploads with if: always()" 'if: always\(\) uses: actions/upload-artifact@v[0-9]+ ' "$wf_flat"
+  expect_output "the workflow uploads with if: always()" 'if: always\(\) uses: actions/upload-artifact@[0-9a-f]{40} # v[0-9.]+ ' "$wf_flat"
   expect_output "the artifact name carries the run number" 'name: check-\$\{\{ github\.run_number \}\}' "$wf_flat"
   expect_no_output "the workflow sets no retention-days" 'retention-days' "$wf_flat"
-  expect_no_output "every action is pinned to a major version tag" 'uses: [^@ ]+@([^v ]|v[0-9]+\.)' "$wf_flat"
+  wf_unpinned="$(printf '%s' "$wf_flat" | sed -E 's/uses: [^@ ]+@[0-9a-f]{40} # v[0-9]+(\.[0-9]+)*( |$)//g')"   # what's left once the pinned ones are gone
+  expect_no_output "every action is pinned to a full commit SHA, with its version in a comment" 'uses: ' "$wf_unpinned"
   expect_output "the workflow skips secrets.txt when it collects logs" 'secrets\.txt\) continue' "$wf_flat"
   expect_output "dependency review runs only on pull requests" 'dependency-review: if: github\.event_name == .pull_request. runs-on' "$wf_flat"
-  expect_output "dependency review uses the v4 action at high severity" 'uses: actions/dependency-review-action@v4 with: fail-on-severity: high' "$wf_flat"
+  expect_output "dependency review uses the v4 action at high severity" 'uses: actions/dependency-review-action@[0-9a-f]{40} # v4[0-9.]* with: fail-on-severity: high' "$wf_flat"
   expect_no_output "dependency review comments on pull requests (needs pull-requests: write)" 'comment-summary-in-pr|pull-requests: write' "$wf_flat"
   expect_output "the SBOM job runs only on pushes" 'sbom: if: github\.event_name == .push. runs-on' "$wf_flat"
   expect_output "the SBOM comes from the dependency-graph endpoint with the job token" 'GH_TOKEN: \$\{\{ github\.token \}\} run: .*/repos/\$\{GITHUB_REPOSITORY\}/dependency-graph/sbom' "$wf_flat"
   expect_output "the SBOM is written to sbom.spdx.json and checked as SPDX" '--jq .\.sbom. > sbom\.spdx\.json grep -q .\"spdxVersion\". sbom\.spdx\.json' "$wf_flat"
-  expect_output "the SBOM is uploaded with upload-artifact v4" 'uses: actions/upload-artifact@v4 with: name: sbom-\$\{\{ github\.run_number \}\}-\$\{\{ github\.run_attempt \}\} path: sbom\.spdx\.json' "$wf_flat"
+  expect_output "the SBOM is uploaded with upload-artifact v4" 'uses: actions/upload-artifact@[0-9a-f]{40} # v4[0-9.]* with: name: sbom-\$\{\{ github\.run_number \}\}-\$\{\{ github\.run_attempt \}\} path: sbom\.spdx\.json' "$wf_flat"
 else
   bad "the check workflow template is missing: framework/.satt/templates/check-workflow.yml"
 fi
