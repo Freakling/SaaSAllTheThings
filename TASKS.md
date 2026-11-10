@@ -4,9 +4,17 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T50 · B3 · R1
+**Next IDs:** T50 · B4 · R1
 
 ## Queue
+
+### B3 · Staging a new file changes the check's fingerprint · done · S · agent · med
+- Touches: framework/tools/check.sh, selftest.sh, CHANGELOG.md, TASKS.md
+- Repro: in an app with a committed `src/a.cs` and a new, untracked `src/b.cs`, run `bash tools/check.sh --fingerprint`, then `git add src/b.cs` and run it again → expected: the same hash, since no file's content changed / actual: a different hash, because `fingerprint()` hashes the paths in the order `git ls-files -c -o --exclude-standard` prints them, untracked files first, so `--if-changed` misses and the pre-commit hook runs the whole check again
+- Found in: Director-Driven-Development B70 (the review of App-Director's fast check tier)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B70
 
 ### T49 · The check workflow template pins every action by commit · done · S · agent
 - Touches: framework/.satt/templates/check-workflow.yml, framework/.satt/reference/owasp.md, skills/saas-design-session/references/reference/owasp.md, selftest.sh, CHANGELOG.md, TASKS.md

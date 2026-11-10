@@ -27,16 +27,19 @@ case "$0" in */*) cd "${0%/*}/.." ;; *) cd .. ;; esac || exit 3
 mode="${1:-}"
 state=".satt/state"
 FIND=find; [ -x /usr/bin/find ] && FIND=/usr/bin/find   # not Windows' find.exe
+SORT=sort; [ -x /usr/bin/sort ] && SORT=/usr/bin/sort   # not Windows' sort.exe
 
 read_file() { REPLY=""; [ -f "$1" ] && IFS= read -r REPLY < "$1"; return 0; }
 
 # Hash of every file that can change the result: everything but Markdown, which counts only in adr/.
+# The paths are sorted before they are hashed: git lists untracked files before tracked ones, so staging
+# a new file would otherwise change the hash though no file's content changed.
 fingerprint() {
   local path list=()
   while IFS= read -r path; do
     case "$path" in adr/*) ;; *.md) continue ;; esac
     [ -f "$path" ] && list+=("$path")
-  done < <(git -c core.quotePath=false ls-files -c -o --exclude-standard 2>/dev/null)
+  done < <(git -c core.quotePath=false ls-files -c -o --exclude-standard 2>/dev/null | LC_ALL=C "$SORT" -u)
   [ "${#list[@]}" -gt 0 ] || return 0
   { printf '%s\n' "${list[@]}"; printf '%s\n' "${list[@]}" | git hash-object --no-filters --stdin-paths; } \
     | git hash-object --stdin

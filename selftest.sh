@@ -4149,6 +4149,20 @@ echo "check"
 sed 's/^stack = dotnet$/stack = none/' tools/check.cfg > "$work/cfg" && cp "$work/cfg" tools/check.cfg
 out="$(bash tools/check.sh 2>&1)"; expect_status "passes with stack none" 0 $? "$out"
 out="$(bash tools/check.sh --if-changed 2>&1)"; expect_output "--if-changed reuses the last pass" "nothing changed since the last passing run" "$out"
+# Staging a new file changes no file's content, so the fingerprint stays and the last pass is reused.
+# Git lists untracked files before tracked ones, so fingerprint() sorts the list before it hashes it.
+printf 'new\n' > zz-staged.txt
+out="$(bash tools/check.sh 2>&1)"; expect_status "passes with a new, untracked file" 0 $? "$out"
+fp_before="$(bash tools/check.sh --fingerprint)"
+git add zz-staged.txt
+fp_staged="$(bash tools/check.sh --fingerprint)"
+if [ -n "$fp_before" ] && [ "$fp_before" = "$fp_staged" ]; then ok "staging a new file keeps the fingerprint"; else bad "staging a new file keeps the fingerprint" "before: $fp_before after: $fp_staged"; fi
+out="$(bash tools/check.sh --if-changed 2>&1)"; expect_output "and the pass before staging is reused" "nothing changed since the last passing run" "$out"
+printf 'changed\n' > zz-staged.txt
+fp_changed="$(bash tools/check.sh --fingerprint)"
+if [ -n "$fp_changed" ] && [ "$fp_changed" != "$fp_staged" ]; then ok "changing a staged file changes the fingerprint"; else bad "changing a staged file changes the fingerprint" "staged: $fp_staged changed: $fp_changed"; fi
+git rm -q -f --cached zz-staged.txt
+rm -f zz-staged.txt
 sed 's/^stack = none$/stack = cobol/' tools/check.cfg > "$work/cfg2" && cp "$work/cfg2" tools/check.cfg
 out="$(bash tools/check.sh 2>&1)"; expect_status "fails on a stack without a profile" 1 $? "$out"
 sed 's/^stack = cobol$/stack = ..\/..\/x/' tools/check.cfg > "$work/cfg2" && cp "$work/cfg2" tools/check.cfg
