@@ -2,6 +2,11 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## Unreleased
+
+- **The check can run its backend, Bicep and project steps side by side.** An app's full check took about 7 minutes with each step after the other. With `[tests] parallel = on` in `tools/check.cfg`, once the architecture step is done the backend stack, the Bicep compile and `tools/check.local.sh` run as background jobs, each under its own `[tests] timeout` with its own lines in `.satt/state/`, so a hung step is cut without stopping the others. Their lines are printed together in the order of a run in order (stack, infra, project steps), and the statuses combine as before: any failure exits 1, otherwise anything that couldn't run exits 3. An interrupted run stops its jobs. Every run, in order or side by side, now ends with one line giving each step's seconds and the total. The Bicep compile now runs under the time limit too. The seed `project/tools/check.cfg` and the example turn the setting on; a `tools/check.cfg` without the key runs the steps in order as before.
+  - **Upgrade steps:** `tools/check.sh` and `tools/cfg.sh` are framework-owned and arrive with the upgrade. In the app's own `tools/check.cfg`, add `parallel = on` under `[tests]` (add the `[tests]` heading if it is missing) when none of the app's own steps in `tools/check.local.sh` need the backend's build output, since they now start while the backend builds; leave it out otherwise.
+
 ## 0.16.3 (2026-11-11)
 
 - **The check's fingerprint stays the same when a new file is staged.** The fingerprint hashed the paths in the order `git ls-files` printed them, untracked files before tracked ones, so `git add` of a new file changed it although no file's content had changed. `--if-changed` then missed, and the pre-commit hook ran the whole check again right after the build or the Stop hook had passed the same files. The paths are now sorted before they are hashed.

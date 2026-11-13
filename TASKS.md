@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T50 · B4 · R1
+**Next IDs:** T51 · B4 · R1
 
 ## Queue
+
+### T50 · The check runs its backend, Bicep and project steps side by side · done · M · agent
+- Touches: framework/tools/check.sh, framework/tools/cfg.sh, project/tools/check.cfg, framework/.satt/rules.md, ONBOARDING.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: with the setting on, `bash tools/check.sh` runs the backend stack, the Bicep compile and `tools/check.local.sh` at the same time once the architecture step is done, each under its own time limit with its own log, prints each step's lines together in the order of a serial run, and exits 0, 1 or 3 as a serial run of the same files would (test) · the setting is a key in `tools/check.cfg`: the seed turns it on, an app without the key runs the steps in order as before, and the CHANGELOG's Upgrade steps say when to turn it on (test) · every run ends with each step's seconds and the total (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T339
 
 ### B3 · Staging a new file changes the check's fingerprint · done · S · agent · med
 - Touches: framework/tools/check.sh, selftest.sh, CHANGELOG.md, TASKS.md

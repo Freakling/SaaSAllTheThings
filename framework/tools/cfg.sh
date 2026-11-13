@@ -1,11 +1,12 @@
 # SaaSAllTheThings config reader · framework-owned: replaced on upgrade.
 # Sourced by tools/check.sh and tools/setup-clone.sh from the repository root. Reads
 # tools/check.cfg › [project] into $cfg_stack (default: dotnet, the framework's bias) and
-# $cfg_target, and › [tests] timeout into $cfg_timeout (seconds, default 600), without starting a process. Comments go on their own lines.
+# $cfg_target, › [tests] timeout into $cfg_timeout (seconds, default 600) and › [tests] parallel (on: $cfg_parallel is 1; absent or anything else: 0), without starting a process. Comments go on their own lines.
 
 cfg_stack="dotnet"
 cfg_target=""
 cfg_timeout=600
+cfg_parallel=0
 if [ -f tools/check.cfg ]; then
   cfg_section=""
   while IFS= read -r cfg_line || [ -n "$cfg_line" ]; do
@@ -23,7 +24,11 @@ if [ -f tools/check.cfg ]; then
     cfg_value="${cfg_value#"${cfg_value%%[![:space:]]*}"}"
     cfg_value="${cfg_value%"${cfg_value##*[![:space:]]}"}"
     if [ "$cfg_section" = "tests" ]; then
-      case "$cfg_key:$cfg_value" in timeout:""|timeout:*[!0-9]*|timeout:0) ;; timeout:*) cfg_timeout="$cfg_value" ;; esac
+      case "$cfg_key:$cfg_value" in
+        timeout:""|timeout:*[!0-9]*|timeout:0) ;;
+        timeout:*) cfg_timeout="$cfg_value" ;;
+        parallel:on) cfg_parallel=1 ;;
+      esac
       continue
     fi
     case "$cfg_key" in

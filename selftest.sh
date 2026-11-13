@@ -4194,6 +4194,48 @@ exit 1
   out="$(bash tools/check.sh 2>&1)"; expect_status "a test command under the limit passes" 0 $? "$out"
   rm -f tools/check.local.sh; cp "$work/cfg-timeout" tools/check.cfg
 fi
+# [tests] parallel = on runs the stack, infra and project steps side by side: the same exit status and the
+# same lines, in the same order, as a run in order, whose cfg has no such key.
+grep -v '^parallel' "$work/cfg" > "$work/cfg-serial"   # the example's cfg turns the setting on
+sed 's/^stack = none$/stack = cobol/' "$work/cfg-serial" > "$work/cfg-cobol-serial"
+run_both() { # run_both <label> <want> <cfg file>: the same files, in order and side by side
+  local label="$1" want="$2" base="$3" s p s_status p_status
+  cp "$base" tools/check.cfg
+  s="$(bash tools/check.sh 2>&1)"; s_status=$?
+  { cat "$base"; printf '\n[tests]\nparallel = on\n'; } > tools/check.cfg
+  p="$(bash tools/check.sh 2>&1)"; p_status=$?
+  expect_status "$label: in order exits $want" "$want" "$s_status" "$s"
+  expect_status "$label: side by side exits $want" "$want" "$p_status" "$p"
+  s="$(printf '%s\n' "$s" | grep -v -e '^check: seconds:' -e 'side by side')"
+  p="$(printf '%s\n' "$p" | grep -v -e '^check: seconds:' -e 'side by side')"
+  if [ "$s" = "$p" ]; then ok "$label: the lines come out as a run in order prints them"; else bad "$label: the lines come out as a run in order prints them" "in order: $s side by side: $p"; fi
+}
+rm -f tools/check.local.sh
+run_both "a pass" 0 "$work/cfg-serial"
+cp "$work/cfg-serial" tools/check.cfg
+out="$(bash tools/check.sh 2>&1)"; expect_output "a run in order ends with each step's seconds and the total" "check: seconds: architecture [0-9]* · stack [0-9]* · infra [0-9]* · project steps [0-9]* · total [0-9]*" "$out"
+case "$out" in *"side by side"*) bad "an app without the key runs in order" "$out" ;; *) ok "an app without the key runs in order" ;; esac
+run_both "a failing stack" 1 "$work/cfg-cobol-serial"
+printf 'echo project-step-ran\nexit 1\n' > tools/check.local.sh
+run_both "a failing project step" 1 "$work/cfg-serial"
+printf 'exit 3\n' > tools/check.local.sh
+run_both "a step that can't run" 3 "$work/cfg-serial"
+printf 'echo project-step-ran\nexit 1\n' > tools/check.local.sh
+run_both "a failing stack and a failing project step" 1 "$work/cfg-cobol-serial"
+{ cat "$work/cfg-cobol-serial"; printf '\n[tests]\nparallel = on\n'; } > tools/check.cfg
+out="$(bash tools/check.sh 2>&1)"
+_before="${out%%project-step-ran*}"
+case "$_before" in *"stack is 'cobol'"*) ok "side by side: the stack's lines come before the project step's" ;; *) bad "side by side: the stack's lines come before the project step's" "$out" ;; esac
+expect_output "side by side: the run ends with each step's seconds and the total" "check: seconds: architecture [0-9]* · stack [0-9]* · infra [0-9]* · project steps [0-9]* · total [0-9]*" "$out"
+expect_output "side by side: the run says so" "side by side" "$out"
+if timeout --version 2>/dev/null | grep -qi coreutils; then
+  printf 'sleep 20\n' > tools/check.local.sh
+  { cat "$work/cfg-serial"; printf '\n[tests]\nparallel = on\ntimeout = 1\n'; } > tools/check.cfg
+  out="$(bash tools/check.sh 2>&1)"; expect_status "side by side: a step past [tests] timeout is cut and exits 3" 3 $? "$out"
+  expect_output "and says it was stopped at the limit" "ran past the 1-second limit" "$out"
+fi
+rm -f tools/check.local.sh; cp "$work/cfg-serial" tools/check.cfg
+grep -q '^parallel = on$' "$src/project/tools/check.cfg" && ok "the seed check.cfg turns [tests] parallel on" || bad "project/tools/check.cfg has [tests] parallel = on"
 grep -q '^timeout = 600' "$src/project/tools/check.cfg" && ok "check.cfg ships [tests] timeout = 600" || bad "check.cfg has [tests] timeout = 600"
 git add -A >/dev/null 2>&1; git_q commit -qm "stack none for the hook tests" >/dev/null 2>&1
 

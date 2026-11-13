@@ -18,6 +18,8 @@
 #   4. tools/check.local.sh, if the project has one: clients, emulator tests, extra steps
 # Test commands run under GNU timeout when available: [tests] timeout in tools/check.cfg, 600 seconds
 # by default; a run that hits the limit exits 3, unless a failure was already seen.
+# Steps 2 to 4 run one after the other, or side by side with tools/check.cfg › [tests] parallel = on (each
+# with its own limit and log, printed in the same order). Every run ends with each step's seconds and the total.
 #
 # The check never calls Azure or an external system. Logs are in .satt/state/. Process starts
 # are slow on Windows, so it uses shell builtins wherever it can.
@@ -150,7 +152,19 @@ until mkdir "$lock" 2>/dev/null; do
   sleep 2; waited=$((waited + 2))
 done
 echo $$ > "$lock/pid"
-trap 'rm -rf "$lock"' EXIT
+# Side-by-side steps are background jobs: an interrupted run stops them and what they started, then
+# frees the lock.
+job_pids=()
+cleanup() {
+  local p
+  for p in ${job_pids[@]+"${job_pids[@]}"}; do
+    pkill -P "$p" 2>/dev/null
+    kill "$p" 2>/dev/null
+  done
+  rm -rf "$lock"
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
 reuse_last   # the run we waited for may have checked exactly these files
 
 # Each test command runs under GNU timeout (tools/check.cfg › [tests] timeout, default 600 seconds)
@@ -173,6 +187,7 @@ run_limited() {
 timed_out() { echo "check: $1 ran past the $cfg_timeout-second limit (tools/check.cfg › [tests] timeout) and was stopped, so this isn't a pass"; }
 
 failed=0; unverified=0
+run_start=$SECONDS
 
 # --- 1. architecture ------------------------------------------------------------------------------
 architecture() {
@@ -189,6 +204,7 @@ architecture() {
     -v logfile="$state/architecture.log" -f tools/archcheck.awk || failed=1
 }
 architecture
+secs_architecture=$((SECONDS - run_start))
 if [ "$mode" = "--architecture" ]; then
   [ "$failed" -eq 0 ] || exit 1
   [ "$unverified" -eq 0 ] || exit 3
@@ -211,11 +227,11 @@ stack_step() {
   status=$?
   case "$status" in 0) ;; 3) unverified=1 ;; *) failed=1 ;; esac
 }
-stack_step
 
 # --- 3. infra -------------------------------------------------------------------------------------
 infra_step() {
-  local f bicep="" any=0 log="$state/bicep.log" bad=0
+  local f bicep="" any=0 log="$state/bicep.log" bad=0 hung=0 rc limit=""
+  [ -z "$timeout_cmd" ] || limit="$timeout_cmd $cfg_timeout"   # each compile runs under the limit
   for f in infra/*.bicep infra/env/*.bicepparam; do [ -f "$f" ] && any=1; done
   [ "$any" -eq 1 ] || return 0
   if command -v bicep >/dev/null 2>&1; then bicep="bicep"
@@ -228,26 +244,72 @@ infra_step() {
   for f in infra/*.bicep infra/env/*.bicepparam; do
     [ -f "$f" ] || continue
     case "$f" in
-      *.bicep)      if [ "$bicep" = "bicep" ]; then bicep build "$f" --stdout; else az bicep build --file "$f" --stdout; fi ;;
-      *.bicepparam) if [ "$bicep" = "bicep" ]; then bicep build-params "$f" --stdout; else az bicep build-params --file "$f" --stdout; fi ;;
-    esac </dev/null >/dev/null 2>>"$log" || bad=1
+      *.bicep)      if [ "$bicep" = "bicep" ]; then $limit bicep build "$f" --stdout; else $limit az bicep build --file "$f" --stdout; fi ;;
+      *.bicepparam) if [ "$bicep" = "bicep" ]; then $limit bicep build-params "$f" --stdout; else $limit az bicep build-params --file "$f" --stdout; fi ;;
+    esac </dev/null >/dev/null 2>>"$log"
+    rc=$?
+    case "$rc" in 0) ;; 124) hung=1 ;; *) bad=1 ;; esac
   done
   if [ "$bad" -eq 1 ] || grep -q ' Error ' "$log"; then
     echo "check: infra/ doesn't compile:"
     grep -E 'Error|error' "$log" | head -n 30 | sed 's/^/  /'
     failed=1
+  elif [ "$hung" -eq 1 ]; then
+    timed_out "the Bicep compile"
+    unverified=1
   else
     echo "check: infra/ compiles"
   fi
 }
-infra_step
 
 # --- 4. project-specific steps --------------------------------------------------------------------
-if [ -f tools/check.local.sh ]; then
+project_step() {
+  [ -f tools/check.local.sh ] || return 0
   echo "check: running tools/check.local.sh"
   if [ -n "$timeout_cmd" ]; then "$timeout_cmd" "$cfg_timeout" bash tools/check.local.sh </dev/null; else bash tools/check.local.sh </dev/null; fi
   case $? in 0) ;; 124) timed_out "tools/check.local.sh"; unverified=1 ;; 3) echo "check: tools/check.local.sh couldn't run"; unverified=1 ;; *) echo "check: tools/check.local.sh failed"; failed=1 ;; esac
+}
+
+# --- running steps 2 to 4 ---------------------------------------------------------------------------
+# In order (the default), each step prints as it goes. With tools/check.cfg › [tests] parallel = on they run
+# as background jobs, each with its lines in .satt/state/step-<name>.out and its result in step-<name>.status,
+# and when all have ended their lines are printed in the same order, so the output reads as a serial run's.
+# Each step keeps its own time limit. The statuses combine as they do in order.
+step_names="stack infra project"
+if [ "$cfg_parallel" -eq 1 ]; then
+  echo "check: running the stack, infra and project steps side by side (tools/check.cfg › [tests] parallel)"
+  for name in $step_names; do
+    rm -f "$state/step-$name.out" "$state/step-$name.status"
+    (
+      failed=0; unverified=0; started=$SECONDS
+      "${name}_step"
+      echo "$failed $unverified $((SECONDS - started))" > "$state/step-$name.status"
+    ) > "$state/step-$name.out" 2>&1 &
+    job_pids+=($!)
+  done
+  for pid in "${job_pids[@]}"; do wait "$pid"; done
+  job_pids=()
+  for name in $step_names; do
+    cat "$state/step-$name.out"
+    if [ -f "$state/step-$name.status" ]; then
+      read -r step_failed step_unverified step_secs < "$state/step-$name.status"
+      [ "$step_failed" -eq 0 ] || failed=1
+      [ "$step_unverified" -eq 0 ] || unverified=1
+    else
+      echo "check: the $name step ended without a result, so this isn't a pass"
+      unverified=1; step_secs=0
+    fi
+    eval "secs_$name=$step_secs"
+  done
+else
+  for name in $step_names; do
+    started=$SECONDS
+    "${name}_step"
+    eval "secs_$name=$((SECONDS - started))"
+  done
 fi
+
+echo "check: seconds: architecture $secs_architecture · stack $secs_stack · infra $secs_infra · project steps $secs_project · total $((SECONDS - run_start))"
 
 hook_file="$(git rev-parse --git-path hooks 2>/dev/null)/pre-commit"
 hook_ok=0
