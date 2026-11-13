@@ -4417,6 +4417,107 @@ bash tools/check.sh >/dev/null 2>&1
 git_q commit --no-verify --allow-empty -qm "tiers: three" >/dev/null 2>&1
 out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: full-every = 0 is never due by count" "^check: full tier not due: 1 commit since the last full pass \([0-9a-f]{7}, .*\), \[tests\] full-every = 0" "$out"
 out="$(bash tools/check.sh --fast 2>&1)"; expect_output "and a fast pass says so" "PASS \(fast tier; the full tier isn't due by count, \[tests\] full-every = 0\)" "$out"
+# The backend's own changed paths: CHECK_BACKEND_CHANGED lists those that make the stack run, never Markdown or the client layer.
+put tools/check.local.sh 'echo "backend=$( [ -n "${CHECK_BACKEND_CHANGED:-}" ] && tr "\n" " " < "$CHECK_BACKEND_CHANGED")."; echo "tier=$CHECK_TIER"'
+cp "$work/cfg-serial" tools/check.cfg; tier_commit "tiers: the backend list's project step"
+printf '\n// a change\n' >> $domain; printf '# notes\n' > notes.md; put clients/web/app.ts 'export const x = 1;'
+out="$(bash tools/check.sh --fast 2>&1)"
+expect_output "--fast gives the stack CHECK_BACKEND_CHANGED: only the paths that make the backend run" "backend=src/OrderDesk.Domain/Orders/Order.cs \." "$out"
+out="$(bash tools/check.sh 2>&1)"
+expect_output "the full tier runs the project step with no CHECK_BACKEND_CHANGED" "backend=\." "$out"
+git checkout -q -- $domain; rm -rf notes.md clients
+
+# The TypeScript profile in the fast tier of an app with npm workspaces: the test step covers the changed packages and
+# the packages that depend on them. Stand-ins for npm (it records how it was called) keep this off the network; the
+# selection is node's one call, tried with the real node where there is one, and with a stand-in node that gives a fixed
+# answer where there isn't, which is how the shell side (the two ways to test, the lines) is proven without Node.
+echo "typescript fast tier"
+_tsbin="$work/ts-bin"; mkdir -p "$_tsbin"
+printf '#!/bin/sh\necho "npm $*"\necho "CHECK_PACKAGES=${CHECK_PACKAGES-unset}"\n' > "$_tsbin/npm"
+mkdir -p "$work/ts-fake"; printf '#!/bin/sh\ncat "$TS_ANSWER"\n' > "$work/ts-fake/node"; chmod +x "$_tsbin/npm" "$work/ts-fake/node"
+_tsapp="$work/tsapp"
+ts_make() { # ts_make <root package.json>: three packages, api depends on functions, functions on domain; web stands alone
+  rm -rf "$_tsapp"; mkdir -p "$_tsapp/node_modules" "$_tsapp/.satt/state" "$_tsapp/packages/domain" "$_tsapp/packages/functions" "$_tsapp/packages/api" "$_tsapp/packages/web" "$_tsapp/shared"
+  printf '%s\n' "$1" > "$_tsapp/package.json"
+  printf '%s\n' '{"name":"@x/domain","scripts":{"test":"t"}}' > "$_tsapp/packages/domain/package.json"
+  printf '%s\n' '{"name":"@x/functions","dependencies":{"@x/domain":"*"},"scripts":{"test":"t"}}' > "$_tsapp/packages/functions/package.json"
+  printf '%s\n' '{"name":"@x/api","devDependencies":{"@x/functions":"*"},"scripts":{"test":"t"}}' > "$_tsapp/packages/api/package.json"
+  printf '%s\n' '{"name":"@x/web","peerDependencies":{"@x/domain":"*"},"scripts":{"test":"t"}}' > "$_tsapp/packages/web/package.json"
+}
+ts_run() { # ts_run <path to the profile's node, or empty for the real one> <tier> <changed path>...: the stack's lines, then the test log
+  local nodepath="$1" tier="$2"; shift 2
+  ( cd "$_tsapp" || exit 9
+    state=.satt/state; cfg_timeout=60
+    : > "$state/changed-backend"; for p in "$@"; do printf '%s\n' "$p" >> "$state/changed-backend"; done
+    export CHECK_TIER="$tier" CHECK_BACKEND_CHANGED="$PWD/$state/changed-backend"
+    PATH="$_tsbin${nodepath:+:$nodepath}:$PATH"
+    run_limited() { local log="$1"; shift; "$@" </dev/null >"$log" 2>&1; }
+    timed_out() { echo "timed out: $1"; }
+    . "$src/framework/tools/stacks/typescript.sh"
+    stack_check; echo "status $?"; cat "$state/npm-test.log" 2>/dev/null ) 2>&1
+}
+_ws_plain='{"name":"root","workspaces":["packages/*"],"scripts":{"test":"all"}}'
+_ws_fast='{"name":"root","workspaces":["packages/*"],"scripts":{"test":"all","test:fast":"fast"}}'
+# The shell side, against a stand-in node whose answer is fixed (so it runs without Node).
+ts_make "$_ws_plain"
+export TS_ANSWER="$work/ts-answer"
+printf 'T packages/domain 1\nT packages/functions 1\nS packages/web\n' > "$TS_ANSWER"
+out="$(ts_run "$work/ts-fake" fast packages/domain/a.ts)"
+expect_output "fast tier: the packages' own test scripts run, one npm call with a --workspace each" "npm run --silent test --workspace packages/domain --workspace packages/functions" "$out"
+expect_output "and the run names the packages it tested" "fast tier: tested the packages packages/domain packages/functions" "$out"
+expect_output "and the ones it left to the full tier" "left to the full tier: packages/web" "$out"
+ts_make "$_ws_fast"
+out="$(ts_run "$work/ts-fake" fast packages/domain/a.ts)"
+expect_output "a root test:fast script runs instead, with the folders in CHECK_PACKAGES" "npm run --silent test:fast.*CHECK_PACKAGES=packages/domain packages/functions" "$(printf '%s' "$out" | tr '\n' ' ')"
+printf 'T packages/domain 1\nT packages/api 0\nS packages/web\n' > "$TS_ANSWER"
+ts_make "$_ws_plain"
+out="$(ts_run "$work/ts-fake" fast packages/domain/a.ts)"
+expect_output "a package without a test script and no test:fast: the root test runs whole" "the whole test runs: no test:fast script in package.json, and no test script in packages/api" "$out"
+expect_output "and it is the root test that runs" "check: npm run test passed" "$out"
+expect_no_output "and not the packages' own scripts" "--workspace" "$out"
+printf 'W shared/x.ts is outside every package\n' > "$TS_ANSWER"
+out="$(ts_run "$work/ts-fake" fast shared/x.ts)"
+expect_output "a changed file outside every package: the whole test runs, and the check says why" "the whole test runs: shared/x.ts is outside every package" "$out"
+printf 'N\n' > "$TS_ANSWER"
+out="$(ts_run "$work/ts-fake" fast packages/domain/a.ts)"
+expect_no_output "an app without workspaces runs as before, with no selection lines" "fast tier" "$out"
+printf 'T packages/domain 1\n' > "$TS_ANSWER"
+out="$(ts_run "$work/ts-fake" full packages/domain/a.ts)"
+expect_no_output "the full tier runs the whole test as before" "fast tier|--workspace" "$out"
+expect_output "and the root test passes" "check: npm run test passed" "$out"
+printf '#!/bin/sh\nexit 1\n' > "$work/ts-fake/node"
+out="$(ts_run "$work/ts-fake" fast packages/domain/a.ts)"
+expect_output "a node call that fails runs the whole test and says so" "the whole test runs: node couldn't work out the packages" "$out"
+expect_output "and the check still passes the test" "check: npm run test passed" "$out"
+# The selection itself, with the real node.
+if command -v node >/dev/null 2>&1; then
+  ts_make "$_ws_fast"
+  out="$(ts_run "" fast packages/domain/a.ts)"
+  expect_output "a change in a package tests it and the packages that depend on it, directly or through others" "tested the packages packages/api packages/domain packages/functions packages/web" "$out"
+  expect_output "and the folders go to test:fast in CHECK_PACKAGES" "CHECK_PACKAGES=packages/api packages/domain packages/functions packages/web" "$out"
+  out="$(ts_run "" fast packages/functions/a.ts)"
+  expect_output "a change in a package nothing depends on tests only the packages above it" "tested the packages packages/api packages/functions( |$)" "$out"
+  expect_output "and the rest are left to the full tier" "left to the full tier: packages/domain packages/web" "$out"
+  out="$(ts_run "" fast packages/web/a.ts packages/api/b.ts)"
+  expect_output "two changed packages are both tested" "tested the packages packages/api packages/web" "$out"
+  expect_output "dependencies are not followed downwards" "left to the full tier: packages/domain packages/functions" "$out"
+  out="$(ts_run "" fast packages/api/a.ts shared/x.ts)"
+  expect_output "one changed path outside every package runs the whole test" "the whole test runs: shared/x.ts is outside every package" "$out"
+  ts_make '{"name":"root","workspaces":{"packages":["packages/*","!packages/web"]},"scripts":{"test":"all"}}'
+  out="$(ts_run "" fast packages/domain/a.ts)"
+  expect_output "an object with packages and an excluded folder: the excluded one is no package" "tested the packages packages/api packages/domain packages/functions" "$out"
+  expect_output "and not listed either way" "left to the full tier: none" "$out"
+  ts_make '{"name":"root","workspaces":["nothing/*"],"scripts":{"test":"all"}}'
+  out="$(ts_run "" fast packages/domain/a.ts)"
+  expect_output "a workspace pattern that matches nothing runs the whole test, and says so" "the whole test runs: the workspaces of package.json match no package folder" "$out"
+  ts_make '{"name":"root","scripts":{"test":"all"}}'
+  out="$(ts_run "" fast packages/domain/a.ts)"
+  expect_no_output "no workspaces key: no selection" "fast tier" "$out"
+else
+  echo "  skip  the package selection with the real node (node isn't installed)"
+fi
+unset TS_ANSWER
+
 # A step that can't run in the fast tier exits 3, with or without GNU timeout.
 put tools/check.local.sh '[ "$CHECK_TIER" = fast ] && exit 3; exit 0'
 cp "$work/cfg-serial" tools/check.cfg; tier_commit "tiers: a project step that can't run fast"

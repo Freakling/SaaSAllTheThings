@@ -4,9 +4,17 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T53 · B4 · R1
+**Next IDs:** T54 · B4 · R1
 
 ## Queue
+
+### T53 · The TypeScript fast tier tests the changed packages and the packages that depend on them · done · M · agent
+- Depends on: T51
+- Touches: framework/tools/stacks/typescript.sh, framework/tools/check.sh, framework/.satt/reference/stacks.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: in the fast tier of an app with npm workspaces, the TypeScript stack tests only the changed packages and the packages that depend on them, by the dependencies their `package.json` files declare: through each such package's own `test` script, or through a root `test:fast` script that gets their folders in `CHECK_PACKAGES`; with neither, the root `test` runs whole and the check says so (test) · typecheck, lint and build cover the whole project as before, a changed backend file outside every package runs the whole `test`, and the run names the packages it tested and the ones it left to the full tier (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T342
 
 ### T52 · The hooks and the procedures pick the check's tier · done · L · agent
 - Depends on: T51

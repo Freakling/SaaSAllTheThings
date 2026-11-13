@@ -4,9 +4,9 @@
 # When Claude is about to finish a turn and this session wrote or edited a source file since its last passing
 # check, and a path the check counts differs from the last commit (`bash tools/check.sh --unignored` says which), run
 # the project check's fast tier (bash tools/check.sh --fast --if-changed, which runs as the full tier where the change
-# needs it; the commit runs the full tier when it's due, and the push always). The check itself skips work when nothing changed since its last pass. If the check fails,
-# block once and hand the output back to Claude. The same failing state isn't reported twice, so a turn can still end
-# after Claude has explained a failure it can't fix.
+# needs it; the commit runs the full tier when it's due, and the push always). The check itself skips work when
+# nothing changed since its last pass. If the check fails, block once and hand the output back to Claude. The same
+# failing state isn't reported twice, so a turn can still end after Claude has explained a failure it can't fix.
 #
 # Whether this session wrote a source file is session-touched.sh's record, .satt/state/sessions/<session_id>.touched
 # (the session_id is in the hook input). A session that edited only documentation has none, so it never waits for

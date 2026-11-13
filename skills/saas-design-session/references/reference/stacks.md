@@ -54,5 +54,14 @@ Each profile file is sourced by `tools/check.sh` and `tools/setup-clone.sh`, and
 
 A file belongs to the first layer whose pattern matches, in the order `[layers]` lists them, so the more specific patterns (hosts before integrations) come first. `[imports]` names how code refers to each layer: namespaces for .NET (`OrderDesk.Domain`), package names for TypeScript (`@orderdesk/domain`), modules for Python (`orderdesk.domain`). Relative imports are resolved by path.
 
+### The TypeScript profile in the fast tier
+The profile runs the root `typecheck`, `lint`, `build` and `test` scripts. In the fast tier (`bash tools/check.sh --fast`) of an app with npm workspaces, `typecheck`, `lint` and `build` still cover the whole project, and `test` covers only the packages the change reaches: the packages with a changed path, and every package that depends on one of them, directly or through other packages, by the workspace packages named in the `dependencies`, `devDependencies`, `peerDependencies` and `optionalDependencies` of their `package.json` files. Only the changed paths that make the backend run count (not `infra/`, the `client` layer or Markdown). A change outside every package runs the whole root `test`, and the check says which path it was. The full tier, and an app without `workspaces`, run the root `test` whole.
+
+An app opts in one of two ways, tried in this order:
+1. **A root `test:fast` script.** It gets the folders of the packages to test in the environment variable `CHECK_PACKAGES`, relative to the repository root and separated by spaces (`packages/domain packages/functions`), and decides for itself how to test them (`vitest run --dir` per folder, a loop of `npm test --workspace`, and so on).
+2. **A `test` script in every package.** Without `test:fast`, the check runs `npm run test --workspace <folder>` for each package to test.
+
+With neither (a package to test has no `test` script and there's no `test:fast`), the root `test` runs whole and the check says so. A run prints which packages it tested and which it left to the full tier.
+
 ## Clients
 A client's toolchain can differ from the backend's (a .NET backend with a Kotlin app). Its build and tests run from `tools/check.local.sh`; the architecture rules cover it either way.

@@ -25,7 +25,8 @@
 #   3. infra: compiles infra/*.bicep and infra/env/*.bicepparam when the Bicep CLI is installed
 #   4. tools/check.local.sh, if the project has one: clients, emulator tests, extra steps. It gets CHECK_TIER (fast or
 #      full) and, in the fast tier, CHECK_CHANGED (an absolute path of a file listing the changed paths, one per line),
-#      so it can leave out what the change doesn't touch.
+#      so it can leave out what the change doesn't touch. The stack profile gets CHECK_BACKEND_CHANGED in the fast
+#      tier too: the same kind of file, listing only the changed paths that make the backend run.
 # The fast tier's changes are the paths that differ from HEAD, staged or not (deletions too), and the untracked files git
 # doesn't ignore. It runs step 3 only when one is under infra/ or is a bicepconfig.json, and step 2 unless every one is
 # Markdown, in the client layer (tools/check.cfg › [layers]), or Bicep's and in no layer. A path that runs the full tier
@@ -464,7 +465,7 @@ export CHECK_TIER="$tier"
 if [ "$tier" = fast ]; then
   printf '%s' "$changed_list" > "$state/changed"
   export CHECK_CHANGED="$PWD/$state/changed"
-  run_stack=0; run_infra=0
+  run_stack=0; run_infra=0; backend_list=""
   if [ -n "$changed_list" ]; then
     # The Bicep compile is decided here, from the paths alone: a change under infra/, or to a bicepconfig.json (Bicep
     # reads the nearest one above each file). awk names only each path's layer.
@@ -480,13 +481,17 @@ if [ "$tier" = fast ]; then
       [ -n "$p" ] || continue
       classified=$((classified + 1))
       case "$p" in *.md) continue ;; esac
-      case "$layer" in client) continue ;; -) ;; *) run_stack=1; continue ;; esac
-      case "$p" in infra/*|bicepconfig.json|*/bicepconfig.json) ;; *) run_stack=1 ;; esac
+      case "$layer" in client) continue ;; -) ;; *) run_stack=1; backend_list="$backend_list$p$nl"; continue ;; esac
+      case "$p" in infra/*|bicepconfig.json|*/bicepconfig.json) ;; *) run_stack=1; backend_list="$backend_list$p$nl" ;; esac
     done < <(awk -v cfg=tools/check.cfg -v classify="$state/changed" -f tools/archcheck.awk 2>/dev/null)
-    [ "$classified" -eq "$wanted" ] || run_stack=1   # a path the layers couldn't be read for: run the backend
+    # A path the layers couldn't be read for: run the backend, with every changed path as its change.
+    if [ "$classified" -ne "$wanted" ]; then run_stack=1; backend_list="$changed_list"; fi
   fi
+  # The paths that make the backend run, for the stack profile to select its tests by (an empty file: none).
+  printf '%s' "$backend_list" > "$state/changed-backend"
+  export CHECK_BACKEND_CHANGED="$PWD/$state/changed-backend"
 else
-  unset CHECK_CHANGED
+  unset CHECK_CHANGED CHECK_BACKEND_CHANGED
 fi
 
 # --- 2. the stack ---------------------------------------------------------------------------------

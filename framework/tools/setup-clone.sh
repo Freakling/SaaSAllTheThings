@@ -13,8 +13,9 @@
 #    and .githooks/pre-push. Other hooks keep working; an existing hook is never overwritten. The hooks are
 #    installed even when step 1 fails (exit 3): the pre-commit hook scans every commit for secrets, which needs
 #    no toolchain, and the pre-push hook refuses a prototype's commits. Both also run the project check, which
-#    needs the toolchain, so until it is installed a commit that stages what the check counts, and every push
-#    that sends commits, is blocked: the check can't run.
+#    needs the toolchain, so until it is installed a commit that stages what the check counts can be blocked
+#    (a fast-tier commit of client, Markdown or Bicep paths needs none), and every push that sends commits is
+#    blocked: the check can't run.
 # Exit codes: 0 = done · 3 = the toolchain is missing (the hooks are installed all the same) · 4 = done, but a
 # hook needs your attention.
 
