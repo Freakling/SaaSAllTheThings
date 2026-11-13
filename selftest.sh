@@ -4179,12 +4179,16 @@ rm -f tools/check.local.sh
 if timeout --version 2>/dev/null | grep -qi coreutils; then
   cp tools/check.cfg "$work/cfg-timeout"
   printf '[tests]
-timeout = 1
+timeout-full = 1
 ' >> tools/check.cfg
   printf 'sleep 20
 ' > tools/check.local.sh
-  out="$(bash tools/check.sh 2>&1)"; expect_status "exits 3 when a test command runs past [tests] timeout" 3 $? "$out"
-  expect_output "and says it was stopped at the limit" "ran past the 1-second limit" "$out"
+  out="$(bash tools/check.sh 2>&1)"; expect_status "exits 3 when a test command runs past [tests] timeout-full" 3 $? "$out"
+  expect_output "and says it was stopped at the limit" "ran past the 1-second limit \(tools/check.cfg › \[tests\] timeout-full, the full tier's\)" "$out"
+  { grep -v '^timeout' "$work/cfg-timeout"; printf '[tests]\ntimeout = 1\n'; } > tools/check.cfg
+  out="$(bash tools/check.sh 2>&1)"; expect_status "the older [tests] timeout counts where timeout-full isn't set" 3 $? "$out"
+  expect_output "and is named as the limit" "ran past the 1-second limit \(tools/check.cfg › \[tests\] timeout," "$out"
+  cp "$work/cfg-timeout" tools/check.cfg; printf '[tests]\ntimeout-full = 1\n' >> tools/check.cfg
   printf 'sleep 20
 exit 1
 ' > tools/check.local.sh
@@ -4230,14 +4234,203 @@ expect_output "side by side: the run ends with each step's seconds and the total
 expect_output "side by side: the run says so" "side by side" "$out"
 if timeout --version 2>/dev/null | grep -qi coreutils; then
   printf 'sleep 20\n' > tools/check.local.sh
-  { cat "$work/cfg-serial"; printf '\n[tests]\nparallel = on\ntimeout = 1\n'; } > tools/check.cfg
+  { cat "$work/cfg-serial"; printf '\n[tests]\nparallel = on\ntimeout-full = 1\n'; } > tools/check.cfg
   out="$(bash tools/check.sh 2>&1)"; expect_status "side by side: a step past [tests] timeout is cut and exits 3" 3 $? "$out"
   expect_output "and says it was stopped at the limit" "ran past the 1-second limit" "$out"
 fi
 rm -f tools/check.local.sh; cp "$work/cfg-serial" tools/check.cfg
 grep -q '^parallel = on$' "$src/project/tools/check.cfg" && ok "the seed check.cfg turns [tests] parallel on" || bad "project/tools/check.cfg has [tests] parallel = on"
-grep -q '^timeout = 600' "$src/project/tools/check.cfg" && ok "check.cfg ships [tests] timeout = 600" || bad "check.cfg has [tests] timeout = 600"
+_seed="$src/project/tools/check.cfg"
+grep -q '^timeout-fast = 300$' "$_seed" && grep -q '^timeout-full = 600$' "$_seed" && grep -q '^full-every = 10$' "$_seed" && grep -q '^full-when =$' "$_seed" \
+  && ok "the seed check.cfg ships the tiers' settings: timeout-fast 300, timeout-full 600, full-every 10, full-when empty" \
+  || bad "project/tools/check.cfg has [tests] timeout-fast = 300, timeout-full = 600, full-every = 10 and full-when ="
 git add -A >/dev/null 2>&1; git_q commit -qm "stack none for the hook tests" >/dev/null 2>&1
+
+# The tiers. --fast runs the architecture rules and the secrets scan over the whole project, then only the steps
+# the change from HEAD touches; a dependency, a toolchain setting, tools/ or a [tests] full-when path runs it as the
+# full tier. Commits here skip the pre-commit hook: the check is what's under test.
+echo "check tiers"
+tier_commit() { git add -A >/dev/null 2>&1; git_q commit --no-verify -qm "$1" >/dev/null 2>&1; }
+last_tier() { local l1="" l2=""; { IFS= read -r l1; IFS= read -r l2; } < .satt/state/last-pass 2>/dev/null; printf '%s' "${l2%% *}"; }
+put tools/check.local.sh 'echo "local: tier=$CHECK_TIER changed=$( [ -n "${CHECK_CHANGED:-}" ] && tr "\n" " " < "$CHECK_CHANGED")."'
+put infra/main.bicep "param location string = 'norwayeast'"
+cp $domain "$work/domain-ok"
+tier_commit "tiers: a project step and infra"
+rm -f .satt/state/last-pass* .satt/state/last-fail* .satt/state/last-full
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: the full tier is due with no full pass recorded" "^check: full tier due: no full pass recorded yet" "$out"
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast passes with nothing changed" 0 $? "$out"
+expect_output "--fast says its tier" "check: running the fast tier" "$out"
+expect_output "--fast runs the architecture rules over the whole project" "architecture: 2[0-9] source files in layers" "$out"
+expect_output "--fast leaves out the backend when nothing changed" "the backend stack is left out" "$out"
+expect_output "--fast leaves out the Bicep compile without a change under infra/" "the Bicep compile is left out \(no change under infra/ or to a bicepconfig.json\)" "$out"
+expect_output "--fast runs tools/check.local.sh with CHECK_TIER=fast and CHECK_CHANGED" "local: tier=fast changed=\." "$out"
+expect_output "--fast still ends with each step's seconds" "check: seconds: architecture [0-9]* · stack [0-9]*" "$out"
+expect_output "a fast pass says the full tier is due, and why" "PASS \(fast tier; the full tier is due: no full pass recorded yet\)" "$out"
+[ "$(last_tier)" = "tier=fast" ] && ok "a fast pass is recorded with its tier" || bad "a fast pass is recorded with its tier" "$(cat .satt/state/last-pass 2>&1)"
+out="$(bash tools/check.sh --if-changed 2>&1)"; expect_output "a fast pass never stands for the full tier" "check: running the full tier" "$out"
+expect_output "with no argument the check runs every step" "stack none: builds and tests run only from tools/check.local.sh" "$out"
+expect_output "and tools/check.local.sh gets CHECK_TIER=full and no CHECK_CHANGED" "local: tier=full changed=\." "$out"
+expect_no_output "and leaves nothing out" "left out" "$out"
+expect_output "and says its tier in the result" "check: PASS \(full tier\)" "$out"
+[ "$(last_tier)" = "tier=full" ] && ok "a full pass is recorded with its tier" || bad "a full pass is recorded with its tier" "$(cat .satt/state/last-pass 2>&1)"
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: not due right after a full pass" "^check: full tier not due: 0 commits since the last full pass \([0-9a-f]{7}, [0-9-]+ [0-9:]+\), \[tests\] full-every = 10" "$out"
+# A record in the older check's one-line format (the fingerprint alone) stands for nothing.
+_fp="$(bash tools/check.sh --fingerprint)"; printf '%s' "$_fp" > .satt/state/last-pass; rm -f .satt/state/last-pass.changed .satt/state/last-fail*
+out="$(bash tools/check.sh --if-changed 2>&1)"; expect_no_output "a record in the older one-line format isn't reused" "nothing changed since the last passing run" "$out"
+expect_output "and the check runs instead" "check: running the full tier" "$out"
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_output "a full pass stands for a fast request" "nothing changed since the last passing run: the full tier" "$out"
+bash tools/check.sh --fast >/dev/null 2>&1
+[ "$(last_tier)" = "tier=full" ] && ok "a fast pass doesn't replace a full pass of the same files" || bad "a fast pass doesn't replace a full pass of the same files" "$(cat .satt/state/last-pass 2>&1)"
+# A change in the domain: the backend runs, and tools/check.local.sh is told what changed.
+printf '\n// a harmless change\n' >> $domain
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast passes a backend change" 0 $? "$out"
+expect_output "and runs the backend stack for it" "stack none: builds and tests run only from tools/check.local.sh" "$out"
+expect_no_output "and doesn't leave the backend out" "the backend stack is left out" "$out"
+expect_output "CHECK_CHANGED lists the changed path" "local: tier=fast changed=src/OrderDesk.Domain/Orders/Order.cs \." "$out"
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_output "--if-changed --fast reuses a fast pass of the same files" "nothing changed since the last passing run: the fast tier" "$out"
+out="$(bash tools/check.sh --if-changed 2>&1)"; expect_output "but not for the full tier" "check: running the full tier" "$out"
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_output "and the full pass then stands for --fast" "nothing changed since the last passing run: the full tier" "$out"
+cp "$work/domain-ok" $domain
+printf '\n// another harmless change\n' >> $domain
+bash tools/check.sh --fast >/dev/null 2>&1
+tier_commit "tiers: a domain change"
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_output "a fast pass still stands once its changes are committed" "nothing changed since the last passing run: the fast tier" "$out"
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due counts the commits since the last full pass" "^check: full tier not due: 1 commit since the last full pass" "$out"
+# A fast pass from another commit doesn't stand once the changes go beyond those it checked: after git reset --soft
+# over a commit that changed another path, the files are the same, but that path is unchecked by it.
+printf '\n// one more change\n' >> $domain; tier_commit "tiers: a commit to step back over"
+put tests/OrderDesk.Application.Tests/Extra.cs '// an extra test file'
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast passes a test change" 0 $? "$out"
+git reset -q --soft HEAD~1
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_no_output "a fast pass doesn't stand for changes beyond those it checked" "nothing changed since the last passing run" "$out"
+expect_output "and the fast tier runs again" "check: running the fast tier" "$out"
+git reset -q --hard; rm -f tests/OrderDesk.Application.Tests/Extra.cs
+# Changes that leave the backend out: the client layer, Markdown and infra/.
+put clients/web/app.ts 'export const x = 1;'
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast passes a client change" 0 $? "$out"
+expect_output "and leaves the backend out for a change in the client layer" "the backend stack is left out" "$out"
+rm -rf clients
+printf '# notes\n' > notes.md
+out="$(bash tools/check.sh --fast 2>&1)"; expect_output "and for a Markdown change" "the backend stack is left out" "$out"
+rm -f notes.md
+printf '// a note\n' >> infra/main.bicep
+out="$(bash tools/check.sh --fast 2>&1)"
+expect_output "a change under infra/ leaves the backend out" "the backend stack is left out" "$out"
+expect_no_output "and runs the Bicep compile" "the Bicep compile is left out" "$out"
+git checkout -q -- infra/main.bicep
+printf '{}\n' > bicepconfig.json   # Bicep reads the nearest bicepconfig.json above each file
+out="$(bash tools/check.sh --fast 2>&1)"
+expect_no_output "a root bicepconfig.json change runs the Bicep compile" "the Bicep compile is left out" "$out"
+expect_output "and leaves the backend out" "the backend stack is left out" "$out"
+rm -f bicepconfig.json
+# The architecture rules and the secrets scan cover the whole project in the fast tier, not just the change.
+printf 'public static class Bad { public static DateTime T => DateTime.UtcNow; }\n' >> $domain
+put src/OrderDesk.Functions/storage.sample.json "{ \"Values\": { \"Storage\": \"$fake_key\" } }"
+tier_commit "tiers: a violation and a secret"
+printf '# notes\n' > notes.md
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast fails on a committed violation the change doesn't touch" 1 $? "$out"
+expect_output "with the architecture rule" "\[domain-purity\]" "$out"
+expect_output "and the secrets scan over the whole project" "\[secrets\] src/OrderDesk.Functions/storage.sample.json" "$out"
+expect_output "and the failure names its tier" "check: FAIL \(fast tier" "$out"
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_status "--if-changed --fast reuses a fast failure of the same files" 1 $? "$out"
+expect_output "and says so" "nothing changed since the last failing run of the fast tier; run 'bash tools/check.sh --fast'" "$out"
+rm -f notes.md src/OrderDesk.Functions/storage.sample.json; cp "$work/domain-ok" $domain
+printf '\n// another harmless change\n' >> $domain
+tier_commit "tiers: fixed"
+# What runs the full tier: tools/, a [tests] full-when path, and each stack's dependencies and toolchain settings.
+put tools/extra.sh 'exit 0'
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast passes a change under tools/" 0 $? "$out"
+expect_output "and runs it as the full tier, saying why" "check: note: tools/extra.sh changed \(a dependency, a toolchain setting, tools/ or \[tests\] full-when\), so the fast tier runs as the full tier" "$out"
+expect_output "as the full tier throughout" "check: PASS \(full tier\)" "$out"
+rm -f tools/extra.sh
+printf '[tests]\nfull-when = db/ src/*/Migrations/ handbook/\n' >> tools/check.cfg
+tier_commit "tiers: full-when"
+bash tools/check.sh >/dev/null 2>&1
+put db/0001-orders.sql 'create table orders (id int);'
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: a [tests] full-when path makes the full tier due" "^check: full tier due: db/0001-orders.sql changed since the last full pass" "$out"
+out="$(bash tools/check.sh --fast 2>&1)"; expect_output "and runs --fast as the full tier" "db/0001-orders.sql changed .*so the fast tier runs as the full tier" "$out"
+rm -rf db
+bash tools/check.sh >/dev/null 2>&1
+put src/OrderDesk.Domain/Migrations/0002-lines.cs '// a migration'
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: a full-when folder pattern with a wildcard matches" "^check: full tier due: src/OrderDesk.Domain/Migrations/0002-lines.cs changed since the last full pass" "$out"
+out="$(bash tools/check.sh --fast 2>&1)"; expect_output "and runs --fast as the full tier" "src/OrderDesk.Domain/Migrations/0002-lines.cs changed .*so the fast tier runs as the full tier" "$out"
+rm -rf src/OrderDesk.Domain/Migrations
+bash tools/check.sh >/dev/null 2>&1
+put handbook/release.md '# Release'
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_no_output "a Markdown full-when path stops a reuse" "nothing changed since the last passing run" "$out"
+expect_output "and runs --fast as the full tier" "handbook/release.md changed .*so the fast tier runs as the full tier" "$out"
+rm -rf handbook
+_dep_case() { # _dep_case <stack> <path> <content>
+  sed "s/^stack = none$/stack = $1/" "$work/cfg-serial" > tools/check.cfg; tier_commit "tiers: stack $1"
+  printf '%s\n' "$3" >> "$2"
+  out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: $2 makes the full tier due for stack $1" "^check: full tier due: $2 changed since the last full pass" "$out"
+  if [ -f "$2" ] && git ls-files --error-unmatch "$2" >/dev/null 2>&1; then git checkout -q -- "$2"; else rm -f "$2"; fi
+}
+_dep_case dotnet src/OrderDesk.Domain/OrderDesk.Domain.csproj '<!-- a change -->'
+_dep_case dotnet Directory.Packages.props '<Project />'
+_dep_case typescript package-lock.json '{}'
+_dep_case python requirements.txt 'requests==2.32.3'
+# --fast itself switches for them. The stack's toolchain may be missing (exit 3) or find no project (exit 1): the
+# note comes first either way, and neither needs node or Python here.
+_dep_fast() { # _dep_fast <stack> <path> <content>
+  sed "s/^stack = none$/stack = $1/" "$work/cfg-serial" > tools/check.cfg; tier_commit "tiers: stack $1"
+  printf '%s\n' "$3" > "$2"
+  out="$(bash tools/check.sh --fast 2>&1)"; expect_output "--fast runs as the full tier for $2 with stack $1" "$2 changed .*so the fast tier runs as the full tier" "$out"
+  rm -f "$2"
+}
+_dep_fast typescript package-lock.json '{}'
+_dep_fast python pyproject.toml '[project]'
+if [ "$dotnet_sdk" -eq 0 ]; then
+  sed 's/^stack = none$/stack = dotnet/' "$work/cfg-serial" > tools/check.cfg; tier_commit "tiers: stack dotnet"
+  printf '<!-- a change -->\n' >> src/OrderDesk.Domain/OrderDesk.Domain.csproj
+  out="$(bash tools/check.sh --fast 2>&1)"
+  expect_output "--fast runs as the full tier for a changed .csproj" "OrderDesk.Domain.csproj changed .*so the fast tier runs as the full tier" "$out"
+  git checkout -q -- src/OrderDesk.Domain/OrderDesk.Domain.csproj
+fi
+# [tests] full-every: commits since the last full pass.
+{ cat "$work/cfg-serial"; printf '[tests]\nfull-every = 2\n'; } > tools/check.cfg; tier_commit "tiers: full-every 2"
+bash tools/check.sh >/dev/null 2>&1
+git_q commit --no-verify --allow-empty -qm "tiers: one" >/dev/null 2>&1
+out="$(bash tools/check.sh --fast 2>&1)"; expect_output "a fast pass says when the full tier is due" "PASS \(fast tier; the full tier is due in 1 commit\)" "$out"
+git_q commit --no-verify --allow-empty -qm "tiers: two" >/dev/null 2>&1
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: [tests] full-every commits make the full tier due" "^check: full tier due: 2 commits since the last full pass \([0-9a-f]{7}, .*\), \[tests\] full-every = 2" "$out"
+bash tools/check.sh >/dev/null 2>&1
+git_q commit --no-verify --amend --allow-empty -qm "tiers: two, amended" >/dev/null 2>&1
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: the last full pass isn't in this history" "^check: full tier due: the last full pass \([0-9a-f]{7}, .*\) isn't in this history" "$out"
+{ cat "$work/cfg-serial"; printf '[tests]\nfull-every = 0\n'; } > tools/check.cfg; tier_commit "tiers: full-every 0"
+bash tools/check.sh >/dev/null 2>&1
+git_q commit --no-verify --allow-empty -qm "tiers: three" >/dev/null 2>&1
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: full-every = 0 is never due by count" "^check: full tier not due: 1 commit since the last full pass \([0-9a-f]{7}, .*\), \[tests\] full-every = 0" "$out"
+out="$(bash tools/check.sh --fast 2>&1)"; expect_output "and a fast pass says so" "PASS \(fast tier; the full tier isn't due by count, \[tests\] full-every = 0\)" "$out"
+# A step that can't run in the fast tier exits 3, with or without GNU timeout.
+put tools/check.local.sh '[ "$CHECK_TIER" = fast ] && exit 3; exit 0'
+cp "$work/cfg-serial" tools/check.cfg; tier_commit "tiers: a project step that can't run fast"
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast exits 3 when a step can't run" 3 $? "$out"
+expect_output "and says its tier" "UNVERIFIED \(fast tier\)" "$out"
+out="$(bash tools/check.sh 2>&1)"; expect_status "while the full tier passes" 0 $? "$out"
+# Each tier has its own time limit.
+if timeout --version 2>/dev/null | grep -qi coreutils; then
+  put tools/check.local.sh 'sleep 3'
+  { cat "$work/cfg-serial"; printf '[tests]\ntimeout-fast = 1\ntimeout-full = 30\n'; } > tools/check.cfg; tier_commit "tiers: limits"
+  out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast exits 3 past [tests] timeout-fast" 3 $? "$out"
+  expect_output "and names the fast tier's limit" "ran past the 1-second limit \(tools/check.cfg › \[tests\] timeout-fast, the fast tier's\)" "$out"
+  out="$(bash tools/check.sh 2>&1)"; expect_status "the full tier keeps its own limit" 0 $? "$out"
+fi
+out="$(bash tools/check.sh --quick 2>&1)"; expect_status "an unknown flag exits 3" 3 $? "$out"
+expect_output "and shows the usage" "usage: bash tools/check.sh \[--full \| --fast\]" "$out"
+out="$(bash tools/check.sh --fast --full 2>&1)"; expect_status "--fast and --full together exit 3" 3 $? "$out"
+# Before the first commit and outside a git repository there is no change to select by: the full tier runs.
+_fresh="$work/tier-fresh"; mkdir -p "$_fresh/tools/stacks"
+cp "$src/framework/tools/check.sh" "$src/framework/tools/archcheck.awk" "$src/framework/tools/cfg.sh" "$_fresh/tools/"
+cp "$src/framework/tools/stacks/none.sh" "$_fresh/tools/stacks/"; cp "$work/cfg-serial" "$_fresh/tools/check.cfg"
+(cd "$_fresh" && git init -q && git config core.autocrlf false)
+out="$(cd "$_fresh" && bash tools/check.sh --fast 2>&1)"; expect_status "--fast passes before the first commit" 0 $? "$out"
+expect_output "as the full tier, saying why" "there's no commit yet, so the fast tier runs as the full tier" "$out"
+rm -rf "$_fresh/.git"
+out="$(cd "$_fresh" && bash tools/check.sh --fast 2>&1)"; expect_output "--fast outside a git repository runs as the full tier" "this isn't a git repository, so the fast tier runs as the full tier" "$out"
+out="$(cd "$_fresh" && bash tools/check.sh --due 2>&1)"; expect_output "--due outside a git repository: due" "^check: full tier due: no full pass recorded yet" "$out"
+rm -rf infra; rm -f tools/check.local.sh; cp "$work/cfg-serial" tools/check.cfg; cp "$work/domain-ok" $domain
+tier_commit "tiers: done"
 
 # --- Stop hook ----------------------------------------------------------------------------------
 echo "stop hook"

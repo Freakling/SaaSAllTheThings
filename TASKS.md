@@ -4,9 +4,17 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T51 · B4 · R1
+**Next IDs:** T52 · B4 · R1
 
 ## Queue
+
+### T51 · A fast tier for the check, selected by area · done · L · agent
+- Depends on: T50
+- Touches: framework/tools/check.sh, framework/tools/cfg.sh, framework/tools/archcheck.awk, project/tools/check.cfg, framework/.satt/rules.md, examples/order-desk/tools/check.cfg, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: `bash tools/check.sh --fast` runs the architecture rules and the secrets scan over the whole project, then only the steps the change from HEAD touches: the Bicep compile for a change under `infra/`, the backend stack unless every changed path is under `infra/`, in the `client` layer or documentation, and `tools/check.local.sh` with `CHECK_TIER=fast` and the changed paths in `CHECK_CHANGED`; `bash tools/check.sh` with no argument still runs everything (test) · a change to a dependency or its lockfile, a toolchain setting, a file under `tools/` or a `[tests] full-when` path runs as the full tier and says so (test) · a recorded result names its tier, a fast pass never stands for a full one, `--if-changed` reuses a pass of the same files and tier, and `bash tools/check.sh --due` says whether the full tier is due and why: no full pass recorded, `[tests] full-every` commits since the last one, or such a path changed (test) · each tier has its own time limit, and exit codes 0, 1 and 3 and the secrets scan on every commit are unchanged (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T340
 
 ### T50 · The check runs its backend, Bicep and project steps side by side · done · M · agent
 - Touches: framework/tools/check.sh, framework/tools/cfg.sh, project/tools/check.cfg, framework/.satt/rules.md, ONBOARDING.md, selftest.sh, CHANGELOG.md, TASKS.md

@@ -2,6 +2,7 @@
 #
 #   awk -v cfg=tools/check.cfg -v files=<list> -v adrs=<list> -v secrets=<git grep -n output> \
 #       -v logfile=<full log> -f tools/archcheck.awk
+#   awk -v cfg=tools/check.cfg -v classify=<list of paths> -f tools/archcheck.awk   (each path's layer)
 #
 # Run by tools/check.sh. Reads the layers from tools/check.cfg and applies the rules listed in
 # .satt/reference/README.md › What the check enforces to every source file in a layer, and the
@@ -59,6 +60,13 @@ BEGIN {
 
   max_lines = 300; host_max_lines = 80
   read_cfg()
+  # -v classify=<list>: print each listed path's layer (or -) and the path, and check nothing. The check's
+  # fast tier asks it which changed paths are in the client layer.
+  if (classify != "") {
+    while ((getline path < classify) > 0) { sub(/\r$/, "", path); if (path != "") { i = layer_index(path); print (i ? lay_name[i] : "-") " " path } }
+    close(classify)
+    exit 0
+  }
   read_adrs()
   if (files != "") {
     while ((getline path < files) > 0) consider(path)
