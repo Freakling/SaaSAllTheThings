@@ -4,9 +4,17 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T52 · B4 · R1
+**Next IDs:** T53 · B4 · R1
 
 ## Queue
+
+### T52 · The hooks and the procedures pick the check's tier · done · L · agent
+- Depends on: T51
+- Touches: framework/.githooks/pre-commit, framework/.githooks/pre-push, framework/.claude/hooks/stop-check.sh, framework/tools/check.sh, framework/tools/setup-clone.sh, framework/.satt/rules.md, framework/.satt/procedures/build.md, framework/.satt/procedures/next-task.md, framework/.satt/procedures/release.md, skills/saas-design-session/references/rules.md, README.md, ONBOARDING.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: the pre-commit hook runs the full tier when `--due` says so and the fast tier otherwise, says which and why, and reuses a builder's pass of the same files; the pre-push hook runs the full tier unless a full pass of the same files stands; the Stop hook runs the fast tier (as the full tier where the change needs it); after a commit that carried a full-tier path, the next commit gets the fast tier; the hooks ask `bash tools/check.sh --unignored` which changed paths count, so a Markdown `[tests] full-when` path runs the check (test) · `rules.md` › Done and Running the check say which tier runs where: the fast tier for a build, a commit and the turn end; the full tier when it's due, before a push, at the end of a run of several items, where a failure becomes a bug item, and for a release, which never takes a fast pass (check) · `build.md` verifies with the fast tier, `next-task.md` asks `--due` before a commit and runs a due full check in the background first, and the CHANGELOG has Upgrade steps for an app's `tools/check.cfg` and `tools/check.local.sh` (check) · a check without `tools/cfg.sh` says so and exits 3 (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T341
 
 ### T51 · A fast tier for the check, selected by area · done · L · agent
 - Depends on: T50

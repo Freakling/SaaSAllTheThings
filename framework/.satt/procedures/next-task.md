@@ -15,7 +15,7 @@ The request can be:
 ## 1. Pick
 1. **Find items without reading the whole file.** `grep -n '^### ' TASKS.md` lists every heading; then read only the candidates.
 2. **Is the tree clean?** If uncommitted changes from another item are in the working tree, don't start a new one. Ask the human whether to finish that item, commit it, or set it aside with `git stash push -- <paths>`.
-3. **Does the check pass now?** Run `bash tools/check.sh --if-changed`; it's instant after a passing commit. If it fails, say so, and offer the items that would fix it. Build others only if the human says to, telling the builder the failure was there before. A research item changes no code, so skip this for one.
+3. **Does the check pass now?** Run `bash tools/check.sh --fast --if-changed`; it's instant after a passing commit. If it fails, say so, and offer the items that would fix it. Build others only if the human says to, telling the builder the failure was there before. A research item changes no code, so skip this for one.
 4. **Security assessment or stories validation due?** With no report in `assessment/security/` yet, the assessment is due. Otherwise count the items done since the newest report (`git log -1 --format=%h -- assessment/security/`): the commits since then whose subject ends with an item ID, also when a squash merge adds its pull request after it (`feat: x (T12) (#34)`), `git log --format=%s <that commit>..HEAD | grep -cE '\((T|B)[0-9]+\)( \(#[0-9]+\))?$'`. In a shallow clone (`git rev-parse --is-shallow-repository` says `true`) the count may be low: say so. When it's due, or the count reaches `tools/check.cfg` › `[security] every` (a whole number above 0; 10 when the key is absent or isn't one), propose `security.md` before picking: say how many items are done since the last report. The human runs it now or later; when they decline, or in a run of several items, carry on picking and name it in the final report.
 
    Then run `bash tools/stories.sh --due`, which counts the same way for the user stories. When its line says `stories: due` (the stories in `product/user-stories.md` never validated, or `tools/check.cfg` › `[stories] every` items built since their Last validated commit), propose validating them (`design.md` › Validate the stories) with that line. As for the assessment, the human can run it now or later or decline, and a run of several items carries on and names it in the final report.
@@ -51,7 +51,7 @@ Every subagent's report is followed by a cleanup before anything else: find the 
 - **Report `failed: pre-existing`:** the failure was there before the build. Tell the human (see step 1).
 
 ## 4. Verify
-Run `bash tools/check.sh --if-changed`. It passes at once if the files are as the builder left them. Don't re-read the changed files unless the report or the check gives a reason.
+Run `bash tools/check.sh --fast --if-changed`. It passes at once if the files are as the builder left them. Don't re-read the changed files unless the report or the check gives a reason.
 
 ## 5. Update the records
 From the report:
@@ -69,7 +69,7 @@ Only when `rules.md` › Reviews and model size calls for one, judged from the i
 4. Review again only if the fixes were substantial.
 
 ## 7. Commit and report
-- **Commit** as `rules.md` › Git and Azure describes: one commit for the item's paths, including its records (with `product/user-stories.md` when the claim drafted a story). A research item's paths are its note and TASKS.md, and its message is `docs: <summary> (R3)`. Pause for approval unless the human has said to work autonomously ("do the next N tasks", "work through the queue", "grab tasks until you're blocked"), in which case commit without pausing and include all commits in the final report.
+- **Commit** as `rules.md` › Git and Azure describes: one commit for the item's paths, including its records (with `product/user-stories.md` when the claim drafted a story). A research item's paths are its note and TASKS.md, and its message is `docs: <summary> (R3)`. Before the commit, run `bash tools/check.sh --due` and, when the full tier is due, run it in the background first (`rules.md` › Running the check, Before a commit). The pre-commit hook then reuses a pass of the same files: the builder's, or that full run's. Pause for approval unless the human has said to work autonomously ("do the next N tasks", "work through the queue", "grab tasks until you're blocked"), in which case commit without pausing and include all commits in the final report.
 - **Report** in a few lines: what changed, the check result, placeholders added, and anything waiting on the human. Mention that the item's `(demo)` outcomes, or a bug fix without a regression test, will be in the next acceptance check.
 - **After the commit,** the records hold everything about the item. A new item can start in a fresh session, or after `/clear` in Claude Code, without losing anything.
 
@@ -85,7 +85,7 @@ A research item (format in `.satt/tasks.md`) is a candidate like any other, in f
 4. **Update the records.** Set the item to `done` and delete its `Note:`. Follow-ups the note names become new items (IDs from `Next IDs`, then bump it). The note doesn't change the PRD, `product/decisions.md`, an ADR or Open Questions.
 5. **Informs.** When the item has `Informs: Q<n>`, say that Q<n> is ready for a product or architecture call, and offer a session with the note as input. The question stays in Open Questions until the human decides, and tasks that need the decision stay gated by it.
 6. **Escalate** a note that says the question needs more than its size allows: rerun it once on the next size's model, set on the launch as Build says, and label the item `M (escalated from S)`. An `XL` note that says so comes to the human.
-7. **Commit** the note and the records as step 7 describes. Markdown outside `adr/` doesn't run the check, so the commit goes ahead without it.
+7. **Commit** the note and the records as step 7 describes. A note is Markdown outside `adr/`, which the check doesn't count (unless `tools/check.cfg` › `[tests] full-when` names its folder: `rules.md` › Running the check), so the commit goes ahead without it.
 
 ## Several items
 Repeat steps 1-7 for each item, skipping `human` items as step 1 does. Report one line per finished item, and don't re-read files you've already seen. Stop early when:
@@ -95,7 +95,9 @@ Repeat steps 1-7 for each item, skipping `human` items as step 1 does. Report on
 
 A finished research item doesn't stop the run: it goes on with the next candidate.
 
-End with the list of items done, a security assessment or a stories validation if Pick step 4 found one due, the stories drafted for items that had none (for the human to confirm), the questions that research has made ready for a product or architecture call, and what's next.
+Each commit takes its tier as step 7 and `rules.md` › Running the check say. The run ends with one full run: after the last commit, start `bash tools/check.sh --if-changed` in the background (it reuses a full pass of the same files) and wait for its completion notice. A failure there goes into the final report with its failing lines, and becomes a bug item, filed as step 5 files a `Found:` line and committed on its own as `docs: file the failing full run as a bug item`. A run of only research items changes no code, so it ends without one.
+
+End with the list of items done, the full run's result, a security assessment or a stories validation if Pick step 4 found one due, the stories drafted for items that had none (for the human to confirm), the questions that research has made ready for a product or architecture call, and what's next.
 
 ## Stopping partway through
 If you must stop before the item is done, add `- Note: <where it stands, what's next>` to the item.

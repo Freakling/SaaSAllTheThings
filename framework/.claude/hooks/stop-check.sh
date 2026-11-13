@@ -2,19 +2,21 @@
 # SaaSAllTheThings Stop hook · Claude Code · framework-owned: replaced on upgrade.
 #
 # When Claude is about to finish a turn and this session wrote or edited a source file since its last passing
-# check, and anything but documentation differs from the last commit, run the project check. The check itself
-# skips work when nothing changed since its last pass. If the check fails, block once and hand the output back to
-# Claude. The same failing state isn't reported twice, so a turn can still end after Claude has explained a
-# failure it can't fix.
+# check, and a path the check counts differs from the last commit (`bash tools/check.sh --unignored` says which), run
+# the project check's fast tier (bash tools/check.sh --fast --if-changed, which runs as the full tier where the change
+# needs it; the commit runs the full tier when it's due, and the push always). The check itself skips work when nothing changed since its last pass. If the check fails,
+# block once and hand the output back to Claude. The same failing state isn't reported twice, so a turn can still end
+# after Claude has explained a failure it can't fix.
 #
 # Whether this session wrote a source file is session-touched.sh's record, .satt/state/sessions/<session_id>.touched
 # (the session_id is in the hook input). A session that edited only documentation has none, so it never waits for
 # the check, even while another session in the same folder has uncommitted code. A record untouched for a day is
 # deleted. A passing check removes the session's record, and so does a turn that ends with no source file differing
 # from the last commit (the session's work is committed). With no session_id in the input (an older Claude Code),
-# the hook decides from git alone: anything but documentation differing from the last commit runs the check.
+# the hook decides from git alone: a path the check counts differing from the last commit runs the check.
 # Turn it off per machine with SATT_STOP_CHECK=0 (e.g. .claude/settings.local.json › env).
-# It never runs in a prototype (bash tools/prototype.sh here).
+# It never runs in a prototype (bash tools/prototype.sh here), nor in a repository with no commit yet, where the fast
+# tier would run as the full tier: the first commit's pre-commit hook gates that work.
 
 IFS= read -r -d '' _input || true
 [ "${SATT_STOP_CHECK:-1}" = "0" ] && exit 0
@@ -35,10 +37,18 @@ if [[ $_input =~ $sid_re ]]; then
   [ -n "$first" ] || exit 0
 fi
 
-git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
-git -c core.quotePath=false status --porcelain --untracked-files=all 2>/dev/null \
-  | awk '{ p = substr($0, 4); sub(/^.* -> /, "", p); gsub(/"/, "", p) } p != "" && (p !~ /\.md$/ || p ~ /^adr\//) { found = 1 } END { exit !found }' \
-  || { [ -n "$sid" ] && rm -f "$sessions/$sid.touched" "$sessions/$sid.before"; exit 0; }
+# Outside a git repository, or with no commit yet, nothing.
+git rev-parse -q --verify HEAD >/dev/null 2>&1 || exit 0
+# The paths that differ from the last commit, and those of them the check counts. Which paths count is tools/check.sh's
+# to say (--unignored, the fingerprint's rule), so this hook keeps no copy of it; a check.sh that can't answer leaves
+# every path counted. When none is counted, this session's work is committed.
+changed="$(git -c core.quotePath=false status --porcelain --untracked-files=all 2>/dev/null \
+  | awk '{ p = substr($0, 4); sub(/^.* -> /, "", p); gsub(/"/, "", p) } p != "" { print p }')"
+counted=""
+if [ -n "$changed" ]; then
+  counted="$(printf '%s\n' "$changed" | bash tools/check.sh --unignored 2>/dev/null)" || counted="$changed"
+fi
+[ -n "$counted" ] || { [ -n "$sid" ] && rm -f "$sessions/$sid.touched" "$sessions/$sid.before"; exit 0; }
 
 # A prototype (a linked worktree on a proto/ branch with PROTOTYPE.md at its root) is tried outside the
 # loop: the check gates nothing there (.satt/procedures/prototype.md).
@@ -55,7 +65,7 @@ if [ -n "$fingerprint" ] && [ "$(cat "$state/last-reported" 2>/dev/null)" = "$fi
   exit 0
 fi
 
-output="$(bash tools/check.sh --if-changed 2>&1)"
+output="$(bash tools/check.sh --fast --if-changed 2>&1)"
 status=$?
 if [ "$status" -eq 0 ]; then
   rm -f "$state/last-reported"
@@ -72,7 +82,7 @@ if [ "$status" -eq 3 ]; then
   } >&2
 else
   {
-    echo "SaaSAllTheThings: bash tools/check.sh fails on the current files:"
+    echo "SaaSAllTheThings: bash tools/check.sh fails on the current files (fast tier):"
     printf '%s\n' "$output" | tail -n 60
     echo "Fix it before finishing, within the architecture: never by moving code out of a layer or adding"
     echo "an ADR exception yourself. If you're stopping to ask the human something, or the failure comes"

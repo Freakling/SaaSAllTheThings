@@ -406,6 +406,21 @@ grep -qF 'Prototypes (`prototype.md`, `/prototype`) aren' "$src/skills/saas-desi
   || wired="$wired saas-design-session"
 [ -z "$wired" ] && ok "prototypes: the procedure, the skill and tools/prototype.sh exist, and the rules, the item format, the design procedure, the release, the settings, the hooks and the docs name them" \
   || bad "prototypes aren't wired into:$wired"
+# Which tier runs where: rules.md says it once (Done, Running the check), and the procedures and hooks follow it.
+tiers=""
+grep -qF 'the check exits 0 on the tier the procedure names: the fast tier for a build and a commit' "$satt/rules.md" \
+  && grep -qF -- '- **Fast** for a build, a commit and the end of a turn (the Stop hook), which run it as the full tier where the change needs it' "$satt/rules.md" \
+  && grep -qF -- '- **Full** when it'"'"'s due, before a push, at the end of a run of several items, and for a release, which never takes a fast pass.' "$satt/rules.md" \
+  && grep -qF 'becomes a bug item' "$satt/rules.md" || tiers="$tiers rules.md"
+grep -qF 'run `bash tools/check.sh --fast` (foreground, long timeout)' "$satt/procedures/build.md" && grep -qF 'Never ask for the full tier.' "$satt/procedures/build.md" || tiers="$tiers build.md"
+grep -qF 'run `bash tools/check.sh --due` and, when the full tier is due, run it in the background first' "$satt/procedures/next-task.md" \
+  && grep -qF 'The run ends with one full run' "$satt/procedures/next-task.md" && grep -qF 'Run `bash tools/check.sh --fast --if-changed`.' "$satt/procedures/next-task.md" || tiers="$tiers next-task.md"
+grep -qF 'the full tier, never `--fast`, and never a reused fast pass' "$satt/procedures/release.md" || tiers="$tiers release.md"
+grep -qF 'bash tools/check.sh --due' "$src/framework/.githooks/pre-commit" && grep -qF 'bash tools/check.sh --unignored' "$src/framework/.githooks/pre-commit" \
+  && grep -qF 'bash tools/check.sh --full --if-changed' "$src/framework/.githooks/pre-push" \
+  && grep -qF 'bash tools/check.sh --fast --if-changed' "$src/framework/.claude/hooks/stop-check.sh" && grep -qF 'bash tools/check.sh --unignored' "$src/framework/.claude/hooks/stop-check.sh" || tiers="$tiers hooks"
+[ -z "$tiers" ] && ok "the rules say which tier runs where, and build.md, next-task.md, release.md and the hooks follow them" \
+  || bad "the check's tiers aren't wired into:$tiers"
 # Nothing is written without the human's approval of a summary: rules.md › Who decides has the bullet right after
 # the product-call bullet, and accepts an ADR only by the approval of the summary that lists it; design.md holds the
 # answers in the conversation, has Summary and approval between For each question and Record each decision in one
@@ -4347,12 +4362,12 @@ printf '[tests]\nfull-when = db/ src/*/Migrations/ handbook/\n' >> tools/check.c
 tier_commit "tiers: full-when"
 bash tools/check.sh >/dev/null 2>&1
 put db/0001-orders.sql 'create table orders (id int);'
-out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: a [tests] full-when path makes the full tier due" "^check: full tier due: db/0001-orders.sql changed since the last full pass" "$out"
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: a [tests] full-when path makes the full tier due" "^check: full tier due: db/0001-orders.sql changed \(a dependency" "$out"
 out="$(bash tools/check.sh --fast 2>&1)"; expect_output "and runs --fast as the full tier" "db/0001-orders.sql changed .*so the fast tier runs as the full tier" "$out"
 rm -rf db
 bash tools/check.sh >/dev/null 2>&1
 put src/OrderDesk.Domain/Migrations/0002-lines.cs '// a migration'
-out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: a full-when folder pattern with a wildcard matches" "^check: full tier due: src/OrderDesk.Domain/Migrations/0002-lines.cs changed since the last full pass" "$out"
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: a full-when folder pattern with a wildcard matches" "^check: full tier due: src/OrderDesk.Domain/Migrations/0002-lines.cs changed \(a dependency" "$out"
 out="$(bash tools/check.sh --fast 2>&1)"; expect_output "and runs --fast as the full tier" "src/OrderDesk.Domain/Migrations/0002-lines.cs changed .*so the fast tier runs as the full tier" "$out"
 rm -rf src/OrderDesk.Domain/Migrations
 bash tools/check.sh >/dev/null 2>&1
@@ -4363,7 +4378,7 @@ rm -rf handbook
 _dep_case() { # _dep_case <stack> <path> <content>
   sed "s/^stack = none$/stack = $1/" "$work/cfg-serial" > tools/check.cfg; tier_commit "tiers: stack $1"
   printf '%s\n' "$3" >> "$2"
-  out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: $2 makes the full tier due for stack $1" "^check: full tier due: $2 changed since the last full pass" "$out"
+  out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: $2 makes the full tier due for stack $1" "^check: full tier due: $2 changed \(a dependency" "$out"
   if [ -f "$2" ] && git ls-files --error-unmatch "$2" >/dev/null 2>&1; then git checkout -q -- "$2"; else rm -f "$2"; fi
 }
 _dep_case dotnet src/OrderDesk.Domain/OrderDesk.Domain.csproj '<!-- a change -->'
@@ -4451,6 +4466,9 @@ cp $domain "$work/failing"
 out="$(hook)"; status=$?
 expect_status "blocks a failing change" 2 "$status" "$out"
 expect_output "gives Claude the check output" 'domain-purity' "$out"
+expect_output "and runs only the fast tier" 'check: running the fast tier' "$out"
+expect_output "and says so" 'fails on the current files \(fast tier\)' "$out"
+expect_no_output "never the full tier" 'running the full tier' "$out"
 out="$(hook)"; expect_status "reports the same failing state only once" 0 $? "$out"
 rm -f .satt/state/last-reported
 : > .satt/state/building
@@ -4460,6 +4478,27 @@ out="$(hook)"; expect_status "blocks again once the builder is done" 2 $? "$out"
 cp "$work/passing" $domain
 out="$(hook)"; expect_status "lets the fixed state through" 0 $? "$out"
 git checkout -q -- $domain
+# Which changed paths count is the check's rule (--unignored), not the hook's: a Markdown path that runs the full tier
+# ([tests] full-when) counts, so the hook runs the check for it, which runs as the full tier and fails on the violation.
+printf '[tests]\nfull-when = handbook/\n' >> tools/check.cfg; tier_commit "stop hook: full-when handbook/"
+printf 'public static class Bad { public static DateTime T => DateTime.UtcNow; }\n' >> $domain
+git add $domain; git_q commit --no-verify -qm "stop hook: a committed violation" >/dev/null 2>&1
+rm -f .satt/state/last-reported .satt/state/last-pass* .satt/state/last-fail*
+put handbook/release.md '# Release'
+out="$(hook)"; expect_status "runs the check for a Markdown path that runs the full tier, and blocks on its failure" 2 $? "$out"
+expect_output "where the fast tier runs as the full tier, saying why" "handbook/release.md changed .*so the fast tier runs as the full tier" "$out"
+rm -rf handbook; rm -f .satt/state/last-reported
+printf '# notes\n' > notes.md
+out="$(hook)"; expect_status "while other Markdown still starts no check" 0 $? "$out"
+rm -f notes.md
+git reset -q --hard HEAD~2; rm -f .satt/state/last-reported
+# With no commit yet the fast tier would be the full one: the turn ends, and the first commit's hook gates the work.
+_nocommit="$work/stop-no-commit"; mkdir -p "$_nocommit/tools" "$_nocommit/src"
+put "$_nocommit/tools/check.sh" ': > ran; exit 1'
+put "$_nocommit/src/A.cs" 'class A {}'
+git -C "$_nocommit" init -q
+out="$(echo '{}' | CLAUDE_PROJECT_DIR="$_nocommit" bash .claude/hooks/stop-check.sh 2>&1)"; expect_status "ends the turn in a repository with no commit yet" 0 $? "$out"
+[ ! -e "$_nocommit/ran" ] && ok "and runs no check there" || bad "the Stop hook ran the check before the first commit"
 
 # --- Stop hook, per session ---------------------------------------------------------------------
 # Two sessions can share one working folder (a design session and a build session, no worktree). The Stop hook runs the
@@ -4474,7 +4513,10 @@ sr_hooks="$src/framework/.claude/hooks"
 mkdir -p "$sr/tools" "$sr/src"
 cat > "$sr/tools/check.sh" <<'EOF'
 #!/usr/bin/env bash
-case "${1:-}" in --fingerprint) cat src/*.cs 2>/dev/null | git hash-object --stdin; exit 0 ;; esac
+case "${1:-}" in
+  --fingerprint) cat src/*.cs 2>/dev/null | git hash-object --stdin; exit 0 ;;
+  --unignored) grep -v '\.md$'; exit 0 ;;
+esac
 : > .satt/state/check-ran
 if [ -f .satt/state/fail ]; then echo "domain-purity: src/Billing.cs reads the clock"; exit 1; fi
 exit 0
@@ -4960,6 +5002,107 @@ printf '\n// another change\n' >> $domain && git add $domain
 out="$(git_q commit -qm "with satt-new" 2>&1)"; expect_status "refuses while a .satt-new file is unmerged" 1 $? "$out"
 rm -f tools/check.sh.satt-new
 git reset -q HEAD -- $domain && git checkout -q -- $domain
+
+# The hook asks the check which staged paths count (--unignored, the fingerprint's one rule) and which tier is due
+# (--due): the full tier when it's due, the fast tier otherwise, saying which and why, and it reuses a pass of the
+# same files, a builder's for one.
+echo "pre-commit tiers"
+out="$(printf 'notes.md\nadr/ADR-3-x.md\nsrc/A.cs\nhandbook/r.md\n' | bash tools/check.sh --unignored 2>&1)"
+[ "$out" = "adr/ADR-3-x.md"$'\n'"src/A.cs" ] && ok "--unignored keeps the paths the check counts: not Markdown, but an ADR" \
+  || bad "--unignored keeps the paths the check counts: not Markdown, but an ADR" "$out"
+_pc_base="$(git rev-parse HEAD)"
+rm -f .satt/state/last-full
+printf '\n// a change while the full tier is due\n' >> $domain; git add $domain
+out="$(git_q commit -qm "tiers: due" 2>&1)"; expect_status "commits when the full tier is due" 0 $? "$out"
+expect_output "runs the full tier then, saying why" "pre-commit: running the project check, full tier: no full pass recorded yet" "$out"
+expect_output "and the check runs it" "check: PASS \(full tier\)" "$out"
+printf '\n// a builder change\n' >> $domain
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "a builder's fast pass" 0 $? "$out"
+git add $domain
+out="$(git_q commit -qm "tiers: not due" 2>&1)"; expect_status "commits when the full tier isn't due" 0 $? "$out"
+expect_output "runs the fast tier then, saying why" "pre-commit: running the project check, fast tier: the full tier isn't due, 1 commit since the last full pass \([0-9a-f]{7}, [^)]*\), \[tests\] full-every = 10"$'\n' "$out"
+expect_output "and reuses the builder's pass of the same files" "check: PASS \(nothing changed since the last passing run: the fast tier" "$out"
+printf '[tests]\nfull-when = handbook/\n' >> tools/check.cfg; git add tools/check.cfg
+out="$(git_q commit -qm "tiers: full-when" 2>&1)"
+expect_output "a change under tools/ makes the full tier due for its commit" "pre-commit: running the project check, full tier: tools/check.cfg changed \(a dependency" "$out"
+put handbook/release.md '# Release'; git add handbook/release.md
+out="$(git_q commit -qm "docs: the release handbook" 2>&1)"; expect_status "commits a Markdown full-when path" 0 $? "$out"
+expect_output "and runs the check for it, as the full tier" "pre-commit: running the project check, full tier: handbook/release.md changed \(a dependency" "$out"
+printf '# notes\n' > notes2.md; git add notes2.md
+out="$(git_q commit -qm "docs: other notes" 2>&1)"; expect_no_output "while other Markdown still starts no check" "running the project check" "$out"
+printf '\n// after the full-when commits\n' >> $domain; git add $domain
+out="$(git_q commit -qm "tiers: after full-when" 2>&1)"; expect_status "commits after the commits that carried full-tier paths" 0 $? "$out"
+expect_output "and the next commit gets the fast tier: --due reads the path rule from the changes from HEAD only" "pre-commit: running the project check, fast tier: the full tier isn't due, 2 commits since the last full pass" "$out"
+# The check can't run (exit 3): the commit is blocked, and the hook says what to do.
+put tools/check.local.sh 'exit 3'
+printf '\n// while a step cannot run\n' >> $domain; git add $domain
+out="$(git_q commit -qm "tiers: unverified" 2>&1)"; expect_status "pre-commit blocks a commit while the check can't run" 1 $? "$out"
+expect_output "and says nothing was committed" "pre-commit: the check couldn't run \(the reason is above\), so nothing was committed" "$out"
+git reset -q -- $domain; git checkout -q -- $domain; rm -f tools/check.local.sh
+bash tools/check.sh >/dev/null 2>&1   # a full run before the push, as rules.md says
+# The pre-push hook runs the full tier, reusing a full pass of the same files and never a fast one; a failure blocks
+# the push, and a push that only deletes runs nothing.
+echo "pre-push hook"
+git init -q --bare "$work/app-origin.git"; git remote add origin "$work/app-origin.git"
+out="$(git push -q origin HEAD:refs/heads/main 2>&1)"; expect_status "pre-push lets a passing push through" 0 $? "$out"
+expect_output "after the full tier" "pre-push: running the project check, full tier: a push gets the full check" "$out"
+expect_output "reusing a full pass of the same files" "nothing changed since the last passing run: the full tier" "$out"
+printf '\n// not committed\n' >> $domain
+bash tools/check.sh --fast >/dev/null 2>&1
+out="$(git push -q origin HEAD:refs/heads/other 2>&1)"; expect_status "pre-push passes again" 0 $? "$out"
+expect_output "but never on a fast pass: the full tier runs" "check: running the full tier" "$out"
+printf 'public static class Bad { public static Guid G => Guid.NewGuid(); }\n' >> $domain
+out="$(git push -q origin HEAD:refs/heads/third 2>&1)"; expect_status "pre-push blocks a push while the full check fails" 1 $? "$out"
+expect_output "and says nothing was pushed" "pre-push: the full check fails, so nothing was pushed" "$out"
+[ -z "$(git --git-dir="$work/app-origin.git" for-each-ref refs/heads/third)" ] && ok "and the ref doesn't reach the remote" || bad "a blocked push reached the remote"
+out="$(git push -q origin :refs/heads/other 2>&1)"; expect_status "a push that only deletes goes through" 0 $? "$out"
+expect_no_output "without the check" "running the project check" "$out"
+git checkout -q -- $domain
+put tools/check.local.sh 'exit 3'
+out="$(git push -q origin HEAD:refs/heads/fourth 2>&1)"; expect_status "pre-push blocks a push while the check can't run" 1 $? "$out"
+expect_output "and says nothing was pushed" "pre-push: the check couldn't run \(the reason is above\), so nothing was pushed" "$out"
+rm -f tools/check.local.sh; git remote remove origin
+git reset -q --hard "$_pc_base"; rm -f .satt/state/last-reported
+
+# Without tools/cfg.sh the check can't read its settings: every mode exits 3, so --secrets never reads as a secret found.
+_nocfg="$work/no-cfg"; new_repo "$_nocfg"; mkdir -p "$_nocfg/tools"
+cp "$src/framework/tools/check.sh" "$src/framework/tools/archcheck.awk" "$_nocfg/tools/"
+out="$(cd "$_nocfg" && bash tools/check.sh --secrets 2>&1)"; expect_status "--secrets exits 3 without tools/cfg.sh" 3 $? "$out"
+expect_output "and says tools/cfg.sh is missing" "check: tools/cfg.sh is missing" "$out"
+out="$(cd "$_nocfg" && bash tools/check.sh --fingerprint 2>&1)"; expect_status "and so does --fingerprint" 3 $? "$out"
+
+# The hooks' fallbacks, with a stand-in check that records how it was run: --due with no answer runs the full tier, a
+# check.sh that can't answer --unignored leaves every staged path counted, and the pre-push hook runs nothing in a
+# prototype or without tools/check.sh. Marker files switch the stand-in's answers.
+_hk="$work/hook-standin"; new_repo "$_hk"; mkdir -p "$_hk/tools"
+put "$_hk/tools/check.sh" 'case "${1:-}" in
+  --secrets) exit 0 ;;
+  --unignored) [ -f unignored-fails ] && exit 3; grep -v "\.md$"; exit 0 ;;
+  --due) [ -f due-silent ] && exit 0; echo "check: full tier not due: 1 commit since the last full pass (abc1234, x), [tests] full-every = 10"; exit 0 ;;
+esac
+echo "$*" > ran; exit 0'
+_pc_in() { (cd "$_hk" && bash "$src/framework/.githooks/pre-commit" 2>&1); }
+_pp_in() { (cd "$_hk" && printf 'refs/heads/x %s refs/heads/x 0000000000000000000000000000000000000000\n' "$(git rev-parse HEAD)" \
+  | bash "$src/framework/.githooks/pre-push" 2>&1); }
+_hk_ran() { cat "$_hk/ran" 2>/dev/null; }
+(cd "$_hk" && printf 'x\n' > a.cs && git add a.cs && : > due-silent)
+out="$(_pc_in)"; expect_status "pre-commit: --due with no answer still lets a passing commit through" 0 $? "$out"
+expect_output "and runs the full tier, saying why" "pre-commit: running the project check, full tier: 'bash tools/check.sh --due' gave no answer" "$out"
+[ "$(_hk_ran)" = "--full --if-changed" ] && ok "the full tier is what it asks for" || bad "pre-commit asked for: $(_hk_ran)"
+(cd "$_hk" && rm -f due-silent ran && git reset -q -- a.cs && printf '# n\n' > n.md && git add n.md)
+out="$(_pc_in)"; expect_no_output "pre-commit: a Markdown-only commit starts no check" "running the project check" "$out"
+: > "$_hk/unignored-fails"
+out="$(_pc_in)"; expect_output "but when check.sh can't answer --unignored, every staged path counts and the check runs" "running the project check, fast tier" "$out"
+[ "$(_hk_ran)" = "--fast --if-changed" ] && ok "on the tier --due names" || bad "pre-commit asked for: $(_hk_ran)"
+rm -f "$_hk/ran" "$_hk/unignored-fails"
+out="$(_pp_in)"; expect_status "pre-push runs the stand-in check" 0 $? "$out"
+[ "$(_hk_ran)" = "--full --if-changed" ] && ok "pre-push asks for the full tier" || bad "pre-push asked for: $(_hk_ran)"
+rm -f "$_hk/ran"; put "$_hk/tools/prototype.sh" 'exit 0'
+out="$(_pp_in)"; expect_status "pre-push in a prototype lets the push through" 0 $? "$out"
+[ -z "$(_hk_ran)" ] && [[ $out != *"running the project check"* ]] && ok "and runs no check there" || bad "pre-push ran the check in a prototype" "$out"
+rm -f "$_hk/tools/prototype.sh"; mv "$_hk/tools/check.sh" "$_hk/check.sh.away"
+out="$(_pp_in)"; expect_status "pre-push without tools/check.sh lets the push through" 0 $? "$out"
+[ -z "$(_hk_ran)" ] && [[ $out != *"running the project check"* ]] && ok "and runs no check" || bad "pre-push ran a check without tools/check.sh" "$out"
 
 # A nested clone in an ignored folder is listed by ls-files as a directory. It doesn't block a
 # commit, but a real upgrade file still does while the clone is there.
@@ -6088,8 +6231,14 @@ _push_refused "proto/quick-add~0 under another name" "$_pa" "proto/quick-add~0:r
 git -C "$_pa" branch from-proto proto/quick-add >/dev/null 2>&1
 _push_refused "a branch made from a prototype's commit" "$_pa" from-proto "carries a prototype's commits"
 (cd "$_pa" && printf '# app\n\nA note.\n' > README.md && git add README.md && git commit -qm "docs: a note") >/dev/null 2>&1
+# Outside a prototype a push gets the full check: this app's fails, so main waits until it passes.
+out="$(cd "$_pa" && git push -q origin main 2>&1)"; status=$?
+{ [ "$status" -ne 0 ] && printf '%s' "$out" | grep -q "pre-push: the full check fails, so nothing was pushed"; } \
+  && ok "pre-push runs the full check on main, and blocks the push while it fails" || bad "pre-push blocks main while the full check fails (exit $status)" "$out"
+printf 'exit 0\n' > "$_pa/tools/check.local.sh"
 out="$(cd "$_pa" && git push -q origin main 2>&1)"
 expect_status "pre-push lets main through" 0 $? "$out"
+git -C "$_pa" checkout -q -- tools/check.local.sh
 [ "$(git --git-dir="$_po" for-each-ref --format='%(refname)')" = "refs/heads/main" ] \
   && ok "the origin has main and nothing else" || bad "a refused push reached the origin" "$(git --git-dir="$_po" for-each-ref)"
 

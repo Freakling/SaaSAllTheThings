@@ -12,7 +12,10 @@
 #   bash tools/check.sh --architecture   only the architecture rules: seconds, no toolchain needed
 #   bash tools/check.sh --secrets        only the secrets rule (step 1's), for the pre-commit hook to run on every commit
 #   bash tools/check.sh --fingerprint    print the fingerprint of the current files (for hooks)
-# Exit codes: 0 = pass · 1 = fail · 3 = couldn't run (a toolchain is missing, a step hit its limit, an unknown flag)
+#   bash tools/check.sh --unignored      print the paths read from stdin, one per line, that the check counts (the
+#                                        fingerprint's rule, counted_path below); the hooks give it the changed paths
+# Exit codes: 0 = pass · 1 = fail · 3 = couldn't run (a toolchain is missing, a step hit its limit, an unknown flag,
+# a missing tools/cfg.sh)
 #
 # Steps:
 #   1. architecture: tools/archcheck.awk applies the reference architecture's rules
@@ -31,7 +34,8 @@
 # below, per stack), a file under tools/ or a [tests] full-when path (bash case patterns from the repository root; one
 # that ends in / is a folder).
 # The full tier is due (--due, and the result line of a fast pass) when no full pass is recorded, when [tests] full-every
-# commits (default 10; 0: never by count) were made since the last one, or when such a path changed since it.
+# commits (default 10; 0: never by count) were made since the last one, or when such a path differs from HEAD (the
+# commit that carries one runs the full tier, so the next one isn't due for it).
 # Each tier has its own limit for each test command: [tests] timeout-fast (default 300 seconds) and timeout-full (default
 # 600; the older [tests] timeout counts when it isn't set); CHECK_TIMEOUT overrides both. They need GNU timeout; a run
 # that hits the limit exits 3, unless a failure was already seen.
@@ -51,7 +55,7 @@ nl='
 '
 FIND=find; [ -x /usr/bin/find ] && FIND=/usr/bin/find   # not Windows' find.exe
 SORT=sort; [ -x /usr/bin/sort ] && SORT=/usr/bin/sort   # not Windows' sort.exe
-usage="usage: bash tools/check.sh [--full | --fast] [--if-changed] | --due | --architecture | --secrets | --fingerprint"
+usage="usage: bash tools/check.sh [--full | --fast] [--if-changed] | --due | --architecture | --secrets | --fingerprint | --unignored"
 
 # --- the command line -------------------------------------------------------------------------------
 requested=""; if_changed=0; mode=""
@@ -61,7 +65,7 @@ for arg; do
       if [ -n "$requested" ] && [ "$requested" != "${arg#--}" ]; then echo "check: --full and --fast can't be combined"; echo "$usage"; exit 3; fi
       requested="${arg#--}" ;;
     --if-changed) if_changed=1 ;;
-    --due|--architecture|--secrets|--fingerprint)
+    --due|--architecture|--secrets|--fingerprint|--unignored)
       if [ -n "$mode" ] && [ "$mode" != "$arg" ]; then echo "check: $mode and $arg can't be combined"; echo "$usage"; exit 3; fi
       mode="$arg" ;;
     *) echo "check: unknown flag: $arg"; echo "$usage"; exit 3 ;;
@@ -70,6 +74,13 @@ done
 requested="${requested:-full}"
 
 read_file() { REPLY=""; [ -f "$1" ] && IFS= read -r REPLY < "$1"; return 0; }
+# Every mode reads the settings, so without the reader nothing can run: exit 3, never 1, which --secrets would mean
+# as a secret found.
+if [ ! -f tools/cfg.sh ]; then
+  echo "check: tools/cfg.sh is missing, so the check can't read tools/check.cfg and nothing was checked."
+  echo "check: it is framework-owned: restore it with 'git checkout HEAD -- tools/cfg.sh', or upgrade SaaSAllTheThings."
+  exit 3
+fi
 . tools/cfg.sh
 
 # Paths whose change runs the full tier: a file under tools/ (the check, its settings, the stack profiles), the stack's
@@ -98,14 +109,33 @@ path_in() {
   return "$hit"
 }
 
-# Hash of every file that can change the result: everything but Markdown, which counts only in adr/ and where it is a
-# path that runs the full tier (full_when), so a change to one is never taken for nothing changed. The paths are sorted
-# before they are hashed: git lists untracked files before tracked ones, so staging a new file would otherwise change
-# the hash though no file's content changed.
+# counted_path <path from the repository root>: 0 when the check counts it: everything but Markdown, which counts only
+# in adr/ and where it is a path that runs the full tier (full_when). The fingerprint and --unignored read this one rule,
+# so a change the check counts is never taken for nothing changed, nor one a hook starts no check for.
+counted_path() {
+  case "$1" in
+    adr/*) return 0 ;;
+    *.md) path_in "$1" "$full_when" ;;
+    *) return 0 ;;
+  esac
+}
+
+# --unignored: the paths on stdin that the check counts, as they came. The pre-commit hook gives it the staged paths and
+# the Stop hook the changed ones, so a change of none of them starts no check.
+if [ "$mode" = "--unignored" ]; then
+  while IFS= read -r p || [ -n "$p" ]; do
+    [ -n "$p" ] && counted_path "$p" && printf '%s\n' "$p"
+  done
+  exit 0
+fi
+
+# Hash of every file that can change the result (counted_path). The paths are sorted before they are hashed: git lists
+# untracked files before tracked ones, so staging a new file would otherwise change the hash though no file's content
+# changed.
 fingerprint() {
   local path list=()
   while IFS= read -r path; do
-    case "$path" in adr/*) ;; *.md) path_in "$path" "$full_when" || continue ;; esac
+    counted_path "$path" || continue
     [ -f "$path" ] && list+=("$path")
   done < <(git -c core.quotePath=false ls-files -c -o --exclude-standard 2>/dev/null | LC_ALL=C "$SORT" -u)
   [ "${#list[@]}" -gt 0 ] || return 0
@@ -161,7 +191,7 @@ if [ "$mode" = "--fingerprint" ]; then fingerprint; exit 0; fi
 # --secrets: only the secrets rule of step 1, with the same patterns, [scan] skip folders, public
 # emulator keys and accepted ADR exceptions, over the whole working tree and the index (so a staged secret
 # edited out on disk is still found); a git grep error exits 3. The pre-commit hook runs it on every commit,
-# because it runs the whole check only for a commit that stages more than documentation.
+# because it runs the check only for a commit that stages a path the check counts (--unignored).
 # It only reads, so it takes no lock and no fingerprint. Other violations are the full check's to report.
 if [ "$mode" = "--secrets" ]; then
   if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -223,7 +253,7 @@ full_path() {
 # due_check: whether the full tier is due (due_now 1 or 0) and why (due_why); due_in, the commits until
 # [tests] full-every brings it (empty when that is 0). Reads changed_list.
 due_check() {
-  local lf_commit="" lf_at="" since word count
+  local lf_commit="" lf_at="" word count
   due_now=1; due_why=""; due_in=""; due_count=0; lf_desc=""
   [ -f "$state/last-full" ] && read -r lf_commit lf_at < "$state/last-full"
   if [ -z "$lf_commit" ]; then due_why="no full pass recorded yet"; return 0; fi
@@ -231,9 +261,11 @@ due_check() {
   if [ -z "$head" ] || ! git merge-base --is-ancestor "$lf_commit" "$head" >/dev/null 2>&1; then
     due_why="the last full pass ($lf_desc) isn't in this history"; return 0
   fi
-  since="$(git -c core.quotePath=false diff --name-only --no-renames "$lf_commit" "$head" -- 2>/dev/null)"
-  if full_path "$changed_list$since"; then
-    due_why="$full_hit changed since the last full pass (a dependency, a toolchain setting, tools/ or [tests] full-when)"; return 0
+  # The path rule reads only the changes from HEAD: the commit that carried such a path ran the full tier, since the
+  # pre-commit hook asks this first, so a later commit doesn't run it again for that path. A commit made without the
+  # hook is covered by the count.
+  if full_path "$changed_list"; then
+    due_why="$full_hit changed (a dependency, a toolchain setting, tools/ or [tests] full-when)"; return 0
   fi
   count="$(git rev-list --count "$lf_commit..$head" 2>/dev/null)"
   case "$count" in ''|*[!0-9]*) count=0 ;; esac

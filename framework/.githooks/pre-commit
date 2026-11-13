@@ -4,9 +4,12 @@
 #
 # On every commit, whatever is staged, it scans for secrets (the check's secrets rule, run alone as
 # `bash tools/check.sh --secrets`), so a token pasted into a page, a script or a record is caught
-# before it enters history. A scan that can't run blocks the commit. When the commit includes anything but
-# documentation (Markdown outside adr/), it also runs the project check. The check covers the working tree,
-# so commit what you checked.
+# before it enters history. A scan that can't run blocks the commit. When the commit stages a path the check
+# counts (`bash tools/check.sh --unignored` says which: anything but Markdown, Markdown in adr/, and a path that
+# runs the full tier, such as a [tests] full-when folder), it also runs the project check, with --if-changed, in
+# the tier `bash tools/check.sh --due` names: the full tier when it's due, the fast tier otherwise, and says which
+# and why. A pass of the same files, a builder's for one, is reused, so no second run starts
+# (.satt/rules.md › Running the check). The check covers the working tree, so commit what you checked.
 #
 # In a prototype (a linked worktree on a proto/ branch with PROTOTYPE.md at its root, which is what
 # `bash tools/prototype.sh here` says; .satt/procedures/prototype.md), tried outside the loop, the project
@@ -57,7 +60,7 @@ if [ "$prototype" -eq 1 ]; then
   fi
 fi
 
-# The secrets scan doesn't wait for the check: the filter below skips most Markdown, and a pass the
+# The secrets scan doesn't wait for the check: a commit of most Markdown starts no check, and a pass the
 # check reuses (--if-changed) never looked at a Markdown file. The scan takes a second.
 echo "pre-commit: scanning for secrets"
 secrets_out="$(bash tools/check.sh --secrets 2>&1)"
@@ -74,22 +77,38 @@ if [ "$status" -ne 0 ]; then
   exit 1
 fi
 
-if git -c core.quotePath=false diff --cached --name-only -z --diff-filter=ACMRD | tr '\0' '\n' \
-    | awk 'NF && (!/\.md$/ || /^adr\//) { found = 1 } END { exit !found }'; then
-  if [ "$prototype" -eq 1 ]; then
-    echo "pre-commit: this checkout is a prototype, so the project check is skipped (the secrets scan still ran)"
-    exit 0
-  fi
-  echo "pre-commit: running the project check"
-  bash tools/check.sh --if-changed
-  status=$?
-  if [ "$status" -eq 3 ]; then
-    echo "pre-commit: the check couldn't run. Run 'bash tools/setup-clone.sh', or, if you accept an"
-    echo "unverified commit, commit with --no-verify yourself."
-    exit 1
-  elif [ "$status" -ne 0 ]; then
-    echo "pre-commit: the check fails; commit blocked."
-    exit 1
-  fi
+# The staged paths the check counts. Which paths count is tools/check.sh's to say (--unignored, the fingerprint's rule),
+# so this hook keeps no copy of it. A check.sh that can't answer leaves every staged path counted, so the check runs and
+# says what's wrong. A commit that stages none starts no check.
+staged="$(git -c core.quotePath=false diff --cached --name-only -z --diff-filter=ACMRD | tr '\0' '\n')"
+counted=""
+if [ -n "$staged" ]; then
+  counted="$(printf '%s\n' "$staged" | bash tools/check.sh --unignored 2>/dev/null)" || counted="$staged"
+fi
+[ -n "$counted" ] || exit 0
+if [ "$prototype" -eq 1 ]; then
+  echo "pre-commit: this checkout is a prototype, so the project check is skipped (the secrets scan still ran)"
+  exit 0
+fi
+
+due="$(bash tools/check.sh --due 2>/dev/null)"
+case "$due" in
+  "check: full tier not due: "*) tier=fast; why="the full tier isn't due, ${due#check: full tier not due: }" ;;
+  "check: full tier due: "*) tier=full; why="${due#check: full tier due: }" ;;
+  *) tier=full; why="'bash tools/check.sh --due' gave no answer" ;;
+esac
+echo "pre-commit: running the project check, $tier tier: $why"
+bash tools/check.sh --"$tier" --if-changed
+status=$?
+if [ "$status" -eq 3 ]; then
+  echo "pre-commit: the check couldn't run (the reason is above), so nothing was committed; the staged changes are as they were."
+  echo "            When it ran out of time, run it in the background with a longer limit, 'CHECK_TIMEOUT=<seconds> bash"
+  echo "            tools/check.sh --$tier', and commit again once it passes (the commit reuses its pass), or raise [tests]"
+  echo "            timeout-$tier in tools/check.cfg. When a tool is missing, run 'bash tools/setup-clone.sh'."
+  echo "            If you accept an unverified commit, commit with --no-verify yourself."
+  exit 1
+elif [ "$status" -ne 0 ]; then
+  echo "pre-commit: the check fails; commit blocked."
+  exit 1
 fi
 exit 0
