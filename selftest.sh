@@ -4254,6 +4254,31 @@ if timeout --version 2>/dev/null | grep -qi coreutils; then
   expect_output "and says it was stopped at the limit" "ran past the 1-second limit" "$out"
 fi
 rm -f tools/check.local.sh; cp "$work/cfg-serial" tools/check.cfg
+# An interrupted side-by-side run stops its steps' commands as well as the steps: the project step's sleep runs under
+# the step's shell, and it must not outlive the TERM. The lock is freed either way. Cleanup kills what is left.
+pidfile="$work/sleep.pid"; rm -f "$pidfile"
+{ cat "$work/cfg-serial"; printf '\n[tests]\nparallel = on\n'; } > tools/check.cfg
+printf 'sleep 300 &\necho $! > "%s"\nwait\n' "$pidfile" > tools/check.local.sh
+bash tools/check.sh </dev/null > "$work/interrupted.out" 2>&1 &
+int_pid=$!
+i=0
+until [ -s "$pidfile" ] || [ "$i" -ge 60 ]; do sleep 1; i=$((i + 1)); done
+sleep_pid=""
+[ -s "$pidfile" ] && read -r sleep_pid < "$pidfile"
+if [ -n "$sleep_pid" ] && kill -0 "$sleep_pid" 2>/dev/null; then ok "side by side: the project step's command is running before the interrupt"; else bad "side by side: the project step's command is running before the interrupt" "$(cat "$work/interrupted.out")"; fi
+kill "$int_pid" 2>/dev/null
+i=0
+while kill -0 "$int_pid" 2>/dev/null && [ "$i" -lt 60 ]; do sleep 1; i=$((i + 1)); done
+if kill -0 "$int_pid" 2>/dev/null; then kill -KILL "$int_pid" 2>/dev/null; fi
+wait "$int_pid" 2>/dev/null; int_status=$?
+expect_status "side by side: an interrupted run exits 130" 130 "$int_status" "$(cat "$work/interrupted.out")"
+i=0
+while [ -n "$sleep_pid" ] && kill -0 "$sleep_pid" 2>/dev/null && [ "$i" -lt 5 ]; do sleep 1; i=$((i + 1)); done
+if [ -n "$sleep_pid" ] && ! kill -0 "$sleep_pid" 2>/dev/null; then ok "side by side: an interrupt stops the project step's command within 5 seconds"; else bad "side by side: an interrupt stops the project step's command within 5 seconds" "$(cat "$work/interrupted.out")"; fi
+if [ ! -e .satt/state/lock ]; then ok "and frees the lock"; else bad "an interrupted run frees the lock" "$(ls -la .satt/state)"; fi
+[ -n "$sleep_pid" ] && kill -0 "$sleep_pid" 2>/dev/null && kill -KILL "$sleep_pid" 2>/dev/null
+kill -0 "$int_pid" 2>/dev/null && kill -KILL "$int_pid" 2>/dev/null
+rm -f tools/check.local.sh "$pidfile"; cp "$work/cfg-serial" tools/check.cfg
 grep -q '^parallel = on$' "$src/project/tools/check.cfg" && ok "the seed check.cfg turns [tests] parallel on" || bad "project/tools/check.cfg has [tests] parallel = on"
 _seed="$src/project/tools/check.cfg"
 grep -q '^timeout-fast = 300$' "$_seed" && grep -q '^timeout-full = 600$' "$_seed" && grep -q '^full-every = 10$' "$_seed" && grep -q '^full-when =$' "$_seed" \

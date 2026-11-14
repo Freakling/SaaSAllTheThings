@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T56 · B4 · R1
+**Next IDs:** T57 · B4 · R1
 
 ## Queue
+
+### T56 · An interrupted side-by-side check stops its steps' commands too, without pkill · done · S · agent
+- Touches: framework/tools/check.sh, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: an interrupted side-by-side run stops each step's shell and the commands under it, their children through `timeout` where it runs, by walking the process tree with `ps` and not with `pkill`, so a command the step started, such as `sleep`, doesn't run on; the lock is still freed and the run still exits 130 (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B72
 
 ### T55 · The .NET build runs under the check's time limit · done · S · agent
 - Touches: framework/tools/stacks/dotnet.sh, selftest.sh, CHANGELOG.md, TASKS.md

@@ -372,12 +372,30 @@ echo $$ > "$lock/pid"
 # Side-by-side steps are background jobs: an interrupted run stops them and what they started, then
 # frees the lock.
 job_pids=()
+# kill_tree <pid>…: stops the given processes and every process under them, deepest first, so nothing is orphaned
+# before its parent is stopped. One ps listing finds the children. Git Bash's ps has no -o (its PID and PPID
+# columns come first, under a header, after a status letter on the rows that have one), Linux and BSD ps take -o;
+# without a listing, only the given pids stop.
+kill_tree() {
+  [ $# -gt 0 ] || return 0
+  local list
+  list="$( (ps -A -o pid -o ppid 2>/dev/null || ps -e 2>/dev/null) | awk -v roots="$*" '
+    NR == 1 { for (i = 1; i <= NF; i++) { if ($i == "PID") pc = i; if ($i == "PPID") qc = i }; next }
+    pc && qc { o = ($1 ~ /^[0-9]+$/) ? 0 : 1; p = $(pc + o); pp = $(qc + o); if (p != pp) kids[pp] = kids[pp] " " p }
+    END {
+      n = split(roots, q, " ")
+      for (h = 1; h <= n; h++) seen[q[h]] = 1
+      for (h = 1; h <= n; h++) {
+        k = split(kids[q[h]], c, " ")
+        for (j = 1; j <= k; j++) if (!(c[j] in seen)) { seen[c[j]] = 1; n++; q[n] = c[j] }
+      }
+      for (h = n; h >= 1; h--) print q[h]
+    }')"
+  [ -n "$list" ] || list="$*"
+  kill $list 2>/dev/null
+}
 cleanup() {
-  local p
-  for p in ${job_pids[@]+"${job_pids[@]}"}; do
-    pkill -P "$p" 2>/dev/null
-    kill "$p" 2>/dev/null
-  done
+  kill_tree ${job_pids[@]+"${job_pids[@]}"}
   rm -rf "$lock"
 }
 trap cleanup EXIT

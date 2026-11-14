@@ -5,6 +5,7 @@ Each entry lists what changed. An entry that requires changes to an app's own fi
 ## Unreleased
 
 - **A .NET build that hangs is stopped at the check's time limit.** The .NET stack ran `dotnet build` without the limit that `dotnet test` has, so a build that waited held the check, or its stack step when the steps run side by side, for as long as it waited. The build now runs as a command of its own under the tier's limit (`[tests] timeout-fast` or `timeout-full`), with a budget of its own, so the tests keep theirs. A build past the limit exits 3, as a test does, and the check names the build as the command it stopped.
+- **An interrupted side-by-side check stops its steps' commands too.** An interrupted run stopped what each step had started with `pkill`, which Git Bash doesn't have, so there a command a step had started, such as `sleep`, or `npm` and `node` in an app, ran on until it ended. The check now stops the processes under each step's shell first, children before parents, by walking the process tree with `ps` (Git Bash's, Linux's and macOS's), and then frees the lock and exits 130 as before. A process outside that tree, such as one a native Windows program starts, can still outlive the interrupt.
 
 ## 0.17.0 (2026-11-14)
 
