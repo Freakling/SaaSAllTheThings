@@ -23,15 +23,15 @@ stack_setup() {
 }
 
 # The fast tier's package selection (npm workspaces): one node call reads the root package.json's workspaces, each
-# package's name and the workspace packages it depends on, and the changed backend paths on stdin (the lines of
-# CHECK_BACKEND_CHANGED). It prints, one per line:
+# package's name and the workspace packages it depends on, and the changed backend paths in the file it gets as its
+# argument (CHECK_BACKEND_CHANGED). The script itself comes on stdin (node - <file>). It prints, one per line:
 #   N                        no workspaces: the test runs as it always does
 #   W <reason>               the whole test has to run
 #   T <folder> <1|0>         a package to test (changed, or depending on a changed one, directly or through others),
 #                            and whether it has its own test script
 #   S <folder>               a package the change doesn't reach
-ts_write_selector() {
-  cat > "$1" <<'JS'
+ts_selector_program() {
+  cat <<'JS'
 const fs = require('fs');
 const out = (...a) => console.log(a.join(' '));
 const read = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
@@ -62,7 +62,7 @@ const pkgs = [...dirsFound].sort().map((dir) => {
 if (!pkgs.length) { out('W the workspaces of package.json match no package folder'); process.exit(0); }
 if (pkgs.some((p) => /\s/.test(p.dir))) { out('W a package folder has a space in its name'); process.exit(0); }
 
-const changed = fs.readFileSync(0, 'utf8').split(/\r?\n/).filter(Boolean);
+const changed = fs.readFileSync(process.argv[2], 'utf8').split(/\r?\n/).filter(Boolean);
 if (!changed.length) { out('W no changed backend path was listed'); process.exit(0); }
 const hit = new Set();
 for (const c of changed) {
@@ -85,11 +85,12 @@ JS
 # ts_select: ts_mode is "all" (the test runs as it always does), "whole" (the whole test runs, ts_reason says why) or
 # "packages" (ts_tested and ts_left are lists of folders, ts_untested those of ts_tested without a test script).
 ts_select() {
-  local js="$state/select-packages.js" lines kind rest
+  local lines kind rest
   ts_mode=all; ts_reason=""; ts_tested=""; ts_left=""; ts_untested=""
   [ "${CHECK_TIER:-full}" = fast ] && [ -f "${CHECK_BACKEND_CHANGED:-}" ] || return 0
-  ts_write_selector "$js"
-  if ! lines="$(node "$js" < "$CHECK_BACKEND_CHANGED" 2>"$state/select-packages.err")"; then
+  # The script goes to node on stdin, so it runs as CommonJS whatever the root package.json's "type" says, and no file of
+  # it is left in the app's tree for the app's own lint to pick up.
+  if ! lines="$(ts_selector_program | node - "$CHECK_BACKEND_CHANGED" 2>"$state/select-packages.err")"; then
     ts_mode=whole; ts_reason="node couldn't work out the packages (see $state/select-packages.err)"
     return 0
   fi

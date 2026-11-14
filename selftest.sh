@@ -4510,6 +4510,12 @@ if command -v node >/dev/null 2>&1; then
   ts_make '{"name":"root","workspaces":["nothing/*"],"scripts":{"test":"all"}}'
   out="$(ts_run "" fast packages/domain/a.ts)"
   expect_output "a workspace pattern that matches nothing runs the whole test, and says so" "the whole test runs: the workspaces of package.json match no package folder" "$out"
+  ts_make '{"name":"root","type":"module","workspaces":["packages/*"],"scripts":{"test":"all","test:fast":"fast"}}'
+  out="$(ts_run "" fast packages/domain/a.ts)"
+  expect_output "a root package.json with \"type\": \"module\" still selects the packages" "tested the packages packages/api packages/domain packages/functions packages/web" "$out"
+  expect_no_output "and the selection doesn't fall back to the whole test" "node couldn't work out" "$out"
+  _tsjs="$(/usr/bin/find "$_tsapp" -path "$_tsapp/node_modules" -prune -o -name '*.js' -print 2>/dev/null)"
+  [ -z "$_tsjs" ] && ok "after a fast run no .js file is left in the app's tree for its own lint to find" || bad "a fast run left a .js file in the app's tree" "$_tsjs"
   ts_make '{"name":"root","scripts":{"test":"all"}}'
   out="$(ts_run "" fast packages/domain/a.ts)"
   expect_no_output "no workspaces key: no selection" "fast tier" "$out"
@@ -4517,6 +4523,232 @@ else
   echo "  skip  the package selection with the real node (node isn't installed)"
 fi
 unset TS_ANSWER
+
+# The .NET profile in the fast tier: the test step covers the test projects that changed or reference a changed project,
+# directly or through others, read from the ProjectReference entries of the project files tracked in git. A stand-in
+# dotnet (it records how it was called) keeps this off the SDK, so these cases run on every machine; the real SDK's
+# cases are in the .NET part at the end. The Python profile runs whole in both tiers and says so.
+echo ".NET fast tier"
+_dnbin="$work/dn-bin"; mkdir -p "$_dnbin"
+printf '#!/bin/sh\necho "dotnet $*" >> "$DN_CALLS"\nif [ "$1" = test ]; then\n  case " ${DN_FAIL:-} " in *" $2 "*) echo "Failed! $2"; exit 1 ;; esac\n  echo "Passed! $2"\nfi\nexit 0\n' > "$_dnbin/dotnet"
+printf '#!/bin/sh\nexit 0\n' > "$_dnbin/fakepy"; chmod +x "$_dnbin/dotnet" "$_dnbin/fakepy"
+_dnapp="$work/dnapp"
+dn_proj() { # dn_proj <path> <line>...: a project file with those lines inside <Project>
+  mkdir -p "$(dirname "$_dnapp/$1")"
+  { printf '%s\n' '<Project Sdk="Microsoft.NET.Sdk">'; [ $# -lt 2 ] || printf '%s\n' "${@:2}"; printf '%s\n' '</Project>'; } > "$_dnapp/$1"
+}
+dn_finish() { # dn_finish: App.sln lists every project but those under tests/Perf, and everything is staged
+  ( cd "$_dnapp" || exit 1
+    { printf 'Microsoft Visual Studio Solution File, Format Version 12.00\r\n'
+      /usr/bin/find . -name '*.csproj' ! -path './tests/Perf/*' | /usr/bin/sort | while IFS= read -r f; do
+        f="${f#./}"; printf 'Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "p", "%s", "{G}"\r\nEndProject\r\n' "${f//\//\\}"
+      done; } > App.sln
+    git add -A ) >/dev/null 2>&1
+}
+dn_make() { # dn_make: Domain <- Functions <- Api (two references on one line, one with a Condition), Web and Lonely stand alone; a test project each for Domain, Api (a multi-line reference), Web (IsTestProject, a reference in another case, CRLF and a byte order mark) and Generated (under a [scan] skip folder); Perf is a test project outside the solution
+  rm -rf "$_dnapp"; mkdir -p "$_dnapp/tools" "$_dnapp/scripts"
+  : > "$_dnapp/scripts/x.cs"
+  printf '[scan]\nskip = **/bin **/obj **/Generated\n' > "$_dnapp/tools/check.cfg"
+  printf '%s\n' '<Project />' > "$_dnapp/FooDirectory.Build.props"
+  printf '%s\n' '<Project><ItemGroup><PackageVersion Include="xunit" Version="2.*" /></ItemGroup></Project>' > "$_dnapp/Directory.Packages.props"
+  dn_proj src/Domain/Domain.csproj
+  dn_proj src/Functions/Functions.csproj "<ItemGroup><ProjectReference Include='..\\Domain\\Domain.csproj' /></ItemGroup>"
+  awk '{ printf "%s\r\n", $0 }' "$_dnapp/src/Functions/Functions.csproj" > "$_dnapp/fn.tmp"; mv "$_dnapp/fn.tmp" "$_dnapp/src/Functions/Functions.csproj"   # a source project with CRLF line ends
+  dn_proj src/Api/Api.csproj '<ItemGroup>' "<ProjectReference Condition=\"'\$(X)' == 'y'\" Include=\"../Functions/Functions.csproj\" /><ProjectReference Include=\"../Tool/Tool.csproj\" />" '</ItemGroup>'
+  dn_proj src/Web/Web.csproj
+  dn_proj src/Tool/Tool.csproj
+  dn_proj src/Lonely/Lonely.csproj
+  dn_proj tests/Domain.Tests/Domain.Tests.csproj '<ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" /></ItemGroup>' '<ItemGroup><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
+  dn_proj tests/Api.Tests/Api.Tests.csproj '<ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" /></ItemGroup>' '<ItemGroup>' '  <ProjectReference' '    Include="../../src/Api/Api.csproj"' '  />' '</ItemGroup>'
+  dn_proj tests/Web.Tests/Web.Tests.csproj '<PropertyGroup><IsTestProject>true</IsTestProject></PropertyGroup>' '<ItemGroup><ProjectReference Include="..\..\src\WEB\Web.csproj" /></ItemGroup>'
+  { printf '\357\273\277'; awk '{ printf "%s\r\n", $0 }' "$_dnapp/tests/Web.Tests/Web.Tests.csproj"; } > "$_dnapp/web.tmp"; mv "$_dnapp/web.tmp" "$_dnapp/tests/Web.Tests/Web.Tests.csproj"
+  dn_proj tests/Generated/Generated.Tests.csproj '<ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" /><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
+  dn_proj tests/Perf/Perf.Tests.csproj '<ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" /><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
+  ( cd "$_dnapp" && git init -q . ) >/dev/null 2>&1
+  dn_finish
+}
+dn_run() { # dn_run <tier> <changed path>...: the stack's lines, then the calls the stand-in dotnet recorded
+  local tier="$1"; shift
+  ( cd "$_dnapp" || exit 9
+    state=.satt/state; mkdir -p "$state"; cfg_timeout="${_dn_limit:-60}"; cfg_target="${_dn_target:-App.sln}"
+    DN_CALLS="$PWD/$state/calls"; : > "$DN_CALLS"; export DN_CALLS DN_FAIL="${_dn_fail:-}"
+    : > "$state/changed-backend"; for p in "$@"; do printf '%s\n' "$p" >> "$state/changed-backend"; done
+    export CHECK_TIER="$tier" CHECK_BACKEND_CHANGED="$PWD/$state/changed-backend"
+    PATH="$_dnbin:$PATH"
+    # run_limited records the limit it was given, and sleeps _dn_slow seconds when a case asks for it (to spend the budget)
+    # _dn_hang names a project whose test runs past the limit (status 124); _dn_notimeout stands for no GNU timeout
+    if [ -n "${_dn_notimeout:-}" ]; then timeout_cmd=""; else timeout_cmd=timeout; fi
+    run_limited() {
+      local log="$1"; shift; echo "limit $cfg_timeout" >> "$DN_CALLS"; [ -z "${_dn_slow:-}" ] || sleep "$_dn_slow"
+      case " $* " in *" ${_dn_hang:-nothing-hangs} "*) return 124 ;; esac
+      "$@" </dev/null >"$log" 2>&1
+    }
+    timed_out() { echo "timed out: $1"; }
+    . "$src/framework/tools/stacks/dotnet.sh"
+    stack_check; echo "status $?"; sed 's/^/call: /' "$DN_CALLS" ) 2>&1
+}
+dn_flat() { printf '%s' "$1" | tr '\n' '|'; }
+_dn_api=tests/Api.Tests/Api.Tests.csproj; _dn_dom=tests/Domain.Tests/Domain.Tests.csproj; _dn_web=tests/Web.Tests/Web.Tests.csproj
+_dn_gen=tests/Generated/Generated.Tests.csproj
+dn_make
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a changed project tests the test projects that reference it, directly or through others" "fast tier: tested the test projects $_dn_api $_dn_dom $_dn_gen \(changed, or referencing a changed project\)\|" "$out"
+expect_output "and the run names the test project it left to the full tier" "left to the full tier: $_dn_web\|" "$out"
+expect_output "the build stays whole" "call: dotnet build App.sln " "$out"
+expect_output "each test project gets its own dotnet test --no-build" "call: dotnet test $_dn_api --no-build .*call: dotnet test $_dn_dom --no-build " "$out"
+expect_no_output "and the test project it left isn't run" "dotnet test $_dn_web|dotnet test App.sln" "$out"
+expect_output "the tests pass" "check: dotnet test passed\|.*status 0" "$out"
+expect_output "a project under a [scan] skip folder still counts" "dotnet test $_dn_gen --no-build" "$out"
+expect_no_output "a test project outside the solution is neither tested nor listed" "Perf" "$out"
+out="$(dn_flat "$(dn_run fast src/Domain/Deep/Deeper/C.cs)")"
+expect_output "a changed file belongs to the nearest folder up that holds a project file" "tested the test projects $_dn_api $_dn_dom $_dn_gen \(" "$out"
+out="$(dn_flat "$(dn_run fast src/Api/B.cs)")"
+expect_output "a project nothing depends on tests only the test projects above it" "tested the test projects $_dn_api \(.*left to the full tier: $_dn_dom $_dn_gen $_dn_web\|" "$out"
+expect_no_output "references aren't followed downwards" "dotnet test $_dn_dom" "$out"
+out="$(dn_flat "$(dn_run fast src/Tool/t.cs)")"
+expect_output "two references on one line, the first with a Condition, both count: Tool is under Api" "tested the test projects $_dn_api \(" "$out"
+out="$(dn_flat "$(dn_run fast src/Web/W.cs)")"
+expect_output "an IsTestProject project (CRLF, a byte order mark) is a test project, and a reference matches whatever its case" "tested the test projects $_dn_web \(.*left to the full tier: $_dn_api $_dn_dom $_dn_gen\|" "$out"
+out="$(dn_flat "$(dn_run fast src/Web/W.cs src/Lonely/t.cs tests/Domain.Tests/T.cs)")"
+expect_output "several changed paths: each one's test projects" "tested the test projects $_dn_dom $_dn_web \(.*left to the full tier: $_dn_api $_dn_gen\|" "$out"
+out="$(dn_flat "$(dn_run fast scripts/x.cs)")"
+expect_output "a changed file outside every project runs the whole test, and the check names the path" "the whole test runs: scripts/x.cs is outside every project" "$out"
+expect_output "as dotnet test of the target" "call: dotnet test App.sln --no-build " "$out"
+expect_no_output "and not the test projects one by one" "fast tier: tested|dotnet test tests/" "$out"
+out="$(dn_flat "$(dn_run fast src/Lonely/t.cs)")"
+expect_output "a change that reaches no test project runs no test and says so" "no test project is changed or references a changed project, so no test runs\|.*left to the full tier: $_dn_api $_dn_dom $_dn_gen $_dn_web\|" "$out"
+expect_no_output "and no dotnet test call is made" "call: dotnet test" "$out"
+expect_output "and the check still passes" "status 0" "$out"
+out="$(dn_flat "$(dn_run full src/Domain/A.cs)")"
+expect_output "the full tier runs dotnet test of the target as before" "call: dotnet build App.sln .*call: dotnet test App.sln --no-build -nologo -v:q" "$out"
+expect_no_output "with no selection lines" "fast tier|dotnet test tests/" "$out"
+# Each of these changes one thing in the tree and expects the whole test, with its reason.
+dn_whole() { # dn_whole <what> <reason regex> <changed path>: the whole dotnet test of the target runs, and says why
+  local o; o="$(dn_flat "$(dn_run fast "$3")")"
+  expect_output "$1" "the whole test runs: $2.*call: dotnet test ${_dn_target:-App.sln} --no-build" "$o"
+}
+dn_make; printf '%s\n' '<Project>' '<ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" /></ItemGroup>' '</Project>' > "$_dnapp/Directory.Build.props"; dn_finish
+dn_whole "a test SDK from a Directory.Build.props: the test projects can't be told, the whole test runs" "Directory.Build.props supplies a test SDK or test package, so the test projects can't be told" src/Domain/A.cs
+dn_make; printf '%s\n' '<Project>' '<ItemGroup><GlobalPackageReference Include="xunit" Version="2.*" /></ItemGroup>' '</Project>' > "$_dnapp/Directory.Packages.props"; dn_finish
+dn_whole "a global test package in Directory.Packages.props runs the whole test (a plain PackageVersion doesn't)" "Directory.Packages.props supplies a test SDK or test package" src/Domain/A.cs
+dn_make; printf '%s\n' '{"test":{"runner":"Microsoft.Testing.Platform"}}' > "$_dnapp/global.json"; dn_finish
+dn_whole "a global.json that names Microsoft.Testing.Platform runs the whole test" "global.json names Microsoft.Testing.Platform" src/Domain/A.cs
+dn_make; dn_proj tests/Bare.Tests/Bare.Tests.csproj '<ItemGroup><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'; dn_finish
+dn_whole "a *.Tests project with no test marker runs the whole test, and is named" "tests/Bare.Tests/Bare.Tests.csproj looks like a test project but its file shows no test SDK" src/Domain/A.cs
+dn_make; dn_proj src/Api/Api.csproj '<ItemGroup><ProjectReference Include="$(Root)\Functions\Functions.csproj" /></ItemGroup>'; dn_finish
+dn_whole "a reference by an MSBuild property can't be read: the whole test runs" "a ProjectReference in src/Api/Api.csproj can't be resolved" src/Domain/A.cs
+dn_make; dn_proj src/Api/Api.csproj '<ItemGroup><ProjectReference Include="..\Functions\Functions.csproj;..\Tool\Tool.csproj" /></ItemGroup>'; dn_finish
+dn_whole "a reference with a ; list runs the whole test" "a ProjectReference in src/Api/Api.csproj can't be resolved" src/Domain/A.cs
+dn_make; dn_proj src/Api/Api.csproj '<ItemGroup><ProjectReference Include="..\*\Functions.csproj" /></ItemGroup>'; dn_finish
+dn_whole "a reference with a wildcard runs the whole test" "a ProjectReference in src/Api/Api.csproj can't be resolved" src/Domain/A.cs
+dn_make; dn_proj src/Api/Api.csproj '<ItemGroup><ProjectReference Include="C:\repo\src\Functions\Functions.csproj" /></ItemGroup>'; dn_finish
+dn_whole "a reference with a drive letter path runs the whole test" "a ProjectReference in src/Api/Api.csproj can't be resolved" src/Domain/A.cs
+dn_make; dn_proj src/Api/Api.csproj '<ItemGroup><ProjectReference Include="/repo/src/Functions/Functions.csproj" /></ItemGroup>'; dn_finish
+dn_whole "a reference with an absolute path runs the whole test" "a ProjectReference in src/Api/Api.csproj can't be resolved" src/Domain/A.cs
+dn_make; dn_proj src/Tool/Tool.csproj '<ItemGroup><Compile Include="..\Shared\*.cs" Link="Shared.cs" /></ItemGroup>'; dn_finish
+dn_whole "a source file linked from outside the project's folder runs the whole test" "src/Tool/Tool.csproj links a source file from outside its folder" src/Domain/A.cs
+dn_make; rm -rf "$_dnapp/tests"; dn_finish
+dn_whole "no project of the target with a test SDK: the whole test runs" "no project of the target shows a test SDK" src/Domain/A.cs
+# More test projects the recogniser sees, each under the Domain change.
+dn_make
+printf '%s\n' '<Project Sdk="MSTest.Sdk/3.6.0">' '<ItemGroup><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>' '</Project>' > "$_dnapp/tests/Domain.Tests/Domain.Tests.csproj"
+mkdir -p "$_dnapp/tests/V3.Tests"
+printf '%s\n' '<Project Sdk="Microsoft.NET.Sdk">' '<ItemGroup><PackageReference Include="xunit.v3" Version="1.*" /><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>' '</Project>' > "$_dnapp/tests/V3.Tests/V3.Tests.csproj"
+dn_finish
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "an MSTest.Sdk project and an xunit.v3 project, without Microsoft.NET.Test.Sdk, are test projects" "tested the test projects $_dn_api $_dn_dom $_dn_gen tests/V3.Tests/V3.Tests.csproj \(" "$out"
+# The target's own projects: the selection stays inside them.
+dn_make; _dn_target=build/App.slnx
+mkdir -p "$_dnapp/build"; printf '%s\n' '<Solution>' '  <Project Path="../src/Domain/Domain.csproj" />' '  <Project Path="../src/Functions/Functions.csproj" />' '  <Project Path="../src/Api/Api.csproj" />' '  <Project Path="../src/Tool/Tool.csproj" />' '  <Project Path="../tests/Api.Tests/Api.Tests.csproj" />' '  <Project Path="../tests/Domain.Tests/Domain.Tests.csproj" />' '</Solution>' > "$_dnapp/build/App.slnx"; ( cd "$_dnapp" && git add -A ) >/dev/null 2>&1
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a .slnx target (in another folder, Path=\"..\") limits the selection to its projects" "tested the test projects $_dn_api $_dn_dom \(.*left to the full tier: none\|.*call: dotnet build build/App.slnx " "$out"
+expect_no_output "and Generated, Web.Tests and Perf are neither tested nor listed" "Generated|Web.Tests|Perf" "$out"
+_dn_target=App.slnf
+printf '%s\n' '{"solution":{"path":"App.sln","projects":["src\\Domain\\Domain.csproj","src\\Functions\\Functions.csproj","src\\Api\\Api.csproj","tests\\Api.Tests\\Api.Tests.csproj","tests\\Web.Tests\\Web.Tests.csproj"]}}' > "$_dnapp/App.slnf"; ( cd "$_dnapp" && git add -A ) >/dev/null 2>&1
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a .slnf target (doubled backslashes) limits the selection to the projects it lists" "tested the test projects $_dn_api \(.*left to the full tier: $_dn_web\|" "$out"
+expect_no_output "and the test projects it doesn't list are not run" "$_dn_dom|Generated" "$out"
+_dn_target=tests/Api.Tests/Api.Tests.csproj
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a project-file target limits the selection to that project and what it references" "tested the test projects $_dn_api \(.*left to the full tier: none\|.*call: dotnet build $_dn_api " "$out"
+_dn_target=missing.sln
+dn_whole "a target whose projects can't be read runs the whole test" "the projects of missing.sln can't be read from it" src/Domain/A.cs
+unset _dn_target
+# One time budget for the test step: each project gets what is left of the limit, and a spent budget is a timeout.
+dn_make; _dn_slow=2
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "the second test project gets less than the first: they share one limit" "call: limit (59|60)\|call: dotnet test $_dn_api --no-build [^|]*\|call: limit 5[0-8]\|call: dotnet test $_dn_dom" "$out"
+_dn_limit=1
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a spent budget stops the step as a timeout (status 3)" "timed out: dotnet test\|status 3" "$out"
+expect_no_output "before the next project starts" "dotnet test $_dn_dom" "$out"
+unset _dn_slow _dn_limit
+_dn_fail="$_dn_api $_dn_dom"
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "two failing test projects are both named, and the step fails" "check: dotnet test failed in $_dn_api\|.*check: dotnet test failed in $_dn_dom\|.*status 1" "$out"
+expect_output "and the project after them still ran" "dotnet test $_dn_gen --no-build" "$out"
+_dn_fail="$_dn_api"; _dn_hang="$_dn_dom"
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a failed project then a timeout is a failure (status 1), and the failure is named" "check: dotnet test failed in $_dn_api\|timed out: dotnet test\|status 1" "$out"
+unset _dn_fail _dn_hang
+_dn_notimeout=1; _dn_slow=2; _dn_limit=1
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_no_output "without GNU timeout the budget cuts nothing: no timeout is reported" "timed out" "$out"
+expect_output "and every selected project runs" "dotnet test $_dn_api --no-build.*dotnet test $_dn_dom --no-build.*dotnet test $_dn_gen --no-build" "$out"
+expect_output "and the step passes" "status 0" "$out"
+unset _dn_notimeout _dn_slow _dn_limit
+# An explicit IsTestProject false says a project is no test project; a Condition or an Import can't be told.
+dn_make
+dn_proj tests/Helpers/Helpers.csproj '<PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup>' '<ItemGroup><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
+dn_proj tests/Util/Util.csproj '<PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup>' '<ItemGroup><PackageReference Include="xunit" /><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
+dn_finish
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a helper project under tests/ with IsTestProject false keeps the selection on" "tested the test projects $_dn_api $_dn_dom $_dn_gen \(.*left to the full tier: $_dn_web\|" "$out"
+expect_no_output "and it is neither tested nor listed, with or without an xunit reference" "Helpers|Util" "$out"
+dn_make; dn_proj tests/Cond.Tests/Cond.Tests.csproj "<PropertyGroup><IsTestProject Condition=\"'\$(X)' == 'y'\">true</IsTestProject></PropertyGroup>"; dn_finish
+dn_whole "an IsTestProject with a Condition can't be told: the whole test runs, naming the project" "tests/Cond.Tests/Cond.Tests.csproj has an IsTestProject with a Condition" src/Domain/A.cs
+dn_make; dn_proj tests/Bare.Tests/Bare.Tests.csproj; dn_finish
+dn_whole "a tests/ project with no marker still runs the whole test, and names the way out" "tests/Bare.Tests/Bare.Tests.csproj looks like a test project but its file shows no test SDK.*set IsTestProject false" src/Domain/A.cs
+dn_make; dn_proj src/Lonely/Lonely.csproj '<Import Project="..\common.props" />'; dn_finish
+dn_whole "a project that imports a file may get its test SDK there: the whole test runs, naming it" "src/Lonely/Lonely.csproj imports a file" src/Domain/A.cs
+# More shapes of the target and of the project files.
+dn_make
+dn_proj tests/Domain.Tests/Domain.Tests.csproj '<ItemGroup>' '  <PackageReference' '    Include="xunit"' '    Version="2.*" />' '</ItemGroup>' '<ItemGroup><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
+{ printf '%s\r\n' 'Microsoft Visual Studio Solution File, Format Version 12.00'
+  printf '%s\r\n' 'Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{11111111-1111-1111-1111-111111111111}"' 'EndProject'
+  for _f in src\\Domain\\Domain.csproj src\\Functions\\Functions.csproj src\\Api\\Api.csproj src\\Tool\\Tool.csproj tests\\Api.Tests\\Api.Tests.csproj tests\\Domain.Tests\\Domain.Tests.csproj; do
+    printf 'Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "P", "%s", "{22222222-2222-2222-2222-222222222222}"\r\nEndProject\r\n' "$_f"
+  done; } > "$_dnapp/Classic.sln"
+( cd "$_dnapp" && git add -A ) >/dev/null 2>&1
+_dn_target=Classic.sln
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a classic .sln (a solution folder entry, GUIDs, backslashes) names its projects, and a PackageReference with its Include on its own line is a test project" "tested the test projects $_dn_api $_dn_dom \(.*left to the full tier: none\|" "$out"
+expect_no_output "and the projects it doesn't name are not run" "Generated|Web.Tests" "$out"
+mkdir -p "$_dnapp/build"; printf '%s\n' '{"solution":{"path":"..\\App.sln","projects":["..\\src\\Domain\\Domain.csproj"]}}' > "$_dnapp/build/App.slnf"; ( cd "$_dnapp" && git add -A ) >/dev/null 2>&1
+_dn_target=build/App.slnf
+dn_whole "a .slnf in a subfolder that names its solution with .. runs the whole test, with the reason" "build/App.slnf names its solution with \.\., which the selection doesn't follow" src/Domain/A.cs
+_dn_target='build\App.slnf'
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a target written with backslashes is read as with slashes" "the whole test runs: build/App.slnf names its solution" "$out"
+printf '%s\n' '<Solution>' '  <Project Path="../src/Domain/Domain.csproj" />' '  <Project Path="../tests/Domain.Tests/Domain.Tests.csproj" />' '</Solution>' > "$_dnapp/build/App.slnx"; ( cd "$_dnapp" && git add -A ) >/dev/null 2>&1
+_dn_target='build\App.slnx'
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a .slnx target written with backslashes (as tools/check.cfg may have it) selects within its projects" "tested the test projects $_dn_dom \(.*left to the full tier: none\|" "$out"
+unset _dn_target _dn_fail
+# The Python profile runs whole in both tiers.
+_pyrun() { # _pyrun <tier>
+  ( cd "$work" || exit 9
+    state="$work/py-state"; mkdir -p "$state"; cfg_timeout=60; py="$_dnbin/fakepy"; export CHECK_TIER="$1"
+    run_limited() { local log="$1"; shift; "$@" </dev/null >"$log" 2>&1; }
+    timed_out() { echo "timed out: $1"; }
+    . "$src/framework/tools/stacks/python.sh"
+    stack_check; echo "status $?" ) 2>&1
+}
+out="$(_pyrun fast)"
+expect_output "the Python stack says in the fast tier that it runs whole" "check: fast tier: the Python stack runs whole in both tiers, with no test selection" "$out"
+expect_output "and pytest passes" "check: pytest passed" "$out"
+out="$(_pyrun full)"
+expect_no_output "the full tier prints no selection line" "fast tier" "$out"
 
 # A step that can't run in the fast tier exits 3, with or without GNU timeout.
 put tools/check.local.sh '[ "$CHECK_TIER" = fast ] && exit 3; exit 0'
@@ -6427,6 +6659,20 @@ if [ "$dotnet_sdk" -eq 1 ]; then
   out="$(bash tools/check.sh 2>&1)"; status=$?
   expect_status "the example builds and its tests pass" 0 "$status" "$out"
   expect_output "runs the example's tests" "dotnet test passed" "$out"
+  # The fast tier tests the test projects a change reaches (needs the real SDK; the selection itself is proven above).
+  _dn_apptests=tests/OrderDesk.Application.Tests/OrderDesk.Application.Tests.csproj
+  _dn_domtests=tests/OrderDesk.Domain.Tests/OrderDesk.Domain.Tests.csproj
+  printf '\n// a change\n' >> src/OrderDesk.Domain/Orders/Order.cs
+  out="$(bash tools/check.sh --fast 2>&1)"; status=$?
+  expect_status "the fast tier passes with a change in the Domain project" 0 "$status" "$out"
+  expect_output "a change in Domain tests both test projects" "tested the test projects $_dn_apptests $_dn_domtests \(changed, or referencing a changed project\)" "$out"
+  expect_output "and runs their tests" "dotnet test passed" "$out"
+  git checkout -q -- src/OrderDesk.Domain/Orders/Order.cs
+  printf '\n// a change\n' >> src/OrderDesk.Application/Orders/PlaceOrderHandler.cs
+  out="$(bash tools/check.sh --fast 2>&1)"; status=$?
+  expect_status "the fast tier passes with a change in the Application project" 0 "$status" "$out"
+  expect_output "a change in Application tests only its test project" "tested the test projects $_dn_apptests \(.*left to the full tier: $_dn_domtests" "$(printf '%s' "$out" | tr '\n' ' ')"
+  git checkout -q -- src/OrderDesk.Application/Orders/PlaceOrderHandler.cs
 else
   echo ".NET: skipped (no .NET SDK on this machine)"
 fi

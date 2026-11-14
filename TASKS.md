@@ -4,9 +4,17 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T54 · B4 · R1
+**Next IDs:** T55 · B4 · R1
 
 ## Queue
+
+### T54 · The .NET fast tier tests the changed projects and the projects that reference them · done · M · agent
+- Depends on: T53
+- Touches: framework/tools/stacks/dotnet.sh, framework/tools/stacks/python.sh, framework/tools/stacks/typescript.sh, framework/.satt/reference/stacks.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: in the fast tier the .NET stack builds the whole target and runs `dotnet test` only for the test projects that changed or that reference a changed project, directly or through other projects, read from their `ProjectReference` entries; a changed file outside every project runs every test project, and the run names the test projects it ran and the ones it left to the full tier (test) · the Python stack runs whole in both tiers and the check says so (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T343
 
 ### T53 · The TypeScript fast tier tests the changed packages and the packages that depend on them · done · M · agent
 - Depends on: T51
