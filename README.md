@@ -194,7 +194,7 @@ your-app/
 ├── tools/prototype.sh          a prototype's git steps: its worktree, branch and notes; list, harvest, remove
 ├── tools/ui_capture.sh, tools/ui/  screen capture, element map, layout lint, drawing reader, compare and verify (Node and Playwright)
 ├── .githooks/pre-commit        scans for secrets on every commit (a scan that can't run blocks it), and runs the check before commits that touch what it counts: the fast tier, or the full tier when it's due (not in a prototype)
-├── .githooks/pre-push          runs the check's full tier before a push, unless it changes only documentation (not in a prototype), and refuses to push a prototype's proto/ branch, or its commits under another name
+├── .githooks/pre-push          runs the check's full tier before a push, unless it changes only documentation, and refuses a push of commits from a prototype's checkout, and a prototype's proto/ branch or its commits under another name
 ├── validation/README.md        how acceptance checks and feedback reports work
 │
 │  the framework's, Claude Code adapter: updated on upgrade

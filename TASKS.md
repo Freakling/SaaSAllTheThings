@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T62 · B4 · R1
+**Next IDs:** T63 · B4 · R1
 
 ## Queue
+
+### T62 · A push of main from a prototype's worktree is refused, not left unchecked · done · S · agent
+- Touches: framework/.githooks/pre-push, framework/tools/prototype.sh, framework/.satt/procedures/prototype.md, README.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: a push that sends commits from a prototype's checkout is refused with the reason and the way out, nothing reaches the remote and no check runs, for main and for a push of documentation only, while a push that only deletes a ref goes through and a checkout that isn't a prototype behaves as before (test) · the header of `prototype.sh`, the "Nothing is pushed or merged" rule of the prototype procedure and the pre-push row of the README say so (check) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B76
 
 ### T61 · The Stop hook stops waiting for a running check at the fast tier's limit · done · M · agent
 - Touches: framework/tools/check.sh, framework/.claude/hooks/stop-check.sh, framework/.satt/rules.md, skills/saas-design-session/references/rules.md, selftest.sh, CHANGELOG.md, TASKS.md

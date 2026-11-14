@@ -5596,8 +5596,8 @@ expect_output "and says tools/cfg.sh is missing" "check: tools/cfg.sh is missing
 out="$(cd "$_nocfg" && bash tools/check.sh --fingerprint 2>&1)"; expect_status "and so does --fingerprint" 3 $? "$out"
 
 # The hooks' fallbacks, with a stand-in check that records how it was run: --due with no answer runs the full tier, a
-# check.sh that can't answer --unignored leaves every staged path counted, and the pre-push hook runs nothing in a
-# prototype or without tools/check.sh. Marker files switch the stand-in's answers.
+# check.sh that can't answer --unignored leaves every staged path counted, and the pre-push hook refuses a push of
+# commits from a prototype's checkout (B76) and runs nothing without tools/check.sh. Marker files switch the stand-in's answers.
 _hk="$work/hook-standin"; new_repo "$_hk"; mkdir -p "$_hk/tools"
 put "$_hk/tools/check.sh" 'case "${1:-}" in
   --secrets) exit 0 ;;
@@ -5622,8 +5622,16 @@ rm -f "$_hk/ran" "$_hk/unignored-fails"
 out="$(_pp_in)"; expect_status "pre-push runs the stand-in check" 0 $? "$out"
 [ "$(_hk_ran)" = "--full --if-changed" ] && ok "pre-push asks for the full tier" || bad "pre-push asked for: $(_hk_ran)"
 rm -f "$_hk/ran"; put "$_hk/tools/prototype.sh" 'exit 0'
-out="$(_pp_in)"; expect_status "pre-push in a prototype lets the push through" 0 $? "$out"
+out="$(_pp_in)"; expect_status "pre-push in a prototype refuses a push of commits (B76)" 1 $? "$out"
+expect_output "and says why and what to do" "pre-push: a push from a prototype is refused; nothing was pushed\." "$out"
 [ -z "$(_hk_ran)" ] && [[ $out != *"running the project check"* ]] && ok "and runs no check there" || bad "pre-push ran the check in a prototype" "$out"
+# A documentation-only commit (the HEAD here changes only Markdown) is refused in a prototype too.
+(cd "$_hk" && printf '# doc\n' > doc.md && git add doc.md && git_q commit -qm "docs only") >/dev/null 2>&1
+rm -f "$_hk/ran"; out="$(_pp_in)"; expect_status "pre-push in a prototype refuses a push of documentation only" 1 $? "$out"
+[ -z "$(_hk_ran)" ] && [[ $out != *"no check runs"* ]] && ok "and runs no check for it" || bad "pre-push ran a check for documentation in a prototype" "$out"
+# A push that only deletes a ref sends no commit, so it goes through in a prototype.
+out="$(cd "$_hk" && printf 'refs/heads/x 0000000000000000000000000000000000000000 refs/heads/x %s\n' "$(git rev-parse HEAD)" | bash "$src/framework/.githooks/pre-push" 2>&1)"
+expect_status "pre-push in a prototype lets a push that only deletes a ref through" 0 $? "$out"
 rm -f "$_hk/tools/prototype.sh"; mv "$_hk/tools/check.sh" "$_hk/check.sh.away"
 out="$(_pp_in)"; expect_status "pre-push without tools/check.sh lets the push through" 0 $? "$out"
 [ -z "$(_hk_ran)" ] && [[ $out != *"running the project check"* ]] && ok "and runs no check" || bad "pre-push ran a check without tools/check.sh" "$out"
@@ -6820,7 +6828,8 @@ edit_in asked "tools/check.sh, with a PROTOTYPE.md in the main checkout (a .git 
 rm -f "$_pa/PROTOTYPE.md"
 
 # The pre-push hook refuses a proto/ branch, from the prototype or to the remote, and any push that carries a
-# prototype's commits under another name, and lets main through.
+# prototype's commits under another name. Main pushed from a prototype's worktree is refused too (B76), and so
+# is any push that sends commits from there; main pushed from the main checkout goes through once it passes.
 _push_refused() { # _push_refused <what> <folder> <refspec> <reason pattern>
   out="$(cd "$2" && git push -q origin "$3" 2>&1)"; status=$?
   { [ "$status" -ne 0 ] && printf '%s' "$out" | grep -q "a prototype is never pushed; push blocked" && printf '%s' "$out" | grep -q "$4"; } \
@@ -6838,12 +6847,26 @@ _push_refused "a branch made from a prototype's commit" "$_pa" from-proto "carri
 out="$(cd "$_pa" && git push -q origin main 2>&1)"; status=$?
 { [ "$status" -ne 0 ] && printf '%s' "$out" | grep -q "pre-push: the full check fails, so nothing was pushed"; } \
   && ok "pre-push runs the full check on main, and blocks the push while it fails" || bad "pre-push blocks main while the full check fails (exit $status)" "$out"
+# B76: a push of main from the prototype's worktree is refused, unchecked, though main holds no prototype commits.
+_main_before_proto="$(git --git-dir="$_po" rev-parse main)"
+out="$(cd "$_pw" && git push -q origin main 2>&1)"; status=$?
+{ [ "$status" -ne 0 ] && printf '%s' "$out" | grep -q "pre-push: a push from a prototype is refused; nothing was pushed\." \
+  && printf '%s' "$out" | grep -q "Push from the main checkout, where the check reads the files the push sends\."; } \
+  && ok "pre-push refuses main pushed from a prototype's worktree, and says why and what to do" \
+  || bad "pre-push refuses main pushed from a prototype's worktree (exit $status)" "$out"
+expect_no_output "and runs no check there" "running the project check|pre-push: the full check" "$out"
+[ "$(git --git-dir="$_po" rev-parse main)" = "$_main_before_proto" ] && ok "and the origin's main is unmoved" || bad "the refused push moved the origin's main" "$out"
 printf 'exit 0\n' > "$_pa/tools/check.local.sh"
 out="$(cd "$_pa" && git push -q origin main 2>&1)"
-expect_status "pre-push lets main through" 0 $? "$out"
+expect_status "pre-push lets main through from the main checkout" 0 $? "$out"
 git -C "$_pa" checkout -q -- tools/check.local.sh
 [ "$(git --git-dir="$_po" for-each-ref --format='%(refname)')" = "refs/heads/main" ] \
   && ok "the origin has main and nothing else" || bad "a refused push reached the origin" "$(git --git-dir="$_po" for-each-ref)"
+# A push from the prototype that only deletes a ref goes through: it sends no commit.
+git --git-dir="$_po" update-ref refs/heads/gone "$(git --git-dir="$_po" rev-parse main)"
+out="$(cd "$_pw" && git push -q origin :refs/heads/gone 2>&1)"
+expect_status "pre-push lets a prototype's push that only deletes a ref through" 0 $? "$out"
+[ -z "$(git --git-dir="$_po" for-each-ref refs/heads/gone)" ] && ok "and the ref is deleted on the origin" || bad "the deletion didn't reach the origin"
 
 # harvest prints the prototype's commits, files, the diff command, uncommitted changes and notes, and writes nothing.
 _pa_state() { git -C "$_pa" status --porcelain; git -C "$_pa" rev-parse HEAD proto/quick-add; git -C "$_pa" for-each-ref; cksum < "$_pa/TASKS.md"; }
