@@ -400,8 +400,10 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
-# The run we waited for may have checked exactly these files, and a commit may have come meanwhile.
-if [ "$waited" -gt 0 ] && [ "$mode" != "--architecture" ]; then read_head; fi
+# The run we waited for may have checked exactly these files, and a commit or an edit may have come meanwhile: after a
+# wait the head and the fingerprint are taken again, so the reuse and the end-of-run comparison speak of the files this
+# run checks. A run that didn't wait takes neither twice.
+if [ "$waited" -gt 0 ] && [ "$mode" != "--architecture" ]; then read_head; before="$(fingerprint)"; fi
 reuse_last
 
 # --- the tier ---------------------------------------------------------------------------------------

@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T58 · B4 · R1
+**Next IDs:** T59 · B4 · R1
 
 ## Queue
+
+### T58 · A check that waited for the lock compares with the files it checks, not those from before the wait · done · S · agent
+- Touches: framework/tools/check.sh, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: a run that waited for another check takes the fingerprint again once it holds the lock, so its reuse and its end-of-run comparison speak of the files it checks: a run that waited after an edit doesn't reuse a pass recorded before it, and an edit during the wait records no "files changed while the check ran" (test) · a run that didn't wait takes no extra fingerprint, and `--architecture` is unchanged (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B74
 
 ### T57 · The self-test's `put` helper makes a file, not a folder, from a name without a slash · done · XS · agent
 - Touches: selftest.sh, TASKS.md

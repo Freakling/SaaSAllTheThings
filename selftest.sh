@@ -4290,6 +4290,55 @@ grep -q '^timeout-fast = 300$' "$_seed" && grep -q '^timeout-full = 600$' "$_see
   && ok "the seed check.cfg ships the tiers' settings: timeout-fast 300, timeout-full 600, full-every 10, full-when empty" \
   || bad "project/tools/check.cfg has [tests] timeout-fast = 300, timeout-full = 600, full-every = 10 and full-when ="
 git add -A >/dev/null 2>&1; git_q commit -qm "stack none for the hook tests" >/dev/null 2>&1
+# A run that waited for the lock takes the fingerprint again once it has the lock, so its reuse and its end-of-run
+# comparison speak of the files it checks. Another run's lock is held here by a live sleep, and freed by the test.
+lock_app="$work/lock-app"
+new_repo "$lock_app" && bash "$src/install.sh" "$lock_app" >/dev/null 2>&1
+cd "$lock_app" || exit 1
+put tools/check.cfg '[project]
+stack = none'
+put notes.txt 'first'
+bg_out="$work/lock-bg.out"
+lock_hold() { mkdir -p .satt/state; sleep 300 & lock_pid=$!; mkdir .satt/state/lock && echo "$lock_pid" > .satt/state/lock/pid; }
+lock_free() { rm -rf .satt/state/lock; kill "$lock_pid" 2>/dev/null; wait "$lock_pid" 2>/dev/null; }
+wait_for_text() { # wait_for_text <file> <text>: up to 20 seconds, for the text to appear in the file
+  local i=0; until grep -q "$2" "$1" 2>/dev/null || [ "$i" -ge 20 ]; do sleep 1; i=$((i + 1)); done
+  grep -q "$2" "$1" 2>/dev/null
+}
+bg_wait() { # bg_wait: up to 60 seconds for the background run to end, then it is stopped
+  local i=0; while kill -0 "$bg_pid" 2>/dev/null && [ "$i" -lt 60 ]; do sleep 1; i=$((i + 1)); done
+  kill -0 "$bg_pid" 2>/dev/null && kill -KILL "$bg_pid" 2>/dev/null
+  wait "$bg_pid" 2>/dev/null; bg_status=$?
+}
+out="$(bash tools/check.sh 2>&1)"; expect_status "the lock cases start from a full pass" 0 $? "$out"
+cp .satt/state/last-pass "$work/lock-pass"
+# The wrong pass: the run that waited reused the pass recorded before its wait, for files another run had changed.
+rm -f .satt/state/last-pass .satt/state/last-pass.changed
+lock_hold
+bash tools/check.sh --if-changed > "$bg_out" 2>&1 & bg_pid=$!
+if wait_for_text "$bg_out" "waiting for another check"; then ok "a run waits while another check holds the lock"; else bad "a run waits while another check holds the lock" "$(cat "$bg_out")"; fi
+cp "$work/lock-pass" .satt/state/last-pass
+put notes.txt 'second'
+lock_free
+bg_wait
+out="$(cat "$bg_out")"
+expect_no_output "a run that waited doesn't reuse a pass for files that changed during the wait" "nothing changed since the last passing run" "$out"
+expect_output "and runs the check on the current files" "check: running the full tier" "$out"
+expect_status "and that run passes" 0 "$bg_status" "$out"
+# The lost run: a change during the wait made the run record nothing ("files changed while the check ran").
+rm -f .satt/state/last-pass* .satt/state/last-fail*
+lock_hold
+bash tools/check.sh > "$bg_out" 2>&1 & bg_pid=$!
+if wait_for_text "$bg_out" "waiting for another check"; then ok "a second full run waits while the lock is held"; else bad "a second full run waits while the lock is held" "$(cat "$bg_out")"; fi
+put notes.txt 'third'
+lock_free
+bg_wait
+out="$(cat "$bg_out")"
+expect_status "a run that waited for the lock passes on the files as they are" 0 "$bg_status" "$out"
+expect_no_output "and a change during the wait isn't taken for a change during the run" "files changed while the check ran" "$out"
+if grep -q 'tier=full' .satt/state/last-pass 2>/dev/null; then ok "and records its pass"; else bad "and records its pass" "$(ls -la .satt/state 2>&1)"; fi
+out="$(bash tools/check.sh --if-changed 2>&1)"; expect_output "a following --if-changed reuses that pass" "nothing changed since the last passing run" "$out"
+cd "$app" || exit 1
 
 # The tiers. --fast runs the architecture rules and the secrets scan over the whole project, then only the steps
 # the change from HEAD touches; a dependency, a toolchain setting, tools/ or a [tests] full-when path runs it as the
