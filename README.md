@@ -29,7 +29,7 @@ AI writes backend code fast. Without structure, that speed goes wrong in familia
 
 - **The architecture erodes.** One handler reads the tenant from a header, another calls the database from a client, a third stores a connection string. With SaaSAllTheThings the reference architecture is framework-owned and machine-checked. The only way to deviate is an ADR that you accept, and the check accepts an exception only when an accepted ADR names it.
 - **The product drifts.** The AI quietly decides a business rule you never agreed to. Product calls come to you as 2-4 options with a recommendation. Only your choice is written down, and anything undecided goes on an open-questions list instead of being guessed.
-- **"Done" means "it compiled".** One check defines "works": the architecture rules hold, the build passes and the tests pass. It runs before every commit that touches code, and in Claude Code also before the AI ends its turn.
+- **"Done" means "it compiled".** One check defines "works": the architecture rules hold, the build passes and the tests pass. It runs before every commit that touches code and before every push, and in Claude Code also before the AI ends its turn.
 - **Single-tenant habits stay.** Tenant-specific `if`s, a tenant id taken from the request, a cloud bill that grows with every customer. The check fails on the first two, and cost defaults (serverless, consumption) cover the third.
 - **Context gets lost between sessions.** A few plain files hold everything: the product document, a decision log, ADRs, integration contracts, the task queue and an architecture table. Each fact has one home, so any session picks up where the last one stopped.
 
@@ -46,7 +46,7 @@ AI writes backend code fast. Without structure, that speed goes wrong in familia
 
 ### Start here
 
-Before you install, write your product brief in your own words. Copy the [template at this release](https://raw.githubusercontent.com/Freakling/SaaSAllTheThings/v0.16.3/project/product/director-brief.md) to `product/director-brief.md` in your app, and fill in what you know: onboarding reads it after the install and asks only what you left open. It also carries your enterprise architecture, requirements, security requirements and control frameworks, which the assessment and every build read too.
+Before you install, write your product brief in your own words. Copy the [template at this release](https://raw.githubusercontent.com/Freakling/SaaSAllTheThings/v0.17.0/project/product/director-brief.md) to `product/director-brief.md` in your app, and fill in what you know: onboarding reads it after the install and asks only what you left open. It also carries your enterprise architecture, requirements, security requirements and control frameworks, which the assessment and every build read too.
 
 ### Assess first (optional)
 
@@ -193,14 +193,14 @@ your-app/
 ├── tools/stories.sh            whether the user stories are due for validation
 ├── tools/prototype.sh          a prototype's git steps: its worktree, branch and notes; list, harvest, remove
 ├── tools/ui_capture.sh, tools/ui/  screen capture, element map, layout lint, drawing reader, compare and verify (Node and Playwright)
-├── .githooks/pre-commit        scans for secrets on every commit (a scan that can't run blocks it), and runs the check before commits that touch more than docs (not in a prototype)
-├── .githooks/pre-push          refuses to push a prototype's proto/ branch, or its commits under another name
+├── .githooks/pre-commit        scans for secrets on every commit (a scan that can't run blocks it), and runs the check before commits that touch what it counts: the fast tier, or the full tier when it's due (not in a prototype)
+├── .githooks/pre-push          runs the check's full tier before a push (not in a prototype), and refuses to push a prototype's proto/ branch, or its commits under another name
 ├── validation/README.md        how acceptance checks and feedback reports work
 │
 │  the framework's, Claude Code adapter: updated on upgrade
 ├── .claude/skills/             /next-task and the rest: each points to its procedure
 ├── .claude/agents/             builder (builds each item in a fresh context) · reviewer and researcher (read-only)
-├── .claude/hooks/              runs the check before a turn ends, for a session that changed code; blocks risky
+├── .claude/hooks/              runs the check's fast tier before a turn ends, for a session that changed code; blocks risky
 │                               git and Azure commands; asks you before framework files change or an ADR is
 │                               accepted; keeps out of director/; says at session start when the project
 │                               is behind the latest release and which processes outlived the shell that
@@ -296,7 +296,7 @@ sequenceDiagram
 3. the Bicep files in `infra/`, when the Bicep CLI is installed;
 4. `tools/check.local.sh`, if the app has one (client builds, emulator tests).
 
-`bash tools/check.sh --architecture` runs step 1 alone in seconds, with no toolchain. The check exits 0 on pass, 1 on fail, and 3 when it can't run. It never calls Azure, the network or an external system, and remembers the last passing state so hooks don't rerun it when nothing changed.
+That is the full tier. `bash tools/check.sh --fast` runs step 1 over the whole project, then only the steps the change from the last commit touches; a build, a commit and the end of a turn run it, as the full tier where the change needs it (a dependency, a toolchain setting, a file under `tools/` or a `[tests] full-when` path), and the full tier runs when it's due (`bash tools/check.sh --due` says), before a push and for a release (`.satt/rules.md` › Running the check). `bash tools/check.sh --architecture` runs step 1 alone in seconds, with no toolchain. The check exits 0 on pass, 1 on fail, and 3 when it can't run. It never calls Azure, the network or an external system, and remembers the last passing state so hooks don't rerun it when nothing changed.
 
 ### Customising
 - **Workflow rules** that differ for one app go in AGENTS.md › Project rules, where they win over the defaults.

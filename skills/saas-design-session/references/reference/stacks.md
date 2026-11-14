@@ -54,5 +54,36 @@ Each profile file is sourced by `tools/check.sh` and `tools/setup-clone.sh`, and
 
 A file belongs to the first layer whose pattern matches, in the order `[layers]` lists them, so the more specific patterns (hosts before integrations) come first. `[imports]` names how code refers to each layer: namespaces for .NET (`OrderDesk.Domain`), package names for TypeScript (`@orderdesk/domain`), modules for Python (`orderdesk.domain`). Relative imports are resolved by path.
 
+### The TypeScript profile in the fast tier
+The profile runs the root `typecheck`, `lint`, `build` and `test` scripts. In the fast tier (`bash tools/check.sh --fast`) of an app with npm workspaces, `typecheck`, `lint` and `build` still cover the whole project, and `test` covers only the packages the change reaches: the packages with a changed path, and every package that depends on one of them, directly or through other packages, by the workspace packages named in the `dependencies`, `devDependencies`, `peerDependencies` and `optionalDependencies` of their `package.json` files. Only the changed paths that make the backend run count (not `infra/`, the `client` layer or Markdown). A change outside every package runs the whole root `test`, and the check says which path it was. The full tier, and an app without `workspaces`, run the root `test` whole.
+
+An app opts in one of two ways, tried in this order:
+1. **A root `test:fast` script.** It gets the folders of the packages to test in the environment variable `CHECK_PACKAGES`, relative to the repository root and separated by spaces (`packages/domain packages/functions`), and decides for itself how to test them (`vitest run --dir` per folder, a loop of `npm test --workspace`, and so on).
+2. **A `test` script in every package.** Without `test:fast`, the check runs `npm run test --workspace <folder>` for each package to test.
+
+With neither (a package to test has no `test` script and there's no `test:fast`), the root `test` runs whole and the check says so. A run prints which packages it tested and which it left to the full tier.
+
+### The .NET profile in the fast tier
+`dotnet build` covers the whole target in both tiers. In the fast tier the tests cover only the test projects the change reaches: the projects with a changed path, and every project that references one, directly or through other projects, read from the `ProjectReference` entries of the project files tracked in git (`.csproj`, `.fsproj` and `.vbproj`, not under `bin`, `obj`, `node_modules` or `.git`; a `[scan] skip` folder doesn't hide one). A changed path belongs to the project whose folder is its nearest ancestor holding a project file. The selection stays inside the target: for a `.sln`, `.slnx` or `.slnf` target, the projects named in the file (every quoted path ending in a project extension, relative to the target's folder); for a project-file target, that project and the projects it references. A test project outside the target is neither tested nor listed.
+
+A test project is one whose file has a package reference to `Microsoft.NET.Test.Sdk`, `xunit`, `xunit.v3`, `NUnit`, `MSTest`, `MSTest.TestFramework`, `TUnit` or a `Microsoft.Testing.Platform` or `Microsoft.Testing.Extensions` package, or `<IsTestProject>true`, or `Sdk="MSTest.Sdk"`. The test projects reached run through `dotnet test <project> --no-build`, all under the fast tier's one time limit (each gets what is left of it), and every one of them runs, so each failing project is named. Only the changed paths that make the backend run count (not `infra/`, the `client` layer or Markdown); a change to a project file, solution, `*.props`, `*.targets` or `global.json` runs the full tier by itself.
+
+`<IsTestProject>false</IsTestProject>` in a project's own file says it is no test project: it wins over a package marker in the same file, switches off the name rule below for that project, and keeps the selection on for a helper project under `tests/`. A `Directory.Build.props` with `<IsTestProject>` stays a whole-test fallback.
+
+When the selection can't be sure, the whole `dotnet test` of the target runs instead, and the check says why. For example, when:
+- a changed path is outside every project;
+- a `Directory.Build.props` or `.targets` supplies a test SDK, test package or a `ProjectReference`, or a `Directory.Packages.props` has a `GlobalPackageReference` to a test package, or a `global.json` names `Microsoft.Testing.Platform` (which takes the project another way);
+- a `ProjectReference` is an MSBuild property, a `;` list, a wildcard or an absolute path, or a project links a source file from outside its folder (`<Compile Include="..\...">`);
+- a project of the target looks like a test project (its name or a folder in its path ends in `test` or `tests`) but shows none of the above and doesn't say `<IsTestProject>false</IsTestProject>`, or no project of the target shows a test SDK;
+- a project of the target imports a file (`<Import Project="...">`) and is neither recognised as a test project nor marked `<IsTestProject>false`, since the test SDK may come from there; or a project has `<IsTestProject Condition="...">`, which can't be told either way;
+- the target's projects can't be read (a `.slnf` that names its solution with `..` is one such case), a project path has a space, no project file is tracked in git, no changed backend path was listed, or the selection itself failed.
+
+The run's timeout line and failures keep their meaning: a project that failed before another timed out still fails the check. Without GNU `timeout` no limit is enforced, as in the whole run.
+
+A change that reaches no test project runs no test and says so. A run prints which test projects it tested and which it left to the full tier. The full tier runs the whole `dotnet test`.
+
+### The Python profile in the fast tier
+It runs whole in both tiers, with no test selection, and the check says so in the fast tier.
+
 ## Clients
 A client's toolchain can differ from the backend's (a .NET backend with a Kotlin app). Its build and tests run from `tools/check.local.sh`; the architecture rules cover it either way.

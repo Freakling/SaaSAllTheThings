@@ -11,8 +11,11 @@
 #    Functions Core Tools.
 # 3. Installs small pre-commit and pre-push hooks in .git/hooks that run the committed .githooks/pre-commit
 #    and .githooks/pre-push. Other hooks keep working; an existing hook is never overwritten. The hooks are
-#    installed even when step 1 fails (exit 3): the pre-commit hook scans every commit for secrets and the
-#    pre-push hook refuses a prototype's commits, and neither depends on the toolchain.
+#    installed even when step 1 fails (exit 3): the pre-commit hook scans every commit for secrets, which needs
+#    no toolchain, and the pre-push hook refuses a prototype's commits. Both also run the project check, which
+#    needs the toolchain, so until it is installed a commit that stages what the check counts can be blocked
+#    (a fast-tier commit of client, Markdown or Bicep paths needs none), and every push that sends commits is
+#    blocked: the check can't run.
 # Exit codes: 0 = done · 3 = the toolchain is missing (the hooks are installed all the same) · 4 = done, but a
 # hook needs your attention.
 
@@ -52,8 +55,9 @@ done
 [ -n "$missing" ] && echo "setup: optional tools not found:$missing (bicep compiles infra/ in the check; az, azd and func are for deploys and local runs)"
 
 # --- 3. pre-commit and pre-push hooks ---------------------------------------------------------------
-# Installed even when the toolchain is missing (exit 3 above): the hooks need only git and awk. Worktrees
-# share them, prototypes too.
+# Installed even when the toolchain is missing (exit 3 above): the secrets scan and the prototype refusal need only
+# git and awk, while the project check the hooks also run needs the toolchain and blocks the commit or push it can't
+# run for (step 3 in the header). Worktrees share them, prototypes too.
 done_with() { [ "$exit_code" -ne 0 ] && exit "$exit_code"; exit "$1"; }
 [ "$skip_hook" -eq 1 ] && done_with 0
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then

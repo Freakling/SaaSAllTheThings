@@ -170,7 +170,7 @@ If the capabilities aren't decided yet, leave the placeholders, and add an agent
    - Mark the scripts executable, listing only files that exist (`.claude/hooks` is there with the Claude adapter only): `git add --chmod=+x -- tools/*.sh tools/stacks/*.sh .githooks/pre-commit .githooks/pre-push`, plus `.claude/hooks/*.sh`.
    - Use the message `chore: install SaaSAllTheThings <version>` (or `upgrade to`). The body names the mode, the stack, and anything you inferred.
 7. **The pre-commit and pre-push hooks.**
-   - If the check passes, run `bash tools/setup-clone.sh`, which installs them.
+   - If the check passes, run `bash tools/setup-clone.sh`, which installs them. From then on a commit runs the check's fast tier, or the full tier when it's due, and a push the full tier (`.satt/rules.md` › Running the check).
    - If the check fails or can't run, leave the hooks off and add an item: "Install the pre-commit and pre-push hooks once the check passes (`bash tools/setup-clone.sh`)".
    - If setup-clone exits 4, tell the human what it printed (an existing hook or `core.hooksPath` needs a manual line).
 8. **A temporary clone from the skill:** delete it. **Manual install:** offer to delete the SaaSAllTheThings folder from the app. Deleting it is recommended, since upgrades come from a fresh download or the plugin. If the human keeps it, leave it in `.git/info/exclude`.

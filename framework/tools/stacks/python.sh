@@ -1,6 +1,7 @@
 # SaaSAllTheThings stack profile: Python · framework-owned: replaced on upgrade.
 # Sourced by tools/check.sh and tools/setup-clone.sh; see tools/stacks/dotnet.sh for the interface.
-# Uses .venv when it exists. Compiles every module, then runs pytest (or unittest without it).
+# Uses .venv when it exists. Compiles every module, then runs pytest (or unittest without it). It runs whole in both
+# tiers: the fast tier selects no tests, and says so.
 
 stack_python() {
   local candidate
@@ -30,6 +31,7 @@ stack_setup() {
 }
 
 stack_check() {
+  [ "${CHECK_TIER:-full}" = fast ] && echo "check: fast tier: the Python stack runs whole in both tiers, with no test selection"
   if ! "$py" -m compileall -q -x '(^|[/\\])(\.venv|venv|node_modules|\.git)([/\\]|$)' . </dev/null >"$state/compile.log" 2>&1; then
     echo "check: Python modules don't compile:"
     head -n 30 "$state/compile.log" | sed 's/^/  /'

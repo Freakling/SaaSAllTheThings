@@ -24,7 +24,9 @@ Shell commands follow `.satt/rules.md` › Shell commands. Write files with the 
    - Run `bash tools/ui_capture.sh <id> --verify`. Look at the capture and its `.lint.txt` (or `.elements.json`, if you can't view images), then read the table it prints. The layout lint runs here, not in the check.
    - Fix the deviations that are in scope; report the rest in the `Screen:` line.
    - If it exits 3, the `(check)` outcome about the capture stays unverified: say so plainly in the report, as for the check's exit 3. A test user's sign-in that isn't saved is the director's to set up: say which.
-6. **Verify.** While working, `bash tools/check.sh --architecture` answers in seconds. At the end, run `bash tools/check.sh` (foreground, long timeout) until it exits 0.
+6. **Verify.** While working, `bash tools/check.sh --architecture` answers in seconds. At the end, run `bash tools/check.sh --fast` (foreground, long timeout) until it exits 0: the architecture rules and the secrets scan over the whole project, and the steps your change touches, your new tests included.
+   - Never ask for the full tier. An outcome that names the check is met here by `--fast`, which runs as the full tier by itself where the change needs it; the full tier comes before a commit when it's due, before a push and at the end of a run (`rules.md` › Running the check). The commit's hook reuses your pass of the same files when the full tier isn't due.
+   - One check runs at a time (`rules.md` › Running the check, One at a time per checkout).
    - After two failed attempts at the same problem, stop and report.
    - A failure in files the item doesn't touch, which was there before you started, isn't yours: report `failed: pre-existing` with its lines.
    - Exit 3 means the check couldn't run; report that.

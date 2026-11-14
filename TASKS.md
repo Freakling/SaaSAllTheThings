@@ -4,9 +4,48 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T50 · B4 · R1
+**Next IDs:** T55 · B4 · R1
 
 ## Queue
+
+### T54 · The .NET fast tier tests the changed projects and the projects that reference them · done · M · agent
+- Depends on: T53
+- Touches: framework/tools/stacks/dotnet.sh, framework/tools/stacks/python.sh, framework/tools/stacks/typescript.sh, framework/.satt/reference/stacks.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: in the fast tier the .NET stack builds the whole target and runs `dotnet test` only for the test projects that changed or that reference a changed project, directly or through other projects, read from their `ProjectReference` entries; a changed file outside every project runs every test project, and the run names the test projects it ran and the ones it left to the full tier (test) · the Python stack runs whole in both tiers and the check says so (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T343
+
+### T53 · The TypeScript fast tier tests the changed packages and the packages that depend on them · done · M · agent
+- Depends on: T51
+- Touches: framework/tools/stacks/typescript.sh, framework/tools/check.sh, framework/.satt/reference/stacks.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: in the fast tier of an app with npm workspaces, the TypeScript stack tests only the changed packages and the packages that depend on them, by the dependencies their `package.json` files declare: through each such package's own `test` script, or through a root `test:fast` script that gets their folders in `CHECK_PACKAGES`; with neither, the root `test` runs whole and the check says so (test) · typecheck, lint and build cover the whole project as before, a changed backend file outside every package runs the whole `test`, and the run names the packages it tested and the ones it left to the full tier (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T342
+
+### T52 · The hooks and the procedures pick the check's tier · done · L · agent
+- Depends on: T51
+- Touches: framework/.githooks/pre-commit, framework/.githooks/pre-push, framework/.claude/hooks/stop-check.sh, framework/tools/check.sh, framework/tools/setup-clone.sh, framework/.satt/rules.md, framework/.satt/procedures/build.md, framework/.satt/procedures/next-task.md, framework/.satt/procedures/release.md, skills/saas-design-session/references/rules.md, README.md, ONBOARDING.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: the pre-commit hook runs the full tier when `--due` says so and the fast tier otherwise, says which and why, and reuses a builder's pass of the same files; the pre-push hook runs the full tier unless a full pass of the same files stands; the Stop hook runs the fast tier (as the full tier where the change needs it); after a commit that carried a full-tier path, the next commit gets the fast tier; the hooks ask `bash tools/check.sh --unignored` which changed paths count, so a Markdown `[tests] full-when` path runs the check (test) · `rules.md` › Done and Running the check say which tier runs where: the fast tier for a build, a commit and the turn end; the full tier when it's due, before a push, at the end of a run of several items, where a failure becomes a bug item, and for a release, which never takes a fast pass (check) · `build.md` verifies with the fast tier, `next-task.md` asks `--due` before a commit and runs a due full check in the background first, and the CHANGELOG has Upgrade steps for an app's `tools/check.cfg` and `tools/check.local.sh` (check) · a check without `tools/cfg.sh` says so and exits 3 (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T341
+
+### T51 · A fast tier for the check, selected by area · done · L · agent
+- Depends on: T50
+- Touches: framework/tools/check.sh, framework/tools/cfg.sh, framework/tools/archcheck.awk, project/tools/check.cfg, framework/.satt/rules.md, examples/order-desk/tools/check.cfg, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: `bash tools/check.sh --fast` runs the architecture rules and the secrets scan over the whole project, then only the steps the change from HEAD touches: the Bicep compile for a change under `infra/`, the backend stack unless every changed path is under `infra/`, in the `client` layer or documentation, and `tools/check.local.sh` with `CHECK_TIER=fast` and the changed paths in `CHECK_CHANGED`; `bash tools/check.sh` with no argument still runs everything (test) · a change to a dependency or its lockfile, a toolchain setting, a file under `tools/` or a `[tests] full-when` path runs as the full tier and says so (test) · a recorded result names its tier, a fast pass never stands for a full one, `--if-changed` reuses a pass of the same files and tier, and `bash tools/check.sh --due` says whether the full tier is due and why: no full pass recorded, `[tests] full-every` commits since the last one, or such a path changed (test) · each tier has its own time limit, and exit codes 0, 1 and 3 and the secrets scan on every commit are unchanged (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T340
+
+### T50 · The check runs its backend, Bicep and project steps side by side · done · M · agent
+- Touches: framework/tools/check.sh, framework/tools/cfg.sh, project/tools/check.cfg, framework/.satt/rules.md, ONBOARDING.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: with the setting on, `bash tools/check.sh` runs the backend stack, the Bicep compile and `tools/check.local.sh` at the same time once the architecture step is done, each under its own time limit with its own log, prints each step's lines together in the order of a serial run, and exits 0, 1 or 3 as a serial run of the same files would (test) · the setting is a key in `tools/check.cfg`: the seed turns it on, an app without the key runs the steps in order as before, and the CHANGELOG's Upgrade steps say when to turn it on (test) · every run ends with each step's seconds and the total (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T339
 
 ### B3 · Staging a new file changes the check's fingerprint · done · S · agent · med
 - Touches: framework/tools/check.sh, selftest.sh, CHANGELOG.md, TASKS.md

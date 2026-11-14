@@ -406,6 +406,21 @@ grep -qF 'Prototypes (`prototype.md`, `/prototype`) aren' "$src/skills/saas-desi
   || wired="$wired saas-design-session"
 [ -z "$wired" ] && ok "prototypes: the procedure, the skill and tools/prototype.sh exist, and the rules, the item format, the design procedure, the release, the settings, the hooks and the docs name them" \
   || bad "prototypes aren't wired into:$wired"
+# Which tier runs where: rules.md says it once (Done, Running the check), and the procedures and hooks follow it.
+tiers=""
+grep -qF 'the check exits 0 on the tier the procedure names: the fast tier for a build and a commit' "$satt/rules.md" \
+  && grep -qF -- '- **Fast** for a build, a commit and the end of a turn (the Stop hook), which run it as the full tier where the change needs it' "$satt/rules.md" \
+  && grep -qF -- '- **Full** when it'"'"'s due, before a push, at the end of a run of several items, and for a release, which never takes a fast pass.' "$satt/rules.md" \
+  && grep -qF 'becomes a bug item' "$satt/rules.md" || tiers="$tiers rules.md"
+grep -qF 'run `bash tools/check.sh --fast` (foreground, long timeout)' "$satt/procedures/build.md" && grep -qF 'Never ask for the full tier.' "$satt/procedures/build.md" || tiers="$tiers build.md"
+grep -qF 'run `bash tools/check.sh --due` and, when the full tier is due, run it in the background first' "$satt/procedures/next-task.md" \
+  && grep -qF 'The run ends with one full run' "$satt/procedures/next-task.md" && grep -qF 'Run `bash tools/check.sh --fast --if-changed`.' "$satt/procedures/next-task.md" || tiers="$tiers next-task.md"
+grep -qF 'the full tier, never `--fast`, and never a reused fast pass' "$satt/procedures/release.md" || tiers="$tiers release.md"
+grep -qF 'bash tools/check.sh --due' "$src/framework/.githooks/pre-commit" && grep -qF 'bash tools/check.sh --unignored' "$src/framework/.githooks/pre-commit" \
+  && grep -qF 'bash tools/check.sh --full --if-changed' "$src/framework/.githooks/pre-push" \
+  && grep -qF 'bash tools/check.sh --fast --if-changed' "$src/framework/.claude/hooks/stop-check.sh" && grep -qF 'bash tools/check.sh --unignored' "$src/framework/.claude/hooks/stop-check.sh" || tiers="$tiers hooks"
+[ -z "$tiers" ] && ok "the rules say which tier runs where, and build.md, next-task.md, release.md and the hooks follow them" \
+  || bad "the check's tiers aren't wired into:$tiers"
 # Nothing is written without the human's approval of a summary: rules.md › Who decides has the bullet right after
 # the product-call bullet, and accepts an ADR only by the approval of the summary that lists it; design.md holds the
 # answers in the conversation, has Summary and approval between For each question and Record each decision in one
@@ -4179,12 +4194,16 @@ rm -f tools/check.local.sh
 if timeout --version 2>/dev/null | grep -qi coreutils; then
   cp tools/check.cfg "$work/cfg-timeout"
   printf '[tests]
-timeout = 1
+timeout-full = 1
 ' >> tools/check.cfg
   printf 'sleep 20
 ' > tools/check.local.sh
-  out="$(bash tools/check.sh 2>&1)"; expect_status "exits 3 when a test command runs past [tests] timeout" 3 $? "$out"
-  expect_output "and says it was stopped at the limit" "ran past the 1-second limit" "$out"
+  out="$(bash tools/check.sh 2>&1)"; expect_status "exits 3 when a test command runs past [tests] timeout-full" 3 $? "$out"
+  expect_output "and says it was stopped at the limit" "ran past the 1-second limit \(tools/check.cfg › \[tests\] timeout-full, the full tier's\)" "$out"
+  { grep -v '^timeout' "$work/cfg-timeout"; printf '[tests]\ntimeout = 1\n'; } > tools/check.cfg
+  out="$(bash tools/check.sh 2>&1)"; expect_status "the older [tests] timeout counts where timeout-full isn't set" 3 $? "$out"
+  expect_output "and is named as the limit" "ran past the 1-second limit \(tools/check.cfg › \[tests\] timeout," "$out"
+  cp "$work/cfg-timeout" tools/check.cfg; printf '[tests]\ntimeout-full = 1\n' >> tools/check.cfg
   printf 'sleep 20
 exit 1
 ' > tools/check.local.sh
@@ -4194,8 +4213,572 @@ exit 1
   out="$(bash tools/check.sh 2>&1)"; expect_status "a test command under the limit passes" 0 $? "$out"
   rm -f tools/check.local.sh; cp "$work/cfg-timeout" tools/check.cfg
 fi
-grep -q '^timeout = 600' "$src/project/tools/check.cfg" && ok "check.cfg ships [tests] timeout = 600" || bad "check.cfg has [tests] timeout = 600"
+# [tests] parallel = on runs the stack, infra and project steps side by side: the same exit status and the
+# same lines, in the same order, as a run in order, whose cfg has no such key.
+grep -v '^parallel' "$work/cfg" > "$work/cfg-serial"   # the example's cfg turns the setting on
+sed 's/^stack = none$/stack = cobol/' "$work/cfg-serial" > "$work/cfg-cobol-serial"
+run_both() { # run_both <label> <want> <cfg file>: the same files, in order and side by side
+  local label="$1" want="$2" base="$3" s p s_status p_status
+  cp "$base" tools/check.cfg
+  s="$(bash tools/check.sh 2>&1)"; s_status=$?
+  { cat "$base"; printf '\n[tests]\nparallel = on\n'; } > tools/check.cfg
+  p="$(bash tools/check.sh 2>&1)"; p_status=$?
+  expect_status "$label: in order exits $want" "$want" "$s_status" "$s"
+  expect_status "$label: side by side exits $want" "$want" "$p_status" "$p"
+  s="$(printf '%s\n' "$s" | grep -v -e '^check: seconds:' -e 'side by side')"
+  p="$(printf '%s\n' "$p" | grep -v -e '^check: seconds:' -e 'side by side')"
+  if [ "$s" = "$p" ]; then ok "$label: the lines come out as a run in order prints them"; else bad "$label: the lines come out as a run in order prints them" "in order: $s side by side: $p"; fi
+}
+rm -f tools/check.local.sh
+run_both "a pass" 0 "$work/cfg-serial"
+cp "$work/cfg-serial" tools/check.cfg
+out="$(bash tools/check.sh 2>&1)"; expect_output "a run in order ends with each step's seconds and the total" "check: seconds: architecture [0-9]* · stack [0-9]* · infra [0-9]* · project steps [0-9]* · total [0-9]*" "$out"
+case "$out" in *"side by side"*) bad "an app without the key runs in order" "$out" ;; *) ok "an app without the key runs in order" ;; esac
+run_both "a failing stack" 1 "$work/cfg-cobol-serial"
+printf 'echo project-step-ran\nexit 1\n' > tools/check.local.sh
+run_both "a failing project step" 1 "$work/cfg-serial"
+printf 'exit 3\n' > tools/check.local.sh
+run_both "a step that can't run" 3 "$work/cfg-serial"
+printf 'echo project-step-ran\nexit 1\n' > tools/check.local.sh
+run_both "a failing stack and a failing project step" 1 "$work/cfg-cobol-serial"
+{ cat "$work/cfg-cobol-serial"; printf '\n[tests]\nparallel = on\n'; } > tools/check.cfg
+out="$(bash tools/check.sh 2>&1)"
+_before="${out%%project-step-ran*}"
+case "$_before" in *"stack is 'cobol'"*) ok "side by side: the stack's lines come before the project step's" ;; *) bad "side by side: the stack's lines come before the project step's" "$out" ;; esac
+expect_output "side by side: the run ends with each step's seconds and the total" "check: seconds: architecture [0-9]* · stack [0-9]* · infra [0-9]* · project steps [0-9]* · total [0-9]*" "$out"
+expect_output "side by side: the run says so" "side by side" "$out"
+if timeout --version 2>/dev/null | grep -qi coreutils; then
+  printf 'sleep 20\n' > tools/check.local.sh
+  { cat "$work/cfg-serial"; printf '\n[tests]\nparallel = on\ntimeout-full = 1\n'; } > tools/check.cfg
+  out="$(bash tools/check.sh 2>&1)"; expect_status "side by side: a step past [tests] timeout is cut and exits 3" 3 $? "$out"
+  expect_output "and says it was stopped at the limit" "ran past the 1-second limit" "$out"
+fi
+rm -f tools/check.local.sh; cp "$work/cfg-serial" tools/check.cfg
+grep -q '^parallel = on$' "$src/project/tools/check.cfg" && ok "the seed check.cfg turns [tests] parallel on" || bad "project/tools/check.cfg has [tests] parallel = on"
+_seed="$src/project/tools/check.cfg"
+grep -q '^timeout-fast = 300$' "$_seed" && grep -q '^timeout-full = 600$' "$_seed" && grep -q '^full-every = 10$' "$_seed" && grep -q '^full-when =$' "$_seed" \
+  && ok "the seed check.cfg ships the tiers' settings: timeout-fast 300, timeout-full 600, full-every 10, full-when empty" \
+  || bad "project/tools/check.cfg has [tests] timeout-fast = 300, timeout-full = 600, full-every = 10 and full-when ="
 git add -A >/dev/null 2>&1; git_q commit -qm "stack none for the hook tests" >/dev/null 2>&1
+
+# The tiers. --fast runs the architecture rules and the secrets scan over the whole project, then only the steps
+# the change from HEAD touches; a dependency, a toolchain setting, tools/ or a [tests] full-when path runs it as the
+# full tier. Commits here skip the pre-commit hook: the check is what's under test.
+echo "check tiers"
+tier_commit() { git add -A >/dev/null 2>&1; git_q commit --no-verify -qm "$1" >/dev/null 2>&1; }
+last_tier() { local l1="" l2=""; { IFS= read -r l1; IFS= read -r l2; } < .satt/state/last-pass 2>/dev/null; printf '%s' "${l2%% *}"; }
+put tools/check.local.sh 'echo "local: tier=$CHECK_TIER changed=$( [ -n "${CHECK_CHANGED:-}" ] && tr "\n" " " < "$CHECK_CHANGED")."'
+put infra/main.bicep "param location string = 'norwayeast'"
+cp $domain "$work/domain-ok"
+tier_commit "tiers: a project step and infra"
+rm -f .satt/state/last-pass* .satt/state/last-fail* .satt/state/last-full
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: the full tier is due with no full pass recorded" "^check: full tier due: no full pass recorded yet" "$out"
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast passes with nothing changed" 0 $? "$out"
+expect_output "--fast says its tier" "check: running the fast tier" "$out"
+expect_output "--fast runs the architecture rules over the whole project" "architecture: 2[0-9] source files in layers" "$out"
+expect_output "--fast leaves out the backend when nothing changed" "the backend stack is left out" "$out"
+expect_output "--fast leaves out the Bicep compile without a change under infra/" "the Bicep compile is left out \(no change under infra/ or to a bicepconfig.json\)" "$out"
+expect_output "--fast runs tools/check.local.sh with CHECK_TIER=fast and CHECK_CHANGED" "local: tier=fast changed=\." "$out"
+expect_output "--fast still ends with each step's seconds" "check: seconds: architecture [0-9]* · stack [0-9]*" "$out"
+expect_output "a fast pass says the full tier is due, and why" "PASS \(fast tier; the full tier is due: no full pass recorded yet\)" "$out"
+[ "$(last_tier)" = "tier=fast" ] && ok "a fast pass is recorded with its tier" || bad "a fast pass is recorded with its tier" "$(cat .satt/state/last-pass 2>&1)"
+out="$(bash tools/check.sh --if-changed 2>&1)"; expect_output "a fast pass never stands for the full tier" "check: running the full tier" "$out"
+expect_output "with no argument the check runs every step" "stack none: builds and tests run only from tools/check.local.sh" "$out"
+expect_output "and tools/check.local.sh gets CHECK_TIER=full and no CHECK_CHANGED" "local: tier=full changed=\." "$out"
+expect_no_output "and leaves nothing out" "left out" "$out"
+expect_output "and says its tier in the result" "check: PASS \(full tier\)" "$out"
+[ "$(last_tier)" = "tier=full" ] && ok "a full pass is recorded with its tier" || bad "a full pass is recorded with its tier" "$(cat .satt/state/last-pass 2>&1)"
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: not due right after a full pass" "^check: full tier not due: 0 commits since the last full pass \([0-9a-f]{7}, [0-9-]+ [0-9:]+\), \[tests\] full-every = 10" "$out"
+# A record in the older check's one-line format (the fingerprint alone) stands for nothing.
+_fp="$(bash tools/check.sh --fingerprint)"; printf '%s' "$_fp" > .satt/state/last-pass; rm -f .satt/state/last-pass.changed .satt/state/last-fail*
+out="$(bash tools/check.sh --if-changed 2>&1)"; expect_no_output "a record in the older one-line format isn't reused" "nothing changed since the last passing run" "$out"
+expect_output "and the check runs instead" "check: running the full tier" "$out"
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_output "a full pass stands for a fast request" "nothing changed since the last passing run: the full tier" "$out"
+bash tools/check.sh --fast >/dev/null 2>&1
+[ "$(last_tier)" = "tier=full" ] && ok "a fast pass doesn't replace a full pass of the same files" || bad "a fast pass doesn't replace a full pass of the same files" "$(cat .satt/state/last-pass 2>&1)"
+# A change in the domain: the backend runs, and tools/check.local.sh is told what changed.
+printf '\n// a harmless change\n' >> $domain
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast passes a backend change" 0 $? "$out"
+expect_output "and runs the backend stack for it" "stack none: builds and tests run only from tools/check.local.sh" "$out"
+expect_no_output "and doesn't leave the backend out" "the backend stack is left out" "$out"
+expect_output "CHECK_CHANGED lists the changed path" "local: tier=fast changed=src/OrderDesk.Domain/Orders/Order.cs \." "$out"
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_output "--if-changed --fast reuses a fast pass of the same files" "nothing changed since the last passing run: the fast tier" "$out"
+out="$(bash tools/check.sh --if-changed 2>&1)"; expect_output "but not for the full tier" "check: running the full tier" "$out"
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_output "and the full pass then stands for --fast" "nothing changed since the last passing run: the full tier" "$out"
+cp "$work/domain-ok" $domain
+printf '\n// another harmless change\n' >> $domain
+bash tools/check.sh --fast >/dev/null 2>&1
+tier_commit "tiers: a domain change"
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_output "a fast pass still stands once its changes are committed" "nothing changed since the last passing run: the fast tier" "$out"
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due counts the commits since the last full pass" "^check: full tier not due: 1 commit since the last full pass" "$out"
+# A fast pass from another commit doesn't stand once the changes go beyond those it checked: after git reset --soft
+# over a commit that changed another path, the files are the same, but that path is unchecked by it.
+printf '\n// one more change\n' >> $domain; tier_commit "tiers: a commit to step back over"
+put tests/OrderDesk.Application.Tests/Extra.cs '// an extra test file'
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast passes a test change" 0 $? "$out"
+git reset -q --soft HEAD~1
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_no_output "a fast pass doesn't stand for changes beyond those it checked" "nothing changed since the last passing run" "$out"
+expect_output "and the fast tier runs again" "check: running the fast tier" "$out"
+git reset -q --hard; rm -f tests/OrderDesk.Application.Tests/Extra.cs
+# Changes that leave the backend out: the client layer, Markdown and infra/.
+put clients/web/app.ts 'export const x = 1;'
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast passes a client change" 0 $? "$out"
+expect_output "and leaves the backend out for a change in the client layer" "the backend stack is left out" "$out"
+rm -rf clients
+printf '# notes\n' > notes.md
+out="$(bash tools/check.sh --fast 2>&1)"; expect_output "and for a Markdown change" "the backend stack is left out" "$out"
+rm -f notes.md
+printf '// a note\n' >> infra/main.bicep
+out="$(bash tools/check.sh --fast 2>&1)"
+expect_output "a change under infra/ leaves the backend out" "the backend stack is left out" "$out"
+expect_no_output "and runs the Bicep compile" "the Bicep compile is left out" "$out"
+git checkout -q -- infra/main.bicep
+printf '{}\n' > bicepconfig.json   # Bicep reads the nearest bicepconfig.json above each file
+out="$(bash tools/check.sh --fast 2>&1)"
+expect_no_output "a root bicepconfig.json change runs the Bicep compile" "the Bicep compile is left out" "$out"
+expect_output "and leaves the backend out" "the backend stack is left out" "$out"
+rm -f bicepconfig.json
+# The architecture rules and the secrets scan cover the whole project in the fast tier, not just the change.
+printf 'public static class Bad { public static DateTime T => DateTime.UtcNow; }\n' >> $domain
+put src/OrderDesk.Functions/storage.sample.json "{ \"Values\": { \"Storage\": \"$fake_key\" } }"
+tier_commit "tiers: a violation and a secret"
+printf '# notes\n' > notes.md
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast fails on a committed violation the change doesn't touch" 1 $? "$out"
+expect_output "with the architecture rule" "\[domain-purity\]" "$out"
+expect_output "and the secrets scan over the whole project" "\[secrets\] src/OrderDesk.Functions/storage.sample.json" "$out"
+expect_output "and the failure names its tier" "check: FAIL \(fast tier" "$out"
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_status "--if-changed --fast reuses a fast failure of the same files" 1 $? "$out"
+expect_output "and says so" "nothing changed since the last failing run of the fast tier; run 'bash tools/check.sh --fast'" "$out"
+rm -f notes.md src/OrderDesk.Functions/storage.sample.json; cp "$work/domain-ok" $domain
+printf '\n// another harmless change\n' >> $domain
+tier_commit "tiers: fixed"
+# What runs the full tier: tools/, a [tests] full-when path, and each stack's dependencies and toolchain settings.
+put tools/extra.sh 'exit 0'
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast passes a change under tools/" 0 $? "$out"
+expect_output "and runs it as the full tier, saying why" "check: note: tools/extra.sh changed \(a dependency, a toolchain setting, tools/ or \[tests\] full-when\), so the fast tier runs as the full tier" "$out"
+expect_output "as the full tier throughout" "check: PASS \(full tier\)" "$out"
+rm -f tools/extra.sh
+printf '[tests]\nfull-when = db/ src/*/Migrations/ handbook/\n' >> tools/check.cfg
+tier_commit "tiers: full-when"
+bash tools/check.sh >/dev/null 2>&1
+put db/0001-orders.sql 'create table orders (id int);'
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: a [tests] full-when path makes the full tier due" "^check: full tier due: db/0001-orders.sql changed \(a dependency" "$out"
+out="$(bash tools/check.sh --fast 2>&1)"; expect_output "and runs --fast as the full tier" "db/0001-orders.sql changed .*so the fast tier runs as the full tier" "$out"
+rm -rf db
+bash tools/check.sh >/dev/null 2>&1
+put src/OrderDesk.Domain/Migrations/0002-lines.cs '// a migration'
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: a full-when folder pattern with a wildcard matches" "^check: full tier due: src/OrderDesk.Domain/Migrations/0002-lines.cs changed \(a dependency" "$out"
+out="$(bash tools/check.sh --fast 2>&1)"; expect_output "and runs --fast as the full tier" "src/OrderDesk.Domain/Migrations/0002-lines.cs changed .*so the fast tier runs as the full tier" "$out"
+rm -rf src/OrderDesk.Domain/Migrations
+bash tools/check.sh >/dev/null 2>&1
+put handbook/release.md '# Release'
+out="$(bash tools/check.sh --fast --if-changed 2>&1)"; expect_no_output "a Markdown full-when path stops a reuse" "nothing changed since the last passing run" "$out"
+expect_output "and runs --fast as the full tier" "handbook/release.md changed .*so the fast tier runs as the full tier" "$out"
+rm -rf handbook
+_dep_case() { # _dep_case <stack> <path> <content>
+  sed "s/^stack = none$/stack = $1/" "$work/cfg-serial" > tools/check.cfg; tier_commit "tiers: stack $1"
+  printf '%s\n' "$3" >> "$2"
+  out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: $2 makes the full tier due for stack $1" "^check: full tier due: $2 changed \(a dependency" "$out"
+  if [ -f "$2" ] && git ls-files --error-unmatch "$2" >/dev/null 2>&1; then git checkout -q -- "$2"; else rm -f "$2"; fi
+}
+_dep_case dotnet src/OrderDesk.Domain/OrderDesk.Domain.csproj '<!-- a change -->'
+_dep_case dotnet Directory.Packages.props '<Project />'
+_dep_case typescript package-lock.json '{}'
+_dep_case python requirements.txt 'requests==2.32.3'
+# --fast itself switches for them. The stack's toolchain may be missing (exit 3) or find no project (exit 1): the
+# note comes first either way, and neither needs node or Python here.
+_dep_fast() { # _dep_fast <stack> <path> <content>
+  sed "s/^stack = none$/stack = $1/" "$work/cfg-serial" > tools/check.cfg; tier_commit "tiers: stack $1"
+  printf '%s\n' "$3" > "$2"
+  out="$(bash tools/check.sh --fast 2>&1)"; expect_output "--fast runs as the full tier for $2 with stack $1" "$2 changed .*so the fast tier runs as the full tier" "$out"
+  rm -f "$2"
+}
+_dep_fast typescript package-lock.json '{}'
+_dep_fast python pyproject.toml '[project]'
+if [ "$dotnet_sdk" -eq 0 ]; then
+  sed 's/^stack = none$/stack = dotnet/' "$work/cfg-serial" > tools/check.cfg; tier_commit "tiers: stack dotnet"
+  printf '<!-- a change -->\n' >> src/OrderDesk.Domain/OrderDesk.Domain.csproj
+  out="$(bash tools/check.sh --fast 2>&1)"
+  expect_output "--fast runs as the full tier for a changed .csproj" "OrderDesk.Domain.csproj changed .*so the fast tier runs as the full tier" "$out"
+  git checkout -q -- src/OrderDesk.Domain/OrderDesk.Domain.csproj
+fi
+# [tests] full-every: commits since the last full pass.
+{ cat "$work/cfg-serial"; printf '[tests]\nfull-every = 2\n'; } > tools/check.cfg; tier_commit "tiers: full-every 2"
+bash tools/check.sh >/dev/null 2>&1
+git_q commit --no-verify --allow-empty -qm "tiers: one" >/dev/null 2>&1
+out="$(bash tools/check.sh --fast 2>&1)"; expect_output "a fast pass says when the full tier is due" "PASS \(fast tier; the full tier is due in 1 commit\)" "$out"
+git_q commit --no-verify --allow-empty -qm "tiers: two" >/dev/null 2>&1
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: [tests] full-every commits make the full tier due" "^check: full tier due: 2 commits since the last full pass \([0-9a-f]{7}, .*\), \[tests\] full-every = 2" "$out"
+bash tools/check.sh >/dev/null 2>&1
+git_q commit --no-verify --amend --allow-empty -qm "tiers: two, amended" >/dev/null 2>&1
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: the last full pass isn't in this history" "^check: full tier due: the last full pass \([0-9a-f]{7}, .*\) isn't in this history" "$out"
+{ cat "$work/cfg-serial"; printf '[tests]\nfull-every = 0\n'; } > tools/check.cfg; tier_commit "tiers: full-every 0"
+bash tools/check.sh >/dev/null 2>&1
+git_q commit --no-verify --allow-empty -qm "tiers: three" >/dev/null 2>&1
+out="$(bash tools/check.sh --due 2>&1)"; expect_output "--due: full-every = 0 is never due by count" "^check: full tier not due: 1 commit since the last full pass \([0-9a-f]{7}, .*\), \[tests\] full-every = 0" "$out"
+out="$(bash tools/check.sh --fast 2>&1)"; expect_output "and a fast pass says so" "PASS \(fast tier; the full tier isn't due by count, \[tests\] full-every = 0\)" "$out"
+# The backend's own changed paths: CHECK_BACKEND_CHANGED lists those that make the stack run, never Markdown or the client layer.
+put tools/check.local.sh 'echo "backend=$( [ -n "${CHECK_BACKEND_CHANGED:-}" ] && tr "\n" " " < "$CHECK_BACKEND_CHANGED")."; echo "tier=$CHECK_TIER"'
+cp "$work/cfg-serial" tools/check.cfg; tier_commit "tiers: the backend list's project step"
+printf '\n// a change\n' >> $domain; printf '# notes\n' > notes.md; put clients/web/app.ts 'export const x = 1;'
+out="$(bash tools/check.sh --fast 2>&1)"
+expect_output "--fast gives the stack CHECK_BACKEND_CHANGED: only the paths that make the backend run" "backend=src/OrderDesk.Domain/Orders/Order.cs \." "$out"
+out="$(bash tools/check.sh 2>&1)"
+expect_output "the full tier runs the project step with no CHECK_BACKEND_CHANGED" "backend=\." "$out"
+git checkout -q -- $domain; rm -rf notes.md clients
+
+# The TypeScript profile in the fast tier of an app with npm workspaces: the test step covers the changed packages and
+# the packages that depend on them. Stand-ins for npm (it records how it was called) keep this off the network; the
+# selection is node's one call, tried with the real node where there is one, and with a stand-in node that gives a fixed
+# answer where there isn't, which is how the shell side (the two ways to test, the lines) is proven without Node.
+echo "typescript fast tier"
+_tsbin="$work/ts-bin"; mkdir -p "$_tsbin"
+printf '#!/bin/sh\necho "npm $*"\necho "CHECK_PACKAGES=${CHECK_PACKAGES-unset}"\n' > "$_tsbin/npm"
+mkdir -p "$work/ts-fake"; printf '#!/bin/sh\ncat "$TS_ANSWER"\n' > "$work/ts-fake/node"; chmod +x "$_tsbin/npm" "$work/ts-fake/node"
+_tsapp="$work/tsapp"
+ts_make() { # ts_make <root package.json>: three packages, api depends on functions, functions on domain; web stands alone
+  rm -rf "$_tsapp"; mkdir -p "$_tsapp/node_modules" "$_tsapp/.satt/state" "$_tsapp/packages/domain" "$_tsapp/packages/functions" "$_tsapp/packages/api" "$_tsapp/packages/web" "$_tsapp/shared"
+  printf '%s\n' "$1" > "$_tsapp/package.json"
+  printf '%s\n' '{"name":"@x/domain","scripts":{"test":"t"}}' > "$_tsapp/packages/domain/package.json"
+  printf '%s\n' '{"name":"@x/functions","dependencies":{"@x/domain":"*"},"scripts":{"test":"t"}}' > "$_tsapp/packages/functions/package.json"
+  printf '%s\n' '{"name":"@x/api","devDependencies":{"@x/functions":"*"},"scripts":{"test":"t"}}' > "$_tsapp/packages/api/package.json"
+  printf '%s\n' '{"name":"@x/web","peerDependencies":{"@x/domain":"*"},"scripts":{"test":"t"}}' > "$_tsapp/packages/web/package.json"
+}
+ts_run() { # ts_run <path to the profile's node, or empty for the real one> <tier> <changed path>...: the stack's lines, then the test log
+  local nodepath="$1" tier="$2"; shift 2
+  ( cd "$_tsapp" || exit 9
+    state=.satt/state; cfg_timeout=60
+    : > "$state/changed-backend"; for p in "$@"; do printf '%s\n' "$p" >> "$state/changed-backend"; done
+    export CHECK_TIER="$tier" CHECK_BACKEND_CHANGED="$PWD/$state/changed-backend"
+    PATH="$_tsbin${nodepath:+:$nodepath}:$PATH"
+    run_limited() { local log="$1"; shift; "$@" </dev/null >"$log" 2>&1; }
+    timed_out() { echo "timed out: $1"; }
+    . "$src/framework/tools/stacks/typescript.sh"
+    stack_check; echo "status $?"; cat "$state/npm-test.log" 2>/dev/null ) 2>&1
+}
+_ws_plain='{"name":"root","workspaces":["packages/*"],"scripts":{"test":"all"}}'
+_ws_fast='{"name":"root","workspaces":["packages/*"],"scripts":{"test":"all","test:fast":"fast"}}'
+# The shell side, against a stand-in node whose answer is fixed (so it runs without Node).
+ts_make "$_ws_plain"
+export TS_ANSWER="$work/ts-answer"
+printf 'T packages/domain 1\nT packages/functions 1\nS packages/web\n' > "$TS_ANSWER"
+out="$(ts_run "$work/ts-fake" fast packages/domain/a.ts)"
+expect_output "fast tier: the packages' own test scripts run, one npm call with a --workspace each" "npm run --silent test --workspace packages/domain --workspace packages/functions" "$out"
+expect_output "and the run names the packages it tested" "fast tier: tested the packages packages/domain packages/functions" "$out"
+expect_output "and the ones it left to the full tier" "left to the full tier: packages/web" "$out"
+ts_make "$_ws_fast"
+out="$(ts_run "$work/ts-fake" fast packages/domain/a.ts)"
+expect_output "a root test:fast script runs instead, with the folders in CHECK_PACKAGES" "npm run --silent test:fast.*CHECK_PACKAGES=packages/domain packages/functions" "$(printf '%s' "$out" | tr '\n' ' ')"
+printf 'T packages/domain 1\nT packages/api 0\nS packages/web\n' > "$TS_ANSWER"
+ts_make "$_ws_plain"
+out="$(ts_run "$work/ts-fake" fast packages/domain/a.ts)"
+expect_output "a package without a test script and no test:fast: the root test runs whole" "the whole test runs: no test:fast script in package.json, and no test script in packages/api" "$out"
+expect_output "and it is the root test that runs" "check: npm run test passed" "$out"
+expect_no_output "and not the packages' own scripts" "--workspace" "$out"
+printf 'W shared/x.ts is outside every package\n' > "$TS_ANSWER"
+out="$(ts_run "$work/ts-fake" fast shared/x.ts)"
+expect_output "a changed file outside every package: the whole test runs, and the check says why" "the whole test runs: shared/x.ts is outside every package" "$out"
+printf 'N\n' > "$TS_ANSWER"
+out="$(ts_run "$work/ts-fake" fast packages/domain/a.ts)"
+expect_no_output "an app without workspaces runs as before, with no selection lines" "fast tier" "$out"
+printf 'T packages/domain 1\n' > "$TS_ANSWER"
+out="$(ts_run "$work/ts-fake" full packages/domain/a.ts)"
+expect_no_output "the full tier runs the whole test as before" "fast tier|--workspace" "$out"
+expect_output "and the root test passes" "check: npm run test passed" "$out"
+printf '#!/bin/sh\nexit 1\n' > "$work/ts-fake/node"
+out="$(ts_run "$work/ts-fake" fast packages/domain/a.ts)"
+expect_output "a node call that fails runs the whole test and says so" "the whole test runs: node couldn't work out the packages" "$out"
+expect_output "and the check still passes the test" "check: npm run test passed" "$out"
+# The selection itself, with the real node.
+if command -v node >/dev/null 2>&1; then
+  ts_make "$_ws_fast"
+  out="$(ts_run "" fast packages/domain/a.ts)"
+  expect_output "a change in a package tests it and the packages that depend on it, directly or through others" "tested the packages packages/api packages/domain packages/functions packages/web" "$out"
+  expect_output "and the folders go to test:fast in CHECK_PACKAGES" "CHECK_PACKAGES=packages/api packages/domain packages/functions packages/web" "$out"
+  out="$(ts_run "" fast packages/functions/a.ts)"
+  expect_output "a change in a package nothing depends on tests only the packages above it" "tested the packages packages/api packages/functions( |$)" "$out"
+  expect_output "and the rest are left to the full tier" "left to the full tier: packages/domain packages/web" "$out"
+  out="$(ts_run "" fast packages/web/a.ts packages/api/b.ts)"
+  expect_output "two changed packages are both tested" "tested the packages packages/api packages/web" "$out"
+  expect_output "dependencies are not followed downwards" "left to the full tier: packages/domain packages/functions" "$out"
+  out="$(ts_run "" fast packages/api/a.ts shared/x.ts)"
+  expect_output "one changed path outside every package runs the whole test" "the whole test runs: shared/x.ts is outside every package" "$out"
+  ts_make '{"name":"root","workspaces":{"packages":["packages/*","!packages/web"]},"scripts":{"test":"all"}}'
+  out="$(ts_run "" fast packages/domain/a.ts)"
+  expect_output "an object with packages and an excluded folder: the excluded one is no package" "tested the packages packages/api packages/domain packages/functions" "$out"
+  expect_output "and not listed either way" "left to the full tier: none" "$out"
+  ts_make '{"name":"root","workspaces":["nothing/*"],"scripts":{"test":"all"}}'
+  out="$(ts_run "" fast packages/domain/a.ts)"
+  expect_output "a workspace pattern that matches nothing runs the whole test, and says so" "the whole test runs: the workspaces of package.json match no package folder" "$out"
+  ts_make '{"name":"root","type":"module","workspaces":["packages/*"],"scripts":{"test":"all","test:fast":"fast"}}'
+  out="$(ts_run "" fast packages/domain/a.ts)"
+  expect_output "a root package.json with \"type\": \"module\" still selects the packages" "tested the packages packages/api packages/domain packages/functions packages/web" "$out"
+  expect_no_output "and the selection doesn't fall back to the whole test" "node couldn't work out" "$out"
+  _tsjs="$(/usr/bin/find "$_tsapp" -path "$_tsapp/node_modules" -prune -o -name '*.js' -print 2>/dev/null)"
+  [ -z "$_tsjs" ] && ok "after a fast run no .js file is left in the app's tree for its own lint to find" || bad "a fast run left a .js file in the app's tree" "$_tsjs"
+  ts_make '{"name":"root","scripts":{"test":"all"}}'
+  out="$(ts_run "" fast packages/domain/a.ts)"
+  expect_no_output "no workspaces key: no selection" "fast tier" "$out"
+else
+  echo "  skip  the package selection with the real node (node isn't installed)"
+fi
+unset TS_ANSWER
+
+# The .NET profile in the fast tier: the test step covers the test projects that changed or reference a changed project,
+# directly or through others, read from the ProjectReference entries of the project files tracked in git. A stand-in
+# dotnet (it records how it was called) keeps this off the SDK, so these cases run on every machine; the real SDK's
+# cases are in the .NET part at the end. The Python profile runs whole in both tiers and says so.
+echo ".NET fast tier"
+_dnbin="$work/dn-bin"; mkdir -p "$_dnbin"
+printf '#!/bin/sh\necho "dotnet $*" >> "$DN_CALLS"\nif [ "$1" = test ]; then\n  case " ${DN_FAIL:-} " in *" $2 "*) echo "Failed! $2"; exit 1 ;; esac\n  echo "Passed! $2"\nfi\nexit 0\n' > "$_dnbin/dotnet"
+printf '#!/bin/sh\nexit 0\n' > "$_dnbin/fakepy"; chmod +x "$_dnbin/dotnet" "$_dnbin/fakepy"
+_dnapp="$work/dnapp"
+dn_proj() { # dn_proj <path> <line>...: a project file with those lines inside <Project>
+  mkdir -p "$(dirname "$_dnapp/$1")"
+  { printf '%s\n' '<Project Sdk="Microsoft.NET.Sdk">'; [ $# -lt 2 ] || printf '%s\n' "${@:2}"; printf '%s\n' '</Project>'; } > "$_dnapp/$1"
+}
+dn_finish() { # dn_finish: App.sln lists every project but those under tests/Perf, and everything is staged
+  ( cd "$_dnapp" || exit 1
+    { printf 'Microsoft Visual Studio Solution File, Format Version 12.00\r\n'
+      /usr/bin/find . -name '*.csproj' ! -path './tests/Perf/*' | /usr/bin/sort | while IFS= read -r f; do
+        f="${f#./}"; printf 'Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "p", "%s", "{G}"\r\nEndProject\r\n' "${f//\//\\}"
+      done; } > App.sln
+    git add -A ) >/dev/null 2>&1
+}
+dn_make() { # dn_make: Domain <- Functions <- Api (two references on one line, one with a Condition), Web and Lonely stand alone; a test project each for Domain, Api (a multi-line reference), Web (IsTestProject, a reference in another case, CRLF and a byte order mark) and Generated (under a [scan] skip folder); Perf is a test project outside the solution
+  rm -rf "$_dnapp"; mkdir -p "$_dnapp/tools" "$_dnapp/scripts"
+  : > "$_dnapp/scripts/x.cs"
+  printf '[scan]\nskip = **/bin **/obj **/Generated\n' > "$_dnapp/tools/check.cfg"
+  printf '%s\n' '<Project />' > "$_dnapp/FooDirectory.Build.props"
+  printf '%s\n' '<Project><ItemGroup><PackageVersion Include="xunit" Version="2.*" /></ItemGroup></Project>' > "$_dnapp/Directory.Packages.props"
+  dn_proj src/Domain/Domain.csproj
+  dn_proj src/Functions/Functions.csproj "<ItemGroup><ProjectReference Include='..\\Domain\\Domain.csproj' /></ItemGroup>"
+  awk '{ printf "%s\r\n", $0 }' "$_dnapp/src/Functions/Functions.csproj" > "$_dnapp/fn.tmp"; mv "$_dnapp/fn.tmp" "$_dnapp/src/Functions/Functions.csproj"   # a source project with CRLF line ends
+  dn_proj src/Api/Api.csproj '<ItemGroup>' "<ProjectReference Condition=\"'\$(X)' == 'y'\" Include=\"../Functions/Functions.csproj\" /><ProjectReference Include=\"../Tool/Tool.csproj\" />" '</ItemGroup>'
+  dn_proj src/Web/Web.csproj
+  dn_proj src/Tool/Tool.csproj
+  dn_proj src/Lonely/Lonely.csproj
+  dn_proj tests/Domain.Tests/Domain.Tests.csproj '<ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" /></ItemGroup>' '<ItemGroup><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
+  dn_proj tests/Api.Tests/Api.Tests.csproj '<ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" /></ItemGroup>' '<ItemGroup>' '  <ProjectReference' '    Include="../../src/Api/Api.csproj"' '  />' '</ItemGroup>'
+  dn_proj tests/Web.Tests/Web.Tests.csproj '<PropertyGroup><IsTestProject>true</IsTestProject></PropertyGroup>' '<ItemGroup><ProjectReference Include="..\..\src\WEB\Web.csproj" /></ItemGroup>'
+  { printf '\357\273\277'; awk '{ printf "%s\r\n", $0 }' "$_dnapp/tests/Web.Tests/Web.Tests.csproj"; } > "$_dnapp/web.tmp"; mv "$_dnapp/web.tmp" "$_dnapp/tests/Web.Tests/Web.Tests.csproj"
+  dn_proj tests/Generated/Generated.Tests.csproj '<ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" /><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
+  dn_proj tests/Perf/Perf.Tests.csproj '<ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" /><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
+  ( cd "$_dnapp" && git init -q . ) >/dev/null 2>&1
+  dn_finish
+}
+dn_run() { # dn_run <tier> <changed path>...: the stack's lines, then the calls the stand-in dotnet recorded
+  local tier="$1"; shift
+  ( cd "$_dnapp" || exit 9
+    state=.satt/state; mkdir -p "$state"; cfg_timeout="${_dn_limit:-60}"; cfg_target="${_dn_target:-App.sln}"
+    DN_CALLS="$PWD/$state/calls"; : > "$DN_CALLS"; export DN_CALLS DN_FAIL="${_dn_fail:-}"
+    : > "$state/changed-backend"; for p in "$@"; do printf '%s\n' "$p" >> "$state/changed-backend"; done
+    export CHECK_TIER="$tier" CHECK_BACKEND_CHANGED="$PWD/$state/changed-backend"
+    PATH="$_dnbin:$PATH"
+    # run_limited records the limit it was given, and sleeps _dn_slow seconds when a case asks for it (to spend the budget)
+    # _dn_hang names a project whose test runs past the limit (status 124); _dn_notimeout stands for no GNU timeout
+    if [ -n "${_dn_notimeout:-}" ]; then timeout_cmd=""; else timeout_cmd=timeout; fi
+    run_limited() {
+      local log="$1"; shift; echo "limit $cfg_timeout" >> "$DN_CALLS"; [ -z "${_dn_slow:-}" ] || sleep "$_dn_slow"
+      case " $* " in *" ${_dn_hang:-nothing-hangs} "*) return 124 ;; esac
+      "$@" </dev/null >"$log" 2>&1
+    }
+    timed_out() { echo "timed out: $1"; }
+    . "$src/framework/tools/stacks/dotnet.sh"
+    stack_check; echo "status $?"; sed 's/^/call: /' "$DN_CALLS" ) 2>&1
+}
+dn_flat() { printf '%s' "$1" | tr '\n' '|'; }
+_dn_api=tests/Api.Tests/Api.Tests.csproj; _dn_dom=tests/Domain.Tests/Domain.Tests.csproj; _dn_web=tests/Web.Tests/Web.Tests.csproj
+_dn_gen=tests/Generated/Generated.Tests.csproj
+dn_make
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a changed project tests the test projects that reference it, directly or through others" "fast tier: tested the test projects $_dn_api $_dn_dom $_dn_gen \(changed, or referencing a changed project\)\|" "$out"
+expect_output "and the run names the test project it left to the full tier" "left to the full tier: $_dn_web\|" "$out"
+expect_output "the build stays whole" "call: dotnet build App.sln " "$out"
+expect_output "each test project gets its own dotnet test --no-build" "call: dotnet test $_dn_api --no-build .*call: dotnet test $_dn_dom --no-build " "$out"
+expect_no_output "and the test project it left isn't run" "dotnet test $_dn_web|dotnet test App.sln" "$out"
+expect_output "the tests pass" "check: dotnet test passed\|.*status 0" "$out"
+expect_output "a project under a [scan] skip folder still counts" "dotnet test $_dn_gen --no-build" "$out"
+expect_no_output "a test project outside the solution is neither tested nor listed" "Perf" "$out"
+out="$(dn_flat "$(dn_run fast src/Domain/Deep/Deeper/C.cs)")"
+expect_output "a changed file belongs to the nearest folder up that holds a project file" "tested the test projects $_dn_api $_dn_dom $_dn_gen \(" "$out"
+out="$(dn_flat "$(dn_run fast src/Api/B.cs)")"
+expect_output "a project nothing depends on tests only the test projects above it" "tested the test projects $_dn_api \(.*left to the full tier: $_dn_dom $_dn_gen $_dn_web\|" "$out"
+expect_no_output "references aren't followed downwards" "dotnet test $_dn_dom" "$out"
+out="$(dn_flat "$(dn_run fast src/Tool/t.cs)")"
+expect_output "two references on one line, the first with a Condition, both count: Tool is under Api" "tested the test projects $_dn_api \(" "$out"
+out="$(dn_flat "$(dn_run fast src/Web/W.cs)")"
+expect_output "an IsTestProject project (CRLF, a byte order mark) is a test project, and a reference matches whatever its case" "tested the test projects $_dn_web \(.*left to the full tier: $_dn_api $_dn_dom $_dn_gen\|" "$out"
+out="$(dn_flat "$(dn_run fast src/Web/W.cs src/Lonely/t.cs tests/Domain.Tests/T.cs)")"
+expect_output "several changed paths: each one's test projects" "tested the test projects $_dn_dom $_dn_web \(.*left to the full tier: $_dn_api $_dn_gen\|" "$out"
+out="$(dn_flat "$(dn_run fast scripts/x.cs)")"
+expect_output "a changed file outside every project runs the whole test, and the check names the path" "the whole test runs: scripts/x.cs is outside every project" "$out"
+expect_output "as dotnet test of the target" "call: dotnet test App.sln --no-build " "$out"
+expect_no_output "and not the test projects one by one" "fast tier: tested|dotnet test tests/" "$out"
+out="$(dn_flat "$(dn_run fast src/Lonely/t.cs)")"
+expect_output "a change that reaches no test project runs no test and says so" "no test project is changed or references a changed project, so no test runs\|.*left to the full tier: $_dn_api $_dn_dom $_dn_gen $_dn_web\|" "$out"
+expect_no_output "and no dotnet test call is made" "call: dotnet test" "$out"
+expect_output "and the check still passes" "status 0" "$out"
+out="$(dn_flat "$(dn_run full src/Domain/A.cs)")"
+expect_output "the full tier runs dotnet test of the target as before" "call: dotnet build App.sln .*call: dotnet test App.sln --no-build -nologo -v:q" "$out"
+expect_no_output "with no selection lines" "fast tier|dotnet test tests/" "$out"
+# Each of these changes one thing in the tree and expects the whole test, with its reason.
+dn_whole() { # dn_whole <what> <reason regex> <changed path>: the whole dotnet test of the target runs, and says why
+  local o; o="$(dn_flat "$(dn_run fast "$3")")"
+  expect_output "$1" "the whole test runs: $2.*call: dotnet test ${_dn_target:-App.sln} --no-build" "$o"
+}
+dn_make; printf '%s\n' '<Project>' '<ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" /></ItemGroup>' '</Project>' > "$_dnapp/Directory.Build.props"; dn_finish
+dn_whole "a test SDK from a Directory.Build.props: the test projects can't be told, the whole test runs" "Directory.Build.props supplies a test SDK or test package, so the test projects can't be told" src/Domain/A.cs
+dn_make; printf '%s\n' '<Project>' '<ItemGroup><GlobalPackageReference Include="xunit" Version="2.*" /></ItemGroup>' '</Project>' > "$_dnapp/Directory.Packages.props"; dn_finish
+dn_whole "a global test package in Directory.Packages.props runs the whole test (a plain PackageVersion doesn't)" "Directory.Packages.props supplies a test SDK or test package" src/Domain/A.cs
+dn_make; printf '%s\n' '{"test":{"runner":"Microsoft.Testing.Platform"}}' > "$_dnapp/global.json"; dn_finish
+dn_whole "a global.json that names Microsoft.Testing.Platform runs the whole test" "global.json names Microsoft.Testing.Platform" src/Domain/A.cs
+dn_make; dn_proj tests/Bare.Tests/Bare.Tests.csproj '<ItemGroup><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'; dn_finish
+dn_whole "a *.Tests project with no test marker runs the whole test, and is named" "tests/Bare.Tests/Bare.Tests.csproj looks like a test project but its file shows no test SDK" src/Domain/A.cs
+dn_make; dn_proj src/Api/Api.csproj '<ItemGroup><ProjectReference Include="$(Root)\Functions\Functions.csproj" /></ItemGroup>'; dn_finish
+dn_whole "a reference by an MSBuild property can't be read: the whole test runs" "a ProjectReference in src/Api/Api.csproj can't be resolved" src/Domain/A.cs
+dn_make; dn_proj src/Api/Api.csproj '<ItemGroup><ProjectReference Include="..\Functions\Functions.csproj;..\Tool\Tool.csproj" /></ItemGroup>'; dn_finish
+dn_whole "a reference with a ; list runs the whole test" "a ProjectReference in src/Api/Api.csproj can't be resolved" src/Domain/A.cs
+dn_make; dn_proj src/Api/Api.csproj '<ItemGroup><ProjectReference Include="..\*\Functions.csproj" /></ItemGroup>'; dn_finish
+dn_whole "a reference with a wildcard runs the whole test" "a ProjectReference in src/Api/Api.csproj can't be resolved" src/Domain/A.cs
+dn_make; dn_proj src/Api/Api.csproj '<ItemGroup><ProjectReference Include="C:\repo\src\Functions\Functions.csproj" /></ItemGroup>'; dn_finish
+dn_whole "a reference with a drive letter path runs the whole test" "a ProjectReference in src/Api/Api.csproj can't be resolved" src/Domain/A.cs
+dn_make; dn_proj src/Api/Api.csproj '<ItemGroup><ProjectReference Include="/repo/src/Functions/Functions.csproj" /></ItemGroup>'; dn_finish
+dn_whole "a reference with an absolute path runs the whole test" "a ProjectReference in src/Api/Api.csproj can't be resolved" src/Domain/A.cs
+dn_make; dn_proj src/Tool/Tool.csproj '<ItemGroup><Compile Include="..\Shared\*.cs" Link="Shared.cs" /></ItemGroup>'; dn_finish
+dn_whole "a source file linked from outside the project's folder runs the whole test" "src/Tool/Tool.csproj links a source file from outside its folder" src/Domain/A.cs
+dn_make; rm -rf "$_dnapp/tests"; dn_finish
+dn_whole "no project of the target with a test SDK: the whole test runs" "no project of the target shows a test SDK" src/Domain/A.cs
+# More test projects the recogniser sees, each under the Domain change.
+dn_make
+printf '%s\n' '<Project Sdk="MSTest.Sdk/3.6.0">' '<ItemGroup><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>' '</Project>' > "$_dnapp/tests/Domain.Tests/Domain.Tests.csproj"
+mkdir -p "$_dnapp/tests/V3.Tests"
+printf '%s\n' '<Project Sdk="Microsoft.NET.Sdk">' '<ItemGroup><PackageReference Include="xunit.v3" Version="1.*" /><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>' '</Project>' > "$_dnapp/tests/V3.Tests/V3.Tests.csproj"
+dn_finish
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "an MSTest.Sdk project and an xunit.v3 project, without Microsoft.NET.Test.Sdk, are test projects" "tested the test projects $_dn_api $_dn_dom $_dn_gen tests/V3.Tests/V3.Tests.csproj \(" "$out"
+# The target's own projects: the selection stays inside them.
+dn_make; _dn_target=build/App.slnx
+mkdir -p "$_dnapp/build"; printf '%s\n' '<Solution>' '  <Project Path="../src/Domain/Domain.csproj" />' '  <Project Path="../src/Functions/Functions.csproj" />' '  <Project Path="../src/Api/Api.csproj" />' '  <Project Path="../src/Tool/Tool.csproj" />' '  <Project Path="../tests/Api.Tests/Api.Tests.csproj" />' '  <Project Path="../tests/Domain.Tests/Domain.Tests.csproj" />' '</Solution>' > "$_dnapp/build/App.slnx"; ( cd "$_dnapp" && git add -A ) >/dev/null 2>&1
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a .slnx target (in another folder, Path=\"..\") limits the selection to its projects" "tested the test projects $_dn_api $_dn_dom \(.*left to the full tier: none\|.*call: dotnet build build/App.slnx " "$out"
+expect_no_output "and Generated, Web.Tests and Perf are neither tested nor listed" "Generated|Web.Tests|Perf" "$out"
+_dn_target=App.slnf
+printf '%s\n' '{"solution":{"path":"App.sln","projects":["src\\Domain\\Domain.csproj","src\\Functions\\Functions.csproj","src\\Api\\Api.csproj","tests\\Api.Tests\\Api.Tests.csproj","tests\\Web.Tests\\Web.Tests.csproj"]}}' > "$_dnapp/App.slnf"; ( cd "$_dnapp" && git add -A ) >/dev/null 2>&1
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a .slnf target (doubled backslashes) limits the selection to the projects it lists" "tested the test projects $_dn_api \(.*left to the full tier: $_dn_web\|" "$out"
+expect_no_output "and the test projects it doesn't list are not run" "$_dn_dom|Generated" "$out"
+_dn_target=tests/Api.Tests/Api.Tests.csproj
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a project-file target limits the selection to that project and what it references" "tested the test projects $_dn_api \(.*left to the full tier: none\|.*call: dotnet build $_dn_api " "$out"
+_dn_target=missing.sln
+dn_whole "a target whose projects can't be read runs the whole test" "the projects of missing.sln can't be read from it" src/Domain/A.cs
+unset _dn_target
+# One time budget for the test step: each project gets what is left of the limit, and a spent budget is a timeout.
+dn_make; _dn_slow=2
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "the second test project gets less than the first: they share one limit" "call: limit (59|60)\|call: dotnet test $_dn_api --no-build [^|]*\|call: limit 5[0-8]\|call: dotnet test $_dn_dom" "$out"
+_dn_limit=1
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a spent budget stops the step as a timeout (status 3)" "timed out: dotnet test\|status 3" "$out"
+expect_no_output "before the next project starts" "dotnet test $_dn_dom" "$out"
+unset _dn_slow _dn_limit
+_dn_fail="$_dn_api $_dn_dom"
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "two failing test projects are both named, and the step fails" "check: dotnet test failed in $_dn_api\|.*check: dotnet test failed in $_dn_dom\|.*status 1" "$out"
+expect_output "and the project after them still ran" "dotnet test $_dn_gen --no-build" "$out"
+_dn_fail="$_dn_api"; _dn_hang="$_dn_dom"
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a failed project then a timeout is a failure (status 1), and the failure is named" "check: dotnet test failed in $_dn_api\|timed out: dotnet test\|status 1" "$out"
+unset _dn_fail _dn_hang
+_dn_notimeout=1; _dn_slow=2; _dn_limit=1
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_no_output "without GNU timeout the budget cuts nothing: no timeout is reported" "timed out" "$out"
+expect_output "and every selected project runs" "dotnet test $_dn_api --no-build.*dotnet test $_dn_dom --no-build.*dotnet test $_dn_gen --no-build" "$out"
+expect_output "and the step passes" "status 0" "$out"
+unset _dn_notimeout _dn_slow _dn_limit
+# An explicit IsTestProject false says a project is no test project; a Condition or an Import can't be told.
+dn_make
+dn_proj tests/Helpers/Helpers.csproj '<PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup>' '<ItemGroup><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
+dn_proj tests/Util/Util.csproj '<PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup>' '<ItemGroup><PackageReference Include="xunit" /><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
+dn_finish
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a helper project under tests/ with IsTestProject false keeps the selection on" "tested the test projects $_dn_api $_dn_dom $_dn_gen \(.*left to the full tier: $_dn_web\|" "$out"
+expect_no_output "and it is neither tested nor listed, with or without an xunit reference" "Helpers|Util" "$out"
+dn_make; dn_proj tests/Cond.Tests/Cond.Tests.csproj "<PropertyGroup><IsTestProject Condition=\"'\$(X)' == 'y'\">true</IsTestProject></PropertyGroup>"; dn_finish
+dn_whole "an IsTestProject with a Condition can't be told: the whole test runs, naming the project" "tests/Cond.Tests/Cond.Tests.csproj has an IsTestProject with a Condition" src/Domain/A.cs
+dn_make; dn_proj tests/Bare.Tests/Bare.Tests.csproj; dn_finish
+dn_whole "a tests/ project with no marker still runs the whole test, and names the way out" "tests/Bare.Tests/Bare.Tests.csproj looks like a test project but its file shows no test SDK.*set IsTestProject false" src/Domain/A.cs
+dn_make; dn_proj src/Lonely/Lonely.csproj '<Import Project="..\common.props" />'; dn_finish
+dn_whole "a project that imports a file may get its test SDK there: the whole test runs, naming it" "src/Lonely/Lonely.csproj imports a file" src/Domain/A.cs
+# More shapes of the target and of the project files.
+dn_make
+dn_proj tests/Domain.Tests/Domain.Tests.csproj '<ItemGroup>' '  <PackageReference' '    Include="xunit"' '    Version="2.*" />' '</ItemGroup>' '<ItemGroup><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
+{ printf '%s\r\n' 'Microsoft Visual Studio Solution File, Format Version 12.00'
+  printf '%s\r\n' 'Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{11111111-1111-1111-1111-111111111111}"' 'EndProject'
+  for _f in src\\Domain\\Domain.csproj src\\Functions\\Functions.csproj src\\Api\\Api.csproj src\\Tool\\Tool.csproj tests\\Api.Tests\\Api.Tests.csproj tests\\Domain.Tests\\Domain.Tests.csproj; do
+    printf 'Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "P", "%s", "{22222222-2222-2222-2222-222222222222}"\r\nEndProject\r\n' "$_f"
+  done; } > "$_dnapp/Classic.sln"
+( cd "$_dnapp" && git add -A ) >/dev/null 2>&1
+_dn_target=Classic.sln
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a classic .sln (a solution folder entry, GUIDs, backslashes) names its projects, and a PackageReference with its Include on its own line is a test project" "tested the test projects $_dn_api $_dn_dom \(.*left to the full tier: none\|" "$out"
+expect_no_output "and the projects it doesn't name are not run" "Generated|Web.Tests" "$out"
+mkdir -p "$_dnapp/build"; printf '%s\n' '{"solution":{"path":"..\\App.sln","projects":["..\\src\\Domain\\Domain.csproj"]}}' > "$_dnapp/build/App.slnf"; ( cd "$_dnapp" && git add -A ) >/dev/null 2>&1
+_dn_target=build/App.slnf
+dn_whole "a .slnf in a subfolder that names its solution with .. runs the whole test, with the reason" "build/App.slnf names its solution with \.\., which the selection doesn't follow" src/Domain/A.cs
+_dn_target='build\App.slnf'
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a target written with backslashes is read as with slashes" "the whole test runs: build/App.slnf names its solution" "$out"
+printf '%s\n' '<Solution>' '  <Project Path="../src/Domain/Domain.csproj" />' '  <Project Path="../tests/Domain.Tests/Domain.Tests.csproj" />' '</Solution>' > "$_dnapp/build/App.slnx"; ( cd "$_dnapp" && git add -A ) >/dev/null 2>&1
+_dn_target='build\App.slnx'
+out="$(dn_flat "$(dn_run fast src/Domain/A.cs)")"
+expect_output "a .slnx target written with backslashes (as tools/check.cfg may have it) selects within its projects" "tested the test projects $_dn_dom \(.*left to the full tier: none\|" "$out"
+unset _dn_target _dn_fail
+# The Python profile runs whole in both tiers.
+_pyrun() { # _pyrun <tier>
+  ( cd "$work" || exit 9
+    state="$work/py-state"; mkdir -p "$state"; cfg_timeout=60; py="$_dnbin/fakepy"; export CHECK_TIER="$1"
+    run_limited() { local log="$1"; shift; "$@" </dev/null >"$log" 2>&1; }
+    timed_out() { echo "timed out: $1"; }
+    . "$src/framework/tools/stacks/python.sh"
+    stack_check; echo "status $?" ) 2>&1
+}
+out="$(_pyrun fast)"
+expect_output "the Python stack says in the fast tier that it runs whole" "check: fast tier: the Python stack runs whole in both tiers, with no test selection" "$out"
+expect_output "and pytest passes" "check: pytest passed" "$out"
+out="$(_pyrun full)"
+expect_no_output "the full tier prints no selection line" "fast tier" "$out"
+
+# A step that can't run in the fast tier exits 3, with or without GNU timeout.
+put tools/check.local.sh '[ "$CHECK_TIER" = fast ] && exit 3; exit 0'
+cp "$work/cfg-serial" tools/check.cfg; tier_commit "tiers: a project step that can't run fast"
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast exits 3 when a step can't run" 3 $? "$out"
+expect_output "and says its tier" "UNVERIFIED \(fast tier\)" "$out"
+out="$(bash tools/check.sh 2>&1)"; expect_status "while the full tier passes" 0 $? "$out"
+# Each tier has its own time limit.
+if timeout --version 2>/dev/null | grep -qi coreutils; then
+  put tools/check.local.sh 'sleep 3'
+  { cat "$work/cfg-serial"; printf '[tests]\ntimeout-fast = 1\ntimeout-full = 30\n'; } > tools/check.cfg; tier_commit "tiers: limits"
+  out="$(bash tools/check.sh --fast 2>&1)"; expect_status "--fast exits 3 past [tests] timeout-fast" 3 $? "$out"
+  expect_output "and names the fast tier's limit" "ran past the 1-second limit \(tools/check.cfg › \[tests\] timeout-fast, the fast tier's\)" "$out"
+  out="$(bash tools/check.sh 2>&1)"; expect_status "the full tier keeps its own limit" 0 $? "$out"
+fi
+out="$(bash tools/check.sh --quick 2>&1)"; expect_status "an unknown flag exits 3" 3 $? "$out"
+expect_output "and shows the usage" "usage: bash tools/check.sh \[--full \| --fast\]" "$out"
+out="$(bash tools/check.sh --fast --full 2>&1)"; expect_status "--fast and --full together exit 3" 3 $? "$out"
+# Before the first commit and outside a git repository there is no change to select by: the full tier runs.
+_fresh="$work/tier-fresh"; mkdir -p "$_fresh/tools/stacks"
+cp "$src/framework/tools/check.sh" "$src/framework/tools/archcheck.awk" "$src/framework/tools/cfg.sh" "$_fresh/tools/"
+cp "$src/framework/tools/stacks/none.sh" "$_fresh/tools/stacks/"; cp "$work/cfg-serial" "$_fresh/tools/check.cfg"
+(cd "$_fresh" && git init -q && git config core.autocrlf false)
+out="$(cd "$_fresh" && bash tools/check.sh --fast 2>&1)"; expect_status "--fast passes before the first commit" 0 $? "$out"
+expect_output "as the full tier, saying why" "there's no commit yet, so the fast tier runs as the full tier" "$out"
+rm -rf "$_fresh/.git"
+out="$(cd "$_fresh" && bash tools/check.sh --fast 2>&1)"; expect_output "--fast outside a git repository runs as the full tier" "this isn't a git repository, so the fast tier runs as the full tier" "$out"
+out="$(cd "$_fresh" && bash tools/check.sh --due 2>&1)"; expect_output "--due outside a git repository: due" "^check: full tier due: no full pass recorded yet" "$out"
+rm -rf infra; rm -f tools/check.local.sh; cp "$work/cfg-serial" tools/check.cfg; cp "$work/domain-ok" $domain
+tier_commit "tiers: done"
 
 # --- Stop hook ----------------------------------------------------------------------------------
 echo "stop hook"
@@ -4216,6 +4799,9 @@ cp $domain "$work/failing"
 out="$(hook)"; status=$?
 expect_status "blocks a failing change" 2 "$status" "$out"
 expect_output "gives Claude the check output" 'domain-purity' "$out"
+expect_output "and runs only the fast tier" 'check: running the fast tier' "$out"
+expect_output "and says so" 'fails on the current files \(fast tier\)' "$out"
+expect_no_output "never the full tier" 'running the full tier' "$out"
 out="$(hook)"; expect_status "reports the same failing state only once" 0 $? "$out"
 rm -f .satt/state/last-reported
 : > .satt/state/building
@@ -4225,6 +4811,27 @@ out="$(hook)"; expect_status "blocks again once the builder is done" 2 $? "$out"
 cp "$work/passing" $domain
 out="$(hook)"; expect_status "lets the fixed state through" 0 $? "$out"
 git checkout -q -- $domain
+# Which changed paths count is the check's rule (--unignored), not the hook's: a Markdown path that runs the full tier
+# ([tests] full-when) counts, so the hook runs the check for it, which runs as the full tier and fails on the violation.
+printf '[tests]\nfull-when = handbook/\n' >> tools/check.cfg; tier_commit "stop hook: full-when handbook/"
+printf 'public static class Bad { public static DateTime T => DateTime.UtcNow; }\n' >> $domain
+git add $domain; git_q commit --no-verify -qm "stop hook: a committed violation" >/dev/null 2>&1
+rm -f .satt/state/last-reported .satt/state/last-pass* .satt/state/last-fail*
+put handbook/release.md '# Release'
+out="$(hook)"; expect_status "runs the check for a Markdown path that runs the full tier, and blocks on its failure" 2 $? "$out"
+expect_output "where the fast tier runs as the full tier, saying why" "handbook/release.md changed .*so the fast tier runs as the full tier" "$out"
+rm -rf handbook; rm -f .satt/state/last-reported
+printf '# notes\n' > notes.md
+out="$(hook)"; expect_status "while other Markdown still starts no check" 0 $? "$out"
+rm -f notes.md
+git reset -q --hard HEAD~2; rm -f .satt/state/last-reported
+# With no commit yet the fast tier would be the full one: the turn ends, and the first commit's hook gates the work.
+_nocommit="$work/stop-no-commit"; mkdir -p "$_nocommit/tools" "$_nocommit/src"
+put "$_nocommit/tools/check.sh" ': > ran; exit 1'
+put "$_nocommit/src/A.cs" 'class A {}'
+git -C "$_nocommit" init -q
+out="$(echo '{}' | CLAUDE_PROJECT_DIR="$_nocommit" bash .claude/hooks/stop-check.sh 2>&1)"; expect_status "ends the turn in a repository with no commit yet" 0 $? "$out"
+[ ! -e "$_nocommit/ran" ] && ok "and runs no check there" || bad "the Stop hook ran the check before the first commit"
 
 # --- Stop hook, per session ---------------------------------------------------------------------
 # Two sessions can share one working folder (a design session and a build session, no worktree). The Stop hook runs the
@@ -4239,7 +4846,10 @@ sr_hooks="$src/framework/.claude/hooks"
 mkdir -p "$sr/tools" "$sr/src"
 cat > "$sr/tools/check.sh" <<'EOF'
 #!/usr/bin/env bash
-case "${1:-}" in --fingerprint) cat src/*.cs 2>/dev/null | git hash-object --stdin; exit 0 ;; esac
+case "${1:-}" in
+  --fingerprint) cat src/*.cs 2>/dev/null | git hash-object --stdin; exit 0 ;;
+  --unignored) grep -v '\.md$'; exit 0 ;;
+esac
 : > .satt/state/check-ran
 if [ -f .satt/state/fail ]; then echo "domain-purity: src/Billing.cs reads the clock"; exit 1; fi
 exit 0
@@ -4725,6 +5335,107 @@ printf '\n// another change\n' >> $domain && git add $domain
 out="$(git_q commit -qm "with satt-new" 2>&1)"; expect_status "refuses while a .satt-new file is unmerged" 1 $? "$out"
 rm -f tools/check.sh.satt-new
 git reset -q HEAD -- $domain && git checkout -q -- $domain
+
+# The hook asks the check which staged paths count (--unignored, the fingerprint's one rule) and which tier is due
+# (--due): the full tier when it's due, the fast tier otherwise, saying which and why, and it reuses a pass of the
+# same files, a builder's for one.
+echo "pre-commit tiers"
+out="$(printf 'notes.md\nadr/ADR-3-x.md\nsrc/A.cs\nhandbook/r.md\n' | bash tools/check.sh --unignored 2>&1)"
+[ "$out" = "adr/ADR-3-x.md"$'\n'"src/A.cs" ] && ok "--unignored keeps the paths the check counts: not Markdown, but an ADR" \
+  || bad "--unignored keeps the paths the check counts: not Markdown, but an ADR" "$out"
+_pc_base="$(git rev-parse HEAD)"
+rm -f .satt/state/last-full
+printf '\n// a change while the full tier is due\n' >> $domain; git add $domain
+out="$(git_q commit -qm "tiers: due" 2>&1)"; expect_status "commits when the full tier is due" 0 $? "$out"
+expect_output "runs the full tier then, saying why" "pre-commit: running the project check, full tier: no full pass recorded yet" "$out"
+expect_output "and the check runs it" "check: PASS \(full tier\)" "$out"
+printf '\n// a builder change\n' >> $domain
+out="$(bash tools/check.sh --fast 2>&1)"; expect_status "a builder's fast pass" 0 $? "$out"
+git add $domain
+out="$(git_q commit -qm "tiers: not due" 2>&1)"; expect_status "commits when the full tier isn't due" 0 $? "$out"
+expect_output "runs the fast tier then, saying why" "pre-commit: running the project check, fast tier: the full tier isn't due, 1 commit since the last full pass \([0-9a-f]{7}, [^)]*\), \[tests\] full-every = 10"$'\n' "$out"
+expect_output "and reuses the builder's pass of the same files" "check: PASS \(nothing changed since the last passing run: the fast tier" "$out"
+printf '[tests]\nfull-when = handbook/\n' >> tools/check.cfg; git add tools/check.cfg
+out="$(git_q commit -qm "tiers: full-when" 2>&1)"
+expect_output "a change under tools/ makes the full tier due for its commit" "pre-commit: running the project check, full tier: tools/check.cfg changed \(a dependency" "$out"
+put handbook/release.md '# Release'; git add handbook/release.md
+out="$(git_q commit -qm "docs: the release handbook" 2>&1)"; expect_status "commits a Markdown full-when path" 0 $? "$out"
+expect_output "and runs the check for it, as the full tier" "pre-commit: running the project check, full tier: handbook/release.md changed \(a dependency" "$out"
+printf '# notes\n' > notes2.md; git add notes2.md
+out="$(git_q commit -qm "docs: other notes" 2>&1)"; expect_no_output "while other Markdown still starts no check" "running the project check" "$out"
+printf '\n// after the full-when commits\n' >> $domain; git add $domain
+out="$(git_q commit -qm "tiers: after full-when" 2>&1)"; expect_status "commits after the commits that carried full-tier paths" 0 $? "$out"
+expect_output "and the next commit gets the fast tier: --due reads the path rule from the changes from HEAD only" "pre-commit: running the project check, fast tier: the full tier isn't due, 2 commits since the last full pass" "$out"
+# The check can't run (exit 3): the commit is blocked, and the hook says what to do.
+put tools/check.local.sh 'exit 3'
+printf '\n// while a step cannot run\n' >> $domain; git add $domain
+out="$(git_q commit -qm "tiers: unverified" 2>&1)"; expect_status "pre-commit blocks a commit while the check can't run" 1 $? "$out"
+expect_output "and says nothing was committed" "pre-commit: the check couldn't run \(the reason is above\), so nothing was committed" "$out"
+git reset -q -- $domain; git checkout -q -- $domain; rm -f tools/check.local.sh
+bash tools/check.sh >/dev/null 2>&1   # a full run before the push, as rules.md says
+# The pre-push hook runs the full tier, reusing a full pass of the same files and never a fast one; a failure blocks
+# the push, and a push that only deletes runs nothing.
+echo "pre-push hook"
+git init -q --bare "$work/app-origin.git"; git remote add origin "$work/app-origin.git"
+out="$(git push -q origin HEAD:refs/heads/main 2>&1)"; expect_status "pre-push lets a passing push through" 0 $? "$out"
+expect_output "after the full tier" "pre-push: running the project check, full tier: a push gets the full check" "$out"
+expect_output "reusing a full pass of the same files" "nothing changed since the last passing run: the full tier" "$out"
+printf '\n// not committed\n' >> $domain
+bash tools/check.sh --fast >/dev/null 2>&1
+out="$(git push -q origin HEAD:refs/heads/other 2>&1)"; expect_status "pre-push passes again" 0 $? "$out"
+expect_output "but never on a fast pass: the full tier runs" "check: running the full tier" "$out"
+printf 'public static class Bad { public static Guid G => Guid.NewGuid(); }\n' >> $domain
+out="$(git push -q origin HEAD:refs/heads/third 2>&1)"; expect_status "pre-push blocks a push while the full check fails" 1 $? "$out"
+expect_output "and says nothing was pushed" "pre-push: the full check fails, so nothing was pushed" "$out"
+[ -z "$(git --git-dir="$work/app-origin.git" for-each-ref refs/heads/third)" ] && ok "and the ref doesn't reach the remote" || bad "a blocked push reached the remote"
+out="$(git push -q origin :refs/heads/other 2>&1)"; expect_status "a push that only deletes goes through" 0 $? "$out"
+expect_no_output "without the check" "running the project check" "$out"
+git checkout -q -- $domain
+put tools/check.local.sh 'exit 3'
+out="$(git push -q origin HEAD:refs/heads/fourth 2>&1)"; expect_status "pre-push blocks a push while the check can't run" 1 $? "$out"
+expect_output "and says nothing was pushed" "pre-push: the check couldn't run \(the reason is above\), so nothing was pushed" "$out"
+rm -f tools/check.local.sh; git remote remove origin
+git reset -q --hard "$_pc_base"; rm -f .satt/state/last-reported
+
+# Without tools/cfg.sh the check can't read its settings: every mode exits 3, so --secrets never reads as a secret found.
+_nocfg="$work/no-cfg"; new_repo "$_nocfg"; mkdir -p "$_nocfg/tools"
+cp "$src/framework/tools/check.sh" "$src/framework/tools/archcheck.awk" "$_nocfg/tools/"
+out="$(cd "$_nocfg" && bash tools/check.sh --secrets 2>&1)"; expect_status "--secrets exits 3 without tools/cfg.sh" 3 $? "$out"
+expect_output "and says tools/cfg.sh is missing" "check: tools/cfg.sh is missing" "$out"
+out="$(cd "$_nocfg" && bash tools/check.sh --fingerprint 2>&1)"; expect_status "and so does --fingerprint" 3 $? "$out"
+
+# The hooks' fallbacks, with a stand-in check that records how it was run: --due with no answer runs the full tier, a
+# check.sh that can't answer --unignored leaves every staged path counted, and the pre-push hook runs nothing in a
+# prototype or without tools/check.sh. Marker files switch the stand-in's answers.
+_hk="$work/hook-standin"; new_repo "$_hk"; mkdir -p "$_hk/tools"
+put "$_hk/tools/check.sh" 'case "${1:-}" in
+  --secrets) exit 0 ;;
+  --unignored) [ -f unignored-fails ] && exit 3; grep -v "\.md$"; exit 0 ;;
+  --due) [ -f due-silent ] && exit 0; echo "check: full tier not due: 1 commit since the last full pass (abc1234, x), [tests] full-every = 10"; exit 0 ;;
+esac
+echo "$*" > ran; exit 0'
+_pc_in() { (cd "$_hk" && bash "$src/framework/.githooks/pre-commit" 2>&1); }
+_pp_in() { (cd "$_hk" && printf 'refs/heads/x %s refs/heads/x 0000000000000000000000000000000000000000\n' "$(git rev-parse HEAD)" \
+  | bash "$src/framework/.githooks/pre-push" 2>&1); }
+_hk_ran() { cat "$_hk/ran" 2>/dev/null; }
+(cd "$_hk" && printf 'x\n' > a.cs && git add a.cs && : > due-silent)
+out="$(_pc_in)"; expect_status "pre-commit: --due with no answer still lets a passing commit through" 0 $? "$out"
+expect_output "and runs the full tier, saying why" "pre-commit: running the project check, full tier: 'bash tools/check.sh --due' gave no answer" "$out"
+[ "$(_hk_ran)" = "--full --if-changed" ] && ok "the full tier is what it asks for" || bad "pre-commit asked for: $(_hk_ran)"
+(cd "$_hk" && rm -f due-silent ran && git reset -q -- a.cs && printf '# n\n' > n.md && git add n.md)
+out="$(_pc_in)"; expect_no_output "pre-commit: a Markdown-only commit starts no check" "running the project check" "$out"
+: > "$_hk/unignored-fails"
+out="$(_pc_in)"; expect_output "but when check.sh can't answer --unignored, every staged path counts and the check runs" "running the project check, fast tier" "$out"
+[ "$(_hk_ran)" = "--fast --if-changed" ] && ok "on the tier --due names" || bad "pre-commit asked for: $(_hk_ran)"
+rm -f "$_hk/ran" "$_hk/unignored-fails"
+out="$(_pp_in)"; expect_status "pre-push runs the stand-in check" 0 $? "$out"
+[ "$(_hk_ran)" = "--full --if-changed" ] && ok "pre-push asks for the full tier" || bad "pre-push asked for: $(_hk_ran)"
+rm -f "$_hk/ran"; put "$_hk/tools/prototype.sh" 'exit 0'
+out="$(_pp_in)"; expect_status "pre-push in a prototype lets the push through" 0 $? "$out"
+[ -z "$(_hk_ran)" ] && [[ $out != *"running the project check"* ]] && ok "and runs no check there" || bad "pre-push ran the check in a prototype" "$out"
+rm -f "$_hk/tools/prototype.sh"; mv "$_hk/tools/check.sh" "$_hk/check.sh.away"
+out="$(_pp_in)"; expect_status "pre-push without tools/check.sh lets the push through" 0 $? "$out"
+[ -z "$(_hk_ran)" ] && [[ $out != *"running the project check"* ]] && ok "and runs no check" || bad "pre-push ran a check without tools/check.sh" "$out"
 
 # A nested clone in an ignored folder is listed by ls-files as a directory. It doesn't block a
 # commit, but a real upgrade file still does while the clone is there.
@@ -5853,8 +6564,14 @@ _push_refused "proto/quick-add~0 under another name" "$_pa" "proto/quick-add~0:r
 git -C "$_pa" branch from-proto proto/quick-add >/dev/null 2>&1
 _push_refused "a branch made from a prototype's commit" "$_pa" from-proto "carries a prototype's commits"
 (cd "$_pa" && printf '# app\n\nA note.\n' > README.md && git add README.md && git commit -qm "docs: a note") >/dev/null 2>&1
+# Outside a prototype a push gets the full check: this app's fails, so main waits until it passes.
+out="$(cd "$_pa" && git push -q origin main 2>&1)"; status=$?
+{ [ "$status" -ne 0 ] && printf '%s' "$out" | grep -q "pre-push: the full check fails, so nothing was pushed"; } \
+  && ok "pre-push runs the full check on main, and blocks the push while it fails" || bad "pre-push blocks main while the full check fails (exit $status)" "$out"
+printf 'exit 0\n' > "$_pa/tools/check.local.sh"
 out="$(cd "$_pa" && git push -q origin main 2>&1)"
 expect_status "pre-push lets main through" 0 $? "$out"
+git -C "$_pa" checkout -q -- tools/check.local.sh
 [ "$(git --git-dir="$_po" for-each-ref --format='%(refname)')" = "refs/heads/main" ] \
   && ok "the origin has main and nothing else" || bad "a refused push reached the origin" "$(git --git-dir="$_po" for-each-ref)"
 
@@ -5942,6 +6659,20 @@ if [ "$dotnet_sdk" -eq 1 ]; then
   out="$(bash tools/check.sh 2>&1)"; status=$?
   expect_status "the example builds and its tests pass" 0 "$status" "$out"
   expect_output "runs the example's tests" "dotnet test passed" "$out"
+  # The fast tier tests the test projects a change reaches (needs the real SDK; the selection itself is proven above).
+  _dn_apptests=tests/OrderDesk.Application.Tests/OrderDesk.Application.Tests.csproj
+  _dn_domtests=tests/OrderDesk.Domain.Tests/OrderDesk.Domain.Tests.csproj
+  printf '\n// a change\n' >> src/OrderDesk.Domain/Orders/Order.cs
+  out="$(bash tools/check.sh --fast 2>&1)"; status=$?
+  expect_status "the fast tier passes with a change in the Domain project" 0 "$status" "$out"
+  expect_output "a change in Domain tests both test projects" "tested the test projects $_dn_apptests $_dn_domtests \(changed, or referencing a changed project\)" "$out"
+  expect_output "and runs their tests" "dotnet test passed" "$out"
+  git checkout -q -- src/OrderDesk.Domain/Orders/Order.cs
+  printf '\n// a change\n' >> src/OrderDesk.Application/Orders/PlaceOrderHandler.cs
+  out="$(bash tools/check.sh --fast 2>&1)"; status=$?
+  expect_status "the fast tier passes with a change in the Application project" 0 "$status" "$out"
+  expect_output "a change in Application tests only its test project" "tested the test projects $_dn_apptests \(.*left to the full tier: $_dn_domtests" "$(printf '%s' "$out" | tr '\n' ' ')"
+  git checkout -q -- src/OrderDesk.Application/Orders/PlaceOrderHandler.cs
 else
   echo ".NET: skipped (no .NET SDK on this machine)"
 fi
