@@ -40,6 +40,8 @@
 # Each tier has its own limit for each test command: [tests] timeout-fast (default 300 seconds) and timeout-full (default
 # 600; the older [tests] timeout counts when it isn't set); CHECK_TIMEOUT overrides both. They need GNU timeout; a run
 # that hits the limit exits 3, unless a failure was already seen.
+# One check runs at a time: a run that finds the lock held waits for it, up to 30 minutes. CHECK_WAIT=<seconds> (or fast
+# or full, for that tier's limit) caps the wait: past it the run prints "check: busy: <the run it waited for>" and exits 3.
 # Steps 2 to 4 run one after the other, or side by side with tools/check.cfg › [tests] parallel = on (each
 # with its own limit and log, printed in the same order). Every run ends with each step's seconds and the total.
 #
@@ -132,15 +134,24 @@ fi
 
 # Hash of every file that can change the result (counted_path). The paths are sorted before they are hashed: git lists
 # untracked files before tracked ones, so staging a new file would otherwise change the hash though no file's content
-# changed.
+# changed. The names are read NUL-separated (-z): git quotes a name with a double quote, a backslash or a control
+# character, such as DEL, and a quoted name would fail the file test and be left out. --stdin-paths reads a line as
+# the name, unless it starts with a double quote or holds a newline: those are given in git's quoted form.
 fingerprint() {
-  local path list=()
-  while IFS= read -r path; do
+  local path list=() stdin_names=() q
+  while IFS= read -r -d '' path; do
     counted_path "$path" || continue
-    [ -f "$path" ] && list+=("$path")
-  done < <(git -c core.quotePath=false ls-files -c -o --exclude-standard 2>/dev/null | LC_ALL=C "$SORT" -u)
+    [ -f "$path" ] || continue
+    list+=("$path")
+    case "$path" in
+      '"'*|*"$nl"*)
+        q="${path//\\/\\\\}"; q="${q//\"/\\\"}"; q="${q//$nl/\\n}"
+        stdin_names+=("\"$q\"") ;;
+      *) stdin_names+=("$path") ;;
+    esac
+  done < <(git ls-files -c -o --exclude-standard -z 2>/dev/null | LC_ALL=C "$SORT" -z -u)
   [ "${#list[@]}" -gt 0 ] || return 0
-  { printf '%s\n' "${list[@]}"; printf '%s\n' "${list[@]}" | git hash-object --no-filters --stdin-paths; } \
+  { printf '%s\n' "${list[@]}"; printf '%s\n' "${stdin_names[@]}" | git hash-object --no-filters --stdin-paths; } \
     | git hash-object --stdin
 }
 
@@ -358,9 +369,31 @@ reuse_last
 # --- one run at a time (hooks and sessions share .satt/state) --------------------------------
 lock="$state/lock"
 waited=0
+# CHECK_WAIT caps the wait: a number of seconds, or fast or full for that tier's limit (tools/check.cfg, CHECK_TIMEOUT).
+# Past the cap the run says who it waited for and exits 3 without starting a second check. Without it, 30 minutes.
+wait_cap=""
+case "${CHECK_WAIT:-}" in
+  "") ;;
+  fast) wait_cap="$cfg_timeout_fast" ;;
+  full) wait_cap="$cfg_timeout_full" ;;
+  *[!0-9]*) echo "check: note: CHECK_WAIT=$CHECK_WAIT is neither a number of seconds nor fast or full, so the wait has no cap" ;;
+  *) wait_cap="$CHECK_WAIT" ;;
+esac
 until mkdir "$lock" 2>/dev/null; do
   read_file "$lock/pid"
   if [ -n "$REPLY" ] && ! kill -0 "$REPLY" 2>/dev/null; then rm -rf "$lock"; continue; fi
+  if [ -n "$wait_cap" ] && [ "$waited" -ge "$wait_cap" ]; then
+    held_pid="$REPLY"; read_file "$lock/info"; held_info="$REPLY"
+    held_at=""; held_tier=""
+    for w in $held_info; do
+      case "$w" in started=*) held_at="${w#started=}" ;; tier=*) held_tier="${w#tier=}" ;; esac
+    done
+    held="another check"
+    [ -z "$held_at" ] || held="the check started $held_at${held_tier:+ ($held_tier tier${held_pid:+, pid $held_pid})}"
+    [ -n "$held_at" ] || [ -z "$held_pid" ] || held="the check with pid $held_pid"
+    echo "check: busy: $held is still running after $waited s; no second check started"
+    exit 3
+  fi
   if [ "$waited" -ge 1800 ]; then
     echo "check: another check has run for 30 minutes. If none is running, delete $lock."
     exit 3
@@ -369,21 +402,44 @@ until mkdir "$lock" 2>/dev/null; do
   sleep 2; waited=$((waited + 2))
 done
 echo $$ > "$lock/pid"
+# What a run that waits for this one can name: when it started and its tier (rewritten once the tier is settled).
+lock_note() { echo "started=${lock_at:=$(date +%H:%M:%S)} tier=$1" > "$lock/info"; }
+lock_at=""; lock_note "$requested"
 # Side-by-side steps are background jobs: an interrupted run stops them and what they started, then
 # frees the lock.
 job_pids=()
+# kill_tree <pid>…: stops the given processes and every process under them, deepest first, so nothing is orphaned
+# before its parent is stopped. One ps listing finds the children. Git Bash's ps has no -o (its PID and PPID
+# columns come first, under a header, after a status letter on the rows that have one), Linux and BSD ps take -o;
+# without a listing, only the given pids stop.
+kill_tree() {
+  [ $# -gt 0 ] || return 0
+  local list
+  list="$( (ps -A -o pid -o ppid 2>/dev/null || ps -e 2>/dev/null) | awk -v roots="$*" '
+    NR == 1 { for (i = 1; i <= NF; i++) { if ($i == "PID") pc = i; if ($i == "PPID") qc = i }; next }
+    pc && qc { o = ($1 ~ /^[0-9]+$/) ? 0 : 1; p = $(pc + o); pp = $(qc + o); if (p != pp) kids[pp] = kids[pp] " " p }
+    END {
+      n = split(roots, q, " ")
+      for (h = 1; h <= n; h++) seen[q[h]] = 1
+      for (h = 1; h <= n; h++) {
+        k = split(kids[q[h]], c, " ")
+        for (j = 1; j <= k; j++) if (!(c[j] in seen)) { seen[c[j]] = 1; n++; q[n] = c[j] }
+      }
+      for (h = n; h >= 1; h--) print q[h]
+    }')"
+  [ -n "$list" ] || list="$*"
+  kill $list 2>/dev/null
+}
 cleanup() {
-  local p
-  for p in ${job_pids[@]+"${job_pids[@]}"}; do
-    pkill -P "$p" 2>/dev/null
-    kill "$p" 2>/dev/null
-  done
+  kill_tree ${job_pids[@]+"${job_pids[@]}"}
   rm -rf "$lock"
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
-# The run we waited for may have checked exactly these files, and a commit may have come meanwhile.
-if [ "$waited" -gt 0 ] && [ "$mode" != "--architecture" ]; then read_head; fi
+# The run we waited for may have checked exactly these files, and a commit or an edit may have come meanwhile: after a
+# wait the head and the fingerprint are taken again, so the reuse and the end-of-run comparison speak of the files this
+# run checks. A run that didn't wait takes neither twice.
+if [ "$waited" -gt 0 ] && [ "$mode" != "--architecture" ]; then read_head; before="$(fingerprint)"; fi
 reuse_last
 
 # --- the tier ---------------------------------------------------------------------------------------
@@ -405,6 +461,7 @@ if [ "$mode" != "--architecture" ]; then
     fi
   fi
   echo "check: running the $tier tier"
+  [ "$tier" = "$requested" ] || lock_note "$tier"
 fi
 if [ "$tier" = fast ]; then
   cfg_timeout="$cfg_timeout_fast"; limit_name="tools/check.cfg › [tests] timeout-fast"

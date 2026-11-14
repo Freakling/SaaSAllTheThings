@@ -30,7 +30,7 @@ expect_no_output() { # <what> <extended regex> <output>
   if [[ $3 =~ $2 ]]; then bad "$1 (unexpected /$2/)" "$3"; else ok "$1"; fi
 }
 # put <file> <text>: write a file (and its folder) with builtins where possible.
-put() { [ -d "${1%/*}" ] || mkdir -p "${1%/*}"; printf '%s\n' "$2" > "$1"; }
+put() { [[ $1 != */* ]] || [ -d "${1%/*}" ] || mkdir -p "${1%/*}"; printf '%s\n' "$2" > "$1"; }
 # keep <file> / restore <file>: save a file's content in memory, then put it back (or delete it).
 keep() { kept_file="$1"; kept_text=""; kept_existed=0; [ -f "$1" ] && { kept_existed=1; IFS= read -r -d '' kept_text < "$1"; }; return 0; }
 restore() { if [ "$kept_existed" -eq 1 ]; then printf '%s' "$kept_text" > "$kept_file"; else rm -f "$kept_file"; fi; }
@@ -821,6 +821,11 @@ expect_output "reports that clone as reinstalled" "reinstalled" "$out"
 expect_no_output "CRLF line endings don't count as local edits" "CONFLICT|kept your changes" "$out"
 cd "$app" || exit 1
 git checkout -q -- .satt 2>/dev/null; git add -A >/dev/null 2>&1; git_q commit -qm "after installer tests" >/dev/null 2>&1
+
+# put with a name that has no slash writes a file in the current folder (it made a folder of that name
+# before), and a name with a folder still makes the folder first.
+(cd "$work" && mkdir -p put-scratch && cd put-scratch && put notes.txt x && put sub/a.txt y && [ -f notes.txt ] && [ "$(< notes.txt)" = x ] && [ -f sub/a.txt ] && [ "$(< sub/a.txt)" = y ]) 2>/dev/null
+expect_status "put writes a name without a slash as a file, and a name with a folder under its folder" 0 $?
 
 # --- command guard (Claude Code PreToolUse hook on Bash) ----------------------------------------
 echo "command guard"
@@ -4178,6 +4183,22 @@ fp_changed="$(bash tools/check.sh --fingerprint)"
 if [ -n "$fp_changed" ] && [ "$fp_changed" != "$fp_staged" ]; then ok "changing a staged file changes the fingerprint"; else bad "changing a staged file changes the fingerprint" "staged: $fp_staged changed: $fp_changed"; fi
 git rm -q -f --cached zz-staged.txt
 rm -f zz-staged.txt
+# A counted file whose name git quotes is still counted: git prints such a name quoted unless it is read with -z, and a
+# quoted name fails the file test, so a change to the file would reuse the last pass. Each case adds the file, passes,
+# changes the file and expects --if-changed to run, then removes the file again.
+odd_name() { # odd_name <what> <file name>
+  local out
+  printf 'one\n' > "$2"
+  out="$(bash tools/check.sh 2>&1)"; expect_status "$1: passes with the file" 0 $? "$out"
+  printf 'two\n' > "$2"
+  out="$(bash tools/check.sh --if-changed 2>&1)"; expect_no_output "$1: a change to it runs the check" "nothing changed since the last passing run" "$out"
+  rm -f "$2"
+}
+odd_name "a counted file whose name holds a DEL character" "$(printf 'a\177b.txt')"
+odd_name "a counted file whose name holds a double quote" 'a"b.txt'
+odd_name "a counted file whose name starts with a double quote" '"c.txt'
+# Git Bash reads a backslash as a folder separator, so this name can't be made on Windows.
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ;; *) odd_name "a counted file whose name holds a backslash" 'd\e.txt' ;; esac
 sed 's/^stack = none$/stack = cobol/' tools/check.cfg > "$work/cfg2" && cp "$work/cfg2" tools/check.cfg
 out="$(bash tools/check.sh 2>&1)"; expect_status "fails on a stack without a profile" 1 $? "$out"
 sed 's/^stack = cobol$/stack = ..\/..\/x/' tools/check.cfg > "$work/cfg2" && cp "$work/cfg2" tools/check.cfg
@@ -4254,12 +4275,135 @@ if timeout --version 2>/dev/null | grep -qi coreutils; then
   expect_output "and says it was stopped at the limit" "ran past the 1-second limit" "$out"
 fi
 rm -f tools/check.local.sh; cp "$work/cfg-serial" tools/check.cfg
+# An interrupted side-by-side run stops its steps' commands as well as the steps: the project step's sleep runs under
+# the step's shell, and it must not outlive the TERM. The lock is freed either way. Cleanup kills what is left.
+pidfile="$work/sleep.pid"; rm -f "$pidfile"
+{ cat "$work/cfg-serial"; printf '\n[tests]\nparallel = on\n'; } > tools/check.cfg
+printf 'sleep 300 &\necho $! > "%s"\nwait\n' "$pidfile" > tools/check.local.sh
+bash tools/check.sh </dev/null > "$work/interrupted.out" 2>&1 &
+int_pid=$!
+i=0
+until [ -s "$pidfile" ] || [ "$i" -ge 60 ]; do sleep 1; i=$((i + 1)); done
+sleep_pid=""
+[ -s "$pidfile" ] && read -r sleep_pid < "$pidfile"
+if [ -n "$sleep_pid" ] && kill -0 "$sleep_pid" 2>/dev/null; then ok "side by side: the project step's command is running before the interrupt"; else bad "side by side: the project step's command is running before the interrupt" "$(cat "$work/interrupted.out")"; fi
+kill "$int_pid" 2>/dev/null
+i=0
+while kill -0 "$int_pid" 2>/dev/null && [ "$i" -lt 60 ]; do sleep 1; i=$((i + 1)); done
+if kill -0 "$int_pid" 2>/dev/null; then kill -KILL "$int_pid" 2>/dev/null; fi
+wait "$int_pid" 2>/dev/null; int_status=$?
+expect_status "side by side: an interrupted run exits 130" 130 "$int_status" "$(cat "$work/interrupted.out")"
+i=0
+while [ -n "$sleep_pid" ] && kill -0 "$sleep_pid" 2>/dev/null && [ "$i" -lt 5 ]; do sleep 1; i=$((i + 1)); done
+if [ -n "$sleep_pid" ] && ! kill -0 "$sleep_pid" 2>/dev/null; then ok "side by side: an interrupt stops the project step's command within 5 seconds"; else bad "side by side: an interrupt stops the project step's command within 5 seconds" "$(cat "$work/interrupted.out")"; fi
+if [ ! -e .satt/state/lock ]; then ok "and frees the lock"; else bad "an interrupted run frees the lock" "$(ls -la .satt/state)"; fi
+[ -n "$sleep_pid" ] && kill -0 "$sleep_pid" 2>/dev/null && kill -KILL "$sleep_pid" 2>/dev/null
+kill -0 "$int_pid" 2>/dev/null && kill -KILL "$int_pid" 2>/dev/null
+rm -f tools/check.local.sh "$pidfile"; cp "$work/cfg-serial" tools/check.cfg
 grep -q '^parallel = on$' "$src/project/tools/check.cfg" && ok "the seed check.cfg turns [tests] parallel on" || bad "project/tools/check.cfg has [tests] parallel = on"
 _seed="$src/project/tools/check.cfg"
 grep -q '^timeout-fast = 300$' "$_seed" && grep -q '^timeout-full = 600$' "$_seed" && grep -q '^full-every = 10$' "$_seed" && grep -q '^full-when =$' "$_seed" \
   && ok "the seed check.cfg ships the tiers' settings: timeout-fast 300, timeout-full 600, full-every 10, full-when empty" \
   || bad "project/tools/check.cfg has [tests] timeout-fast = 300, timeout-full = 600, full-every = 10 and full-when ="
 git add -A >/dev/null 2>&1; git_q commit -qm "stack none for the hook tests" >/dev/null 2>&1
+# A run that waited for the lock takes the fingerprint again once it has the lock, so its reuse and its end-of-run
+# comparison speak of the files it checks. Another run's lock is held here by a live sleep, and freed by the test.
+lock_app="$work/lock-app"
+new_repo "$lock_app" && bash "$src/install.sh" "$lock_app" >/dev/null 2>&1
+cd "$lock_app" || exit 1
+put tools/check.cfg '[project]
+stack = none'
+put notes.txt 'first'
+bg_out="$work/lock-bg.out"
+lock_hold() { mkdir -p .satt/state; sleep 300 & lock_pid=$!; mkdir .satt/state/lock && echo "$lock_pid" > .satt/state/lock/pid && echo "started=09:15:00 tier=full" > .satt/state/lock/info; }
+lock_free() { rm -rf .satt/state/lock; kill "$lock_pid" 2>/dev/null; wait "$lock_pid" 2>/dev/null; }
+wait_for_text() { # wait_for_text <file> <text>: up to 20 seconds, for the text to appear in the file
+  local i=0; until grep -q "$2" "$1" 2>/dev/null || [ "$i" -ge 20 ]; do sleep 1; i=$((i + 1)); done
+  grep -q "$2" "$1" 2>/dev/null
+}
+bg_wait() { # bg_wait: up to 60 seconds for the background run to end, then it is stopped
+  local i=0; while kill -0 "$bg_pid" 2>/dev/null && [ "$i" -lt 60 ]; do sleep 1; i=$((i + 1)); done
+  kill -0 "$bg_pid" 2>/dev/null && kill -KILL "$bg_pid" 2>/dev/null
+  wait "$bg_pid" 2>/dev/null; bg_status=$?
+}
+out="$(bash tools/check.sh 2>&1)"; expect_status "the lock cases start from a full pass" 0 $? "$out"
+cp .satt/state/last-pass "$work/lock-pass"
+# The wrong pass: the run that waited reused the pass recorded before its wait, for files another run had changed.
+rm -f .satt/state/last-pass .satt/state/last-pass.changed
+lock_hold
+bash tools/check.sh --if-changed > "$bg_out" 2>&1 & bg_pid=$!
+if wait_for_text "$bg_out" "waiting for another check"; then ok "a run waits while another check holds the lock"; else bad "a run waits while another check holds the lock" "$(cat "$bg_out")"; fi
+cp "$work/lock-pass" .satt/state/last-pass
+put notes.txt 'second'
+lock_free
+bg_wait
+out="$(cat "$bg_out")"
+expect_no_output "a run that waited doesn't reuse a pass for files that changed during the wait" "nothing changed since the last passing run" "$out"
+expect_output "and runs the check on the current files" "check: running the full tier" "$out"
+expect_status "and that run passes" 0 "$bg_status" "$out"
+# The lost run: a change during the wait made the run record nothing ("files changed while the check ran").
+rm -f .satt/state/last-pass* .satt/state/last-fail*
+lock_hold
+bash tools/check.sh > "$bg_out" 2>&1 & bg_pid=$!
+if wait_for_text "$bg_out" "waiting for another check"; then ok "a second full run waits while the lock is held"; else bad "a second full run waits while the lock is held" "$(cat "$bg_out")"; fi
+put notes.txt 'third'
+lock_free
+bg_wait
+out="$(cat "$bg_out")"
+expect_status "a run that waited for the lock passes on the files as they are" 0 "$bg_status" "$out"
+expect_no_output "and a change during the wait isn't taken for a change during the run" "files changed while the check ran" "$out"
+if grep -q 'tier=full' .satt/state/last-pass 2>/dev/null; then ok "and records its pass"; else bad "and records its pass" "$(ls -la .satt/state 2>&1)"; fi
+out="$(bash tools/check.sh --if-changed 2>&1)"; expect_output "a following --if-changed reuses that pass" "nothing changed since the last passing run" "$out"
+# CHECK_WAIT caps the wait for the lock: past it the run says who it waited for, exits 3 and starts no second check.
+rm -f .satt/state/last-pass* .satt/state/last-fail*
+lock_hold
+t0=$SECONDS; out="$(CHECK_WAIT=3 bash tools/check.sh 2>&1)"; status=$?; took=$((SECONDS - t0))
+expect_status "CHECK_WAIT=3 ends the wait with exit 3" 3 "$status" "$out"
+expect_output "and the busy line names the run it waited for" "check: busy: the check started 09:15:00 \(full tier, pid $lock_pid\) is still running after [0-9]+ s; no second check started" "$out"
+if [ "$took" -ge 3 ] && [ "$took" -le 30 ]; then ok "in about that many seconds"; else bad "CHECK_WAIT=3 ends the wait in about 3 seconds" "took $took s"; fi
+expect_no_output "and no check runs" "running the" "$out"
+if [ ! -e .satt/state/last-pass ] && [ ! -e .satt/state/last-fail ]; then ok "and records no result"; else bad "a busy run records no result" "$(ls .satt/state)"; fi
+if [ "$(cat .satt/state/lock/pid 2>/dev/null)" = "$lock_pid" ] && kill -0 "$lock_pid" 2>/dev/null; then ok "and leaves the holder's lock alone"; else bad "a busy run leaves the holder's lock alone" "$(ls -la .satt/state/lock 2>&1)"; fi
+out="$(CHECK_WAIT=0 bash tools/check.sh 2>&1)"; expect_status "CHECK_WAIT=0 doesn't wait" 3 $? "$out"
+expect_output "and says busy" "check: busy: " "$out"
+# fast and full take the tier's limit from tools/check.cfg, and CHECK_TIMEOUT overrides both, as for a test command.
+put tools/check.cfg '[project]
+stack = none
+[tests]
+timeout-fast = 2
+timeout-full = 12'
+t0=$SECONDS; out="$(CHECK_WAIT=fast bash tools/check.sh 2>&1)"; status=$?; took=$((SECONDS - t0))
+expect_status "CHECK_WAIT=fast ends the wait with exit 3" 3 "$status" "$out"
+if [ "$took" -ge 2 ] && [ "$took" -lt 12 ]; then ok "after the fast tier's limit (timeout-fast)"; else bad "CHECK_WAIT=fast waits for timeout-fast (2 s)" "took $took s"; fi
+t0=$SECONDS; out="$(CHECK_WAIT=full bash tools/check.sh 2>&1)"; status=$?; took=$((SECONDS - t0))
+expect_status "CHECK_WAIT=full ends the wait with exit 3" 3 "$status" "$out"
+if [ "$took" -ge 12 ] && [ "$took" -lt 40 ]; then ok "after the full tier's limit (timeout-full)"; else bad "CHECK_WAIT=full waits for timeout-full (12 s)" "took $took s"; fi
+t0=$SECONDS; out="$(CHECK_TIMEOUT=2 CHECK_WAIT=full bash tools/check.sh 2>&1)"; status=$?; took=$((SECONDS - t0))
+if [ "$status" -eq 3 ] && [ "$took" -ge 2 ] && [ "$took" -lt 12 ]; then ok "and CHECK_TIMEOUT sets both"; else bad "CHECK_TIMEOUT sets the limit CHECK_WAIT=full takes" "status $status, took $took s: $out"; fi
+put tools/check.cfg '[project]
+stack = none'
+# Anything else is noted, and the wait has no cap: the run takes the lock when it is freed.
+rm -f .satt/state/last-pass* .satt/state/last-fail*
+CHECK_WAIT=soon bash tools/check.sh > "$bg_out" 2>&1 & bg_pid=$!
+if wait_for_text "$bg_out" "waiting for another check"; then ok "CHECK_WAIT=soon waits"; else bad "CHECK_WAIT=soon waits" "$(cat "$bg_out")"; fi
+sleep 4
+expect_output "and says the value is neither seconds nor a tier" "CHECK_WAIT=soon is neither a number of seconds nor fast or full, so the wait has no cap" "$(cat "$bg_out")"
+expect_no_output "and ends no wait" "check: busy" "$(cat "$bg_out")"
+lock_free
+bg_wait
+out="$(cat "$bg_out")"
+expect_status "and takes the lock once it is freed, and passes" 0 "$bg_status" "$out"
+# A lock freed within the cap is taken, and the check runs.
+lock_hold
+CHECK_WAIT=60 bash tools/check.sh > "$bg_out" 2>&1 & bg_pid=$!
+wait_for_text "$bg_out" "waiting for another check" >/dev/null
+lock_free
+bg_wait
+out="$(cat "$bg_out")"
+expect_status "a lock freed within CHECK_WAIT is taken, and the check passes" 0 "$bg_status" "$out"
+expect_output "and the check runs" "check: running the full tier" "$out"
+expect_no_output "with no busy line" "check: busy" "$out"
+cd "$app" || exit 1
 
 # The tiers. --fast runs the architecture rules and the secrets scan over the whole project, then only the steps
 # the change from HEAD touches; a dependency, a toolchain setting, tools/ or a [tests] full-when path runs it as the
@@ -4697,6 +4841,38 @@ expect_no_output "without GNU timeout the budget cuts nothing: no timeout is rep
 expect_output "and every selected project runs" "dotnet test $_dn_api --no-build.*dotnet test $_dn_dom --no-build.*dotnet test $_dn_gen --no-build" "$out"
 expect_output "and the step passes" "status 0" "$out"
 unset _dn_notimeout _dn_slow _dn_limit
+# The build runs under the tier's limit as its own command, as dotnet test does (B71): a build that waits is stopped at the
+# limit and the check exits 3 without running a test; a build within the limit passes. The stand-in build waits with exec,
+# so the limit stops the sleep itself. Real run_limited (as tools/check.sh has it) and GNU timeout, so it needs GNU timeout.
+if timeout --version 2>/dev/null | grep -qi coreutils; then
+  _dnhang="$work/dn-hang"; mkdir -p "$_dnhang"
+  printf '#!/bin/sh\necho "dotnet $*" >> "$DN_CALLS"\nif [ "$1" = build ] && [ -n "${DN_BUILD_HANG:-}" ]; then exec sleep 15; fi\nexit 0\n' > "$_dnhang/dotnet"
+  chmod +x "$_dnhang/dotnet"
+  dn_make
+  _dn_real() { # _dn_real <tier> <limit> <changed path>: the stack's lines under check.sh's run_limited, then the recorded calls
+    ( cd "$_dnapp" || exit 9
+      state=.satt/state; mkdir -p "$state"; cfg_timeout="$2"; cfg_target=App.sln; tier="$1"; timeout_cmd=timeout
+      limit_name="tools/check.cfg › [tests] timeout-fast"
+      DN_CALLS="$PWD/$state/calls"; : > "$DN_CALLS"; export DN_CALLS
+      : > "$state/changed-backend"; printf '%s\n' "$3" >> "$state/changed-backend"
+      export CHECK_TIER="$1" CHECK_BACKEND_CHANGED="$PWD/$state/changed-backend"
+      PATH="$_dnhang:$PATH"
+      run_limited() { local log="$1"; shift; "$timeout_cmd" "$cfg_timeout" "$@" </dev/null >"$log" 2>&1; }
+      timed_out() { echo "check: $1 ran past the $cfg_timeout-second limit ($limit_name, the $tier tier's) and was stopped, so this isn't a pass"; }
+      . "$src/framework/tools/stacks/dotnet.sh"
+      stack_check; echo "status $?"; sed 's/^/call: /' "$DN_CALLS" ) 2>&1
+  }
+  _dn_t0=$SECONDS; export DN_BUILD_HANG=1
+  out="$(dn_flat "$(_dn_real fast 2 src/Domain/A.cs)")"
+  unset DN_BUILD_HANG
+  expect_output "a build that runs past the limit is named as a timeout" "check: dotnet build ran past the 2-second limit" "$out"
+  expect_output "and the check exits 3, as dotnet test does" "status 3" "$out"
+  expect_no_output "and no test runs after a timed-out build" "dotnet test" "$out"
+  if [ $((SECONDS - _dn_t0)) -lt 12 ]; then ok "the limit stops the build early (the stand-in would wait 15 seconds)"; else bad "the limit stops the build early (it took $((SECONDS - _dn_t0)) seconds)"; fi
+  out="$(dn_flat "$(_dn_real fast 20 src/Domain/A.cs)")"
+  expect_output "a build within the limit passes, and the tests run after it" "check: dotnet build passed.*check: dotnet test passed.*status 0" "$out"
+  unset _dn_t0
+fi
 # An explicit IsTestProject false says a project is no test project; a Condition or an Import can't be told.
 dn_make
 dn_proj tests/Helpers/Helpers.csproj '<PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup>' '<ItemGroup><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'
@@ -4811,6 +4987,19 @@ out="$(hook)"; expect_status "blocks again once the builder is done" 2 $? "$out"
 cp "$work/passing" $domain
 out="$(hook)"; expect_status "lets the fixed state through" 0 $? "$out"
 git checkout -q -- $domain
+# Another check still running past the fast tier's limit: the hook asks with CHECK_WAIT=fast and ends the turn on the
+# busy line, with a note, and records nothing as reported.
+printf '\n// a harmless change\n' >> $domain
+rm -f .satt/state/last-reported .satt/state/last-pass* .satt/state/last-fail*
+lock_hold
+out="$(CHECK_TIMEOUT=2 hook)"; status=$?
+expect_status "ends the turn when another check outlasts the fast tier's limit" 0 "$status" "$out"
+expect_output "and says the check didn't run, naming the run" "end-of-turn check didn't run: check: busy: the check started 09:15:00 \(full tier, pid $lock_pid\)" "$out"
+if [ ! -e .satt/state/last-reported ] && [ ! -e .satt/state/last-pass ] && kill -0 "$lock_pid" 2>/dev/null; then ok "and records nothing, leaving the other check's lock"; else bad "a busy end of turn records nothing" "$(ls -a .satt/state)"; fi
+lock_free
+printf 'public static class Bad { public static DateTime T => DateTime.UtcNow; }\n' >> $domain
+out="$(hook)"; expect_status "a failing check still blocks the turn once the lock is free" 2 $? "$out"
+git checkout -q -- $domain; rm -f .satt/state/last-reported
 # Which changed paths count is the check's rule (--unignored), not the hook's: a Markdown path that runs the full tier
 # ([tests] full-when) counts, so the hook runs the check for it, which runs as the full tier and fails on the violation.
 printf '[tests]\nfull-when = handbook/\n' >> tools/check.cfg; tier_commit "stop hook: full-when handbook/"
@@ -5380,17 +5569,19 @@ git init -q --bare "$work/app-origin.git"; git remote add origin "$work/app-orig
 out="$(git push -q origin HEAD:refs/heads/main 2>&1)"; expect_status "pre-push lets a passing push through" 0 $? "$out"
 expect_output "after the full tier" "pre-push: running the project check, full tier: a push gets the full check" "$out"
 expect_output "reusing a full pass of the same files" "nothing changed since the last passing run: the full tier" "$out"
-printf '\n// not committed\n' >> $domain
+printf '\n// not pushed yet\n' >> $domain
 bash tools/check.sh --fast >/dev/null 2>&1
+git_q commit -q --no-verify -am "a source change to push"   # a push checks what its commits change: this one changes a source file
 out="$(git push -q origin HEAD:refs/heads/other 2>&1)"; expect_status "pre-push passes again" 0 $? "$out"
 expect_output "but never on a fast pass: the full tier runs" "check: running the full tier" "$out"
 printf 'public static class Bad { public static Guid G => Guid.NewGuid(); }\n' >> $domain
+git_q commit -q --no-verify -am "a source change that fails the check"
 out="$(git push -q origin HEAD:refs/heads/third 2>&1)"; expect_status "pre-push blocks a push while the full check fails" 1 $? "$out"
 expect_output "and says nothing was pushed" "pre-push: the full check fails, so nothing was pushed" "$out"
 [ -z "$(git --git-dir="$work/app-origin.git" for-each-ref refs/heads/third)" ] && ok "and the ref doesn't reach the remote" || bad "a blocked push reached the remote"
 out="$(git push -q origin :refs/heads/other 2>&1)"; expect_status "a push that only deletes goes through" 0 $? "$out"
 expect_no_output "without the check" "running the project check" "$out"
-git checkout -q -- $domain
+git reset -q --hard HEAD~1   # the commit that fails the check goes; the one before it is still unpushed
 put tools/check.local.sh 'exit 3'
 out="$(git push -q origin HEAD:refs/heads/fourth 2>&1)"; expect_status "pre-push blocks a push while the check can't run" 1 $? "$out"
 expect_output "and says nothing was pushed" "pre-push: the check couldn't run \(the reason is above\), so nothing was pushed" "$out"
@@ -5405,8 +5596,8 @@ expect_output "and says tools/cfg.sh is missing" "check: tools/cfg.sh is missing
 out="$(cd "$_nocfg" && bash tools/check.sh --fingerprint 2>&1)"; expect_status "and so does --fingerprint" 3 $? "$out"
 
 # The hooks' fallbacks, with a stand-in check that records how it was run: --due with no answer runs the full tier, a
-# check.sh that can't answer --unignored leaves every staged path counted, and the pre-push hook runs nothing in a
-# prototype or without tools/check.sh. Marker files switch the stand-in's answers.
+# check.sh that can't answer --unignored leaves every staged path counted, and the pre-push hook refuses a push of
+# commits from a prototype's checkout (B76) and runs nothing without tools/check.sh. Marker files switch the stand-in's answers.
 _hk="$work/hook-standin"; new_repo "$_hk"; mkdir -p "$_hk/tools"
 put "$_hk/tools/check.sh" 'case "${1:-}" in
   --secrets) exit 0 ;;
@@ -5431,11 +5622,98 @@ rm -f "$_hk/ran" "$_hk/unignored-fails"
 out="$(_pp_in)"; expect_status "pre-push runs the stand-in check" 0 $? "$out"
 [ "$(_hk_ran)" = "--full --if-changed" ] && ok "pre-push asks for the full tier" || bad "pre-push asked for: $(_hk_ran)"
 rm -f "$_hk/ran"; put "$_hk/tools/prototype.sh" 'exit 0'
-out="$(_pp_in)"; expect_status "pre-push in a prototype lets the push through" 0 $? "$out"
+out="$(_pp_in)"; expect_status "pre-push in a prototype refuses a push of commits (B76)" 1 $? "$out"
+expect_output "and says why and what to do" "pre-push: a push from a prototype is refused; nothing was pushed\." "$out"
 [ -z "$(_hk_ran)" ] && [[ $out != *"running the project check"* ]] && ok "and runs no check there" || bad "pre-push ran the check in a prototype" "$out"
+# A documentation-only commit (the HEAD here changes only Markdown) is refused in a prototype too.
+(cd "$_hk" && printf '# doc\n' > doc.md && git add doc.md && git_q commit -qm "docs only") >/dev/null 2>&1
+rm -f "$_hk/ran"; out="$(_pp_in)"; expect_status "pre-push in a prototype refuses a push of documentation only" 1 $? "$out"
+[ -z "$(_hk_ran)" ] && [[ $out != *"no check runs"* ]] && ok "and runs no check for it" || bad "pre-push ran a check for documentation in a prototype" "$out"
+# A push that only deletes a ref sends no commit, so it goes through in a prototype.
+out="$(cd "$_hk" && printf 'refs/heads/x 0000000000000000000000000000000000000000 refs/heads/x %s\n' "$(git rev-parse HEAD)" | bash "$src/framework/.githooks/pre-push" 2>&1)"
+expect_status "pre-push in a prototype lets a push that only deletes a ref through" 0 $? "$out"
 rm -f "$_hk/tools/prototype.sh"; mv "$_hk/tools/check.sh" "$_hk/check.sh.away"
 out="$(_pp_in)"; expect_status "pre-push without tools/check.sh lets the push through" 0 $? "$out"
 [ -z "$(_hk_ran)" ] && [[ $out != *"running the project check"* ]] && ok "and runs no check" || bad "pre-push ran a check without tools/check.sh" "$out"
+
+# A push that changes only paths the check doesn't count runs no check, so a clone without the toolchain can push
+# documentation; a push whose changes the hook can't read runs it. Real pushes to a bare remote, with a check that fails
+# (check-fails) or can't run (check-cant) and the real --unignored, which reads [tests] full-when from tools/check.cfg.
+echo "pre-push: documentation only"
+_pq="$work/push-docs"; _pqo="$work/push-docs-origin.git"; new_repo "$_pq"; mkdir -p "$_pq/tools"
+cp "$src/framework/tools/check.sh" "$_pq/tools/real-check.sh"; cp "$src/framework/tools/cfg.sh" "$src/framework/tools/archcheck.awk" "$_pq/tools/"
+put "$_pq/tools/check.cfg" $'[project]\nstack = none\n[tests]\nfull-when = handbook/'
+put "$_pq/tools/check.sh" 'case "${1:-}" in
+  --unignored) [ -f unignored-fails ] && exit 3; exec bash tools/real-check.sh --unignored ;;
+esac
+echo "$*" > ran
+[ -f check-fails ] && exit 1
+[ -f check-cant ] && exit 3
+exit 0'
+put "$_pq/.git/hooks/pre-push" '#!/bin/sh'$'\n''exec bash "'"$src"'/framework/.githooks/pre-push" "$@"'; chmod +x "$_pq/.git/hooks/pre-push"
+git init -q --bare "$_pqo"; git -C "$_pq" remote add origin "$_pqo"; git -C "$_pq" branch -M main
+_pq_commit() { # _pq_commit <message> <path>...: a commit of each path, without the hooks
+  (cd "$_pq" && m="$1"; shift; for f in "$@"; do mkdir -p "$(dirname "$f")"; printf '%s\n' "$f $RANDOM" >> "$f"; git add "$f"; done; git_q commit -q --no-verify -m "$m")
+}
+_pq_push() { out="$(cd "$_pq" && git push -q origin "$@" 2>&1)"; status=$?; }   # the output and exit status of a push
+_pq_ran() { cat "$_pq/ran" 2>/dev/null; }
+_pq_runs() { # _pq_runs <what>: the last push ran the full tier and was blocked by the failing check
+  { [ "$status" -ne 0 ] && [ "$(_pq_ran)" = "--full --if-changed" ] && [[ $out == *"pre-push: the full check fails"* ]]; } \
+    && ok "pre-push runs the full tier for $1" || bad "pre-push runs the full tier for $1 (exit $status, ran: $(_pq_ran))" "$out"
+  rm -f "$_pq/ran"
+}
+_pq_quiet() { # _pq_quiet <what>: the last push went through with no check, and said why
+  { [ "$status" -eq 0 ] && [ -z "$(_pq_ran)" ] && [[ $out == *"pre-push: no check runs: the commits it sends change only paths the check doesn't count"* ]]; } \
+    && ok "pre-push runs no check for $1, and says why" || bad "pre-push runs no check for $1 (exit $status, ran: $(_pq_ran))" "$out"
+  rm -f "$_pq/ran"
+}
+: > "$_pq/check-fails"
+_pq_push main; _pq_runs "a first push, with no remote-tracking ref to compare with"
+rm -f "$_pq/check-fails" "$_pq/ran"
+_pq_push main; expect_status "a first push passes once the check does" 0 "$status" "$out"
+: > "$_pq/check-fails"; rm -f "$_pq/ran"
+_pq_commit "docs" docs/a.md
+_pq_push main; _pq_quiet "a push of one Markdown file, while the check fails"
+_pq_commit "a source file" src/A.cs
+_pq_push main; _pq_runs "a push that changes a source file"
+rm -f "$_pq/check-fails" "$_pq/ran"; _pq_push main; expect_status "and the source file goes through once the check passes" 0 "$status" "$out"
+: > "$_pq/check-fails"; rm -f "$_pq/ran"
+: > "$_pq/check-cant"; rm -f "$_pq/check-fails"
+_pq_commit "docs" docs/b.md
+_pq_push main; _pq_quiet "Markdown while the check can't run either"
+rm -f "$_pq/check-cant"; : > "$_pq/check-fails"
+git -C "$_pq" checkout -q -b notes
+_pq_commit "docs on a new branch" docs/n.md
+_pq_push notes; _pq_quiet "a new branch that carries only documentation"
+git -C "$_pq" checkout -q main
+_pq_commit "a handbook the check reads" handbook/r.md
+_pq_push main; _pq_runs "Markdown under [tests] full-when"
+git -C "$_pq" reset -q --hard HEAD~1
+_pq_commit "a decision record" adr/ADR-1-x.md
+_pq_push main; _pq_runs "Markdown in adr/"
+git -C "$_pq" reset -q --hard HEAD~1
+(cd "$_pq" && git mv src/A.cs docs/renamed.md && git_q commit -q --no-verify -m "a source file becomes a note")
+_pq_push main; _pq_runs "a rename from a source file to Markdown, counted by the old name"
+git -C "$_pq" reset -q --hard HEAD~1
+git -C "$_pq" checkout -q -b side main
+_pq_commit "a source file on another branch" src/C.cs
+git -C "$_pq" checkout -q main
+_pq_commit "docs on main" docs/c.md
+_pq_push main side; _pq_runs "two refs when one carries a source change"
+[ -z "$(git --git-dir="$_pqo" for-each-ref refs/heads/side)" ] && ok "and neither ref reaches the remote" || bad "a blocked push reached the remote"
+rm -f "$_pq/ran"; _pq_push main; _pq_quiet "the ref that carries only Markdown, pushed alone"
+# The remote's commit isn't in this clone: someone else pushed, so the hook can't tell what differs.
+_pq2="$work/push-docs-other"; git clone -q "$_pqo" "$_pq2" 2>/dev/null
+(cd "$_pq2" && printf 'x\n' > elsewhere.txt && git add elsewhere.txt && git_q commit -q -m "elsewhere" && git push -q origin HEAD:main) >/dev/null 2>&1
+_pq_commit "docs here" docs/d.md
+_pq_push main; _pq_runs "a push whose remote commit this clone doesn't have"
+git -C "$_pq" fetch -q origin; git -C "$_pq" reset -q --hard origin/main; rm -f "$_pq/ran"
+_pq_commit "docs after the fetch" docs/e.md
+_pq_push main; _pq_quiet "Markdown once the remote's commit is here"
+: > "$_pq/unignored-fails"
+_pq_commit "docs while the check can't say what counts" docs/f.md
+_pq_push main; _pq_runs "Markdown when check.sh can't answer --unignored"
+rm -f "$_pq/unignored-fails" "$_pq/check-fails" "$_pq/ran"
 
 # A nested clone in an ignored folder is listed by ls-files as a directory. It doesn't block a
 # commit, but a real upgrade file still does while the clone is there.
@@ -6550,7 +6828,8 @@ edit_in asked "tools/check.sh, with a PROTOTYPE.md in the main checkout (a .git 
 rm -f "$_pa/PROTOTYPE.md"
 
 # The pre-push hook refuses a proto/ branch, from the prototype or to the remote, and any push that carries a
-# prototype's commits under another name, and lets main through.
+# prototype's commits under another name. Main pushed from a prototype's worktree is refused too (B76), and so
+# is any push that sends commits from there; main pushed from the main checkout goes through once it passes.
 _push_refused() { # _push_refused <what> <folder> <refspec> <reason pattern>
   out="$(cd "$2" && git push -q origin "$3" 2>&1)"; status=$?
   { [ "$status" -ne 0 ] && printf '%s' "$out" | grep -q "a prototype is never pushed; push blocked" && printf '%s' "$out" | grep -q "$4"; } \
@@ -6563,17 +6842,31 @@ _push_refused "a prototype's commit by its hash" "$_pa" "$(git -C "$_pa" rev-par
 _push_refused "proto/quick-add~0 under another name" "$_pa" "proto/quick-add~0:refs/heads/z" "carries a prototype's commits"
 git -C "$_pa" branch from-proto proto/quick-add >/dev/null 2>&1
 _push_refused "a branch made from a prototype's commit" "$_pa" from-proto "carries a prototype's commits"
-(cd "$_pa" && printf '# app\n\nA note.\n' > README.md && git add README.md && git commit -qm "docs: a note") >/dev/null 2>&1
-# Outside a prototype a push gets the full check: this app's fails, so main waits until it passes.
+(cd "$_pa" && printf 'A note.\n' > NOTES.txt && git add NOTES.txt && git commit -q --no-verify -m "a note") >/dev/null 2>&1
+# Outside a prototype a push that changes what the check counts gets the full check: this app's fails, so main waits until it passes.
 out="$(cd "$_pa" && git push -q origin main 2>&1)"; status=$?
 { [ "$status" -ne 0 ] && printf '%s' "$out" | grep -q "pre-push: the full check fails, so nothing was pushed"; } \
   && ok "pre-push runs the full check on main, and blocks the push while it fails" || bad "pre-push blocks main while the full check fails (exit $status)" "$out"
+# B76: a push of main from the prototype's worktree is refused, unchecked, though main holds no prototype commits.
+_main_before_proto="$(git --git-dir="$_po" rev-parse main)"
+out="$(cd "$_pw" && git push -q origin main 2>&1)"; status=$?
+{ [ "$status" -ne 0 ] && printf '%s' "$out" | grep -q "pre-push: a push from a prototype is refused; nothing was pushed\." \
+  && printf '%s' "$out" | grep -q "Push from the main checkout, where the check reads the files the push sends\."; } \
+  && ok "pre-push refuses main pushed from a prototype's worktree, and says why and what to do" \
+  || bad "pre-push refuses main pushed from a prototype's worktree (exit $status)" "$out"
+expect_no_output "and runs no check there" "running the project check|pre-push: the full check" "$out"
+[ "$(git --git-dir="$_po" rev-parse main)" = "$_main_before_proto" ] && ok "and the origin's main is unmoved" || bad "the refused push moved the origin's main" "$out"
 printf 'exit 0\n' > "$_pa/tools/check.local.sh"
 out="$(cd "$_pa" && git push -q origin main 2>&1)"
-expect_status "pre-push lets main through" 0 $? "$out"
+expect_status "pre-push lets main through from the main checkout" 0 $? "$out"
 git -C "$_pa" checkout -q -- tools/check.local.sh
 [ "$(git --git-dir="$_po" for-each-ref --format='%(refname)')" = "refs/heads/main" ] \
   && ok "the origin has main and nothing else" || bad "a refused push reached the origin" "$(git --git-dir="$_po" for-each-ref)"
+# A push from the prototype that only deletes a ref goes through: it sends no commit.
+git --git-dir="$_po" update-ref refs/heads/gone "$(git --git-dir="$_po" rev-parse main)"
+out="$(cd "$_pw" && git push -q origin :refs/heads/gone 2>&1)"
+expect_status "pre-push lets a prototype's push that only deletes a ref through" 0 $? "$out"
+[ -z "$(git --git-dir="$_po" for-each-ref refs/heads/gone)" ] && ok "and the ref is deleted on the origin" || bad "the deletion didn't reach the origin"
 
 # harvest prints the prototype's commits, files, the diff command, uncommitted changes and notes, and writes nothing.
 _pa_state() { git -C "$_pa" status --porcelain; git -C "$_pa" rev-parse HEAD proto/quick-add; git -C "$_pa" for-each-ref; cksum < "$_pa/TASKS.md"; }

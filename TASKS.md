@@ -4,9 +4,65 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T55 · B4 · R1
+**Next IDs:** T63 · B4 · R1
 
 ## Queue
+
+### T62 · A push of main from a prototype's worktree is refused, not left unchecked · done · S · agent
+- Touches: framework/.githooks/pre-push, framework/tools/prototype.sh, framework/.satt/procedures/prototype.md, README.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: a push that sends commits from a prototype's checkout is refused with the reason and the way out, nothing reaches the remote and no check runs, for main and for a push of documentation only, while a push that only deletes a ref goes through and a checkout that isn't a prototype behaves as before (test) · the header of `prototype.sh`, the "Nothing is pushed or merged" rule of the prototype procedure and the pre-push row of the README say so (check) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B76
+
+### T61 · The Stop hook stops waiting for a running check at the fast tier's limit · done · M · agent
+- Touches: framework/tools/check.sh, framework/.claude/hooks/stop-check.sh, framework/.satt/rules.md, skills/saas-design-session/references/rules.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: a check that waits for another one stops waiting after the seconds in `CHECK_WAIT` (or the limit of the tier it names), prints a `check: busy:` line naming the run it waited for, and exits 3 without starting a second check (test) · the Stop hook asks with `CHECK_WAIT=fast` and lets the turn end on that line (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T347
+
+### T60 · A push that changes only documentation runs no check · done · M · agent
+- Touches: framework/.githooks/pre-push, framework/tools/setup-clone.sh, framework/.satt/rules.md, skills/saas-design-session/references/rules.md, README.md, ONBOARDING.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: the pre-push hook runs no check for a push whose commits change only paths the check doesn't count (Markdown outside `adr/` and outside `[tests] full-when`, asked of `bash tools/check.sh --unignored`), so a clone without the backend's toolchain can push documentation; every other push, and every push whose changes the hook can't read, runs the full tier as before (test) · `rules.md` › Running the check and the comment in `tools/setup-clone.sh` say so (check) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T346
+
+### T59 · A file whose name git quotes is counted in the check's fingerprint · done · S · agent
+- Touches: framework/tools/check.sh, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: a counted file whose name holds a DEL character, a double quote or a backslash, or starts with a double quote, is in the fingerprint, so a change to it makes `--if-changed` run instead of reusing the last pass (test) · a project without such a name keeps its fingerprint's value (check) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B75
+
+### T58 · A check that waited for the lock compares with the files it checks, not those from before the wait · done · S · agent
+- Touches: framework/tools/check.sh, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: a run that waited for another check takes the fingerprint again once it holds the lock, so its reuse and its end-of-run comparison speak of the files it checks: a run that waited after an edit doesn't reuse a pass recorded before it, and an edit during the wait records no "files changed while the check ran" (test) · a run that didn't wait takes no extra fingerprint, and `--architecture` is unchanged (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B74
+
+### T57 · The self-test's `put` helper makes a file, not a folder, from a name without a slash · done · XS · agent
+- Touches: selftest.sh, TASKS.md
+- Done when: `put notes.txt x` in a scratch folder makes a file `notes.txt` holding `x`, and `put sub/a.txt y` still makes the folder `sub` first (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B73
+
+### T56 · An interrupted side-by-side check stops its steps' commands too, without pkill · done · S · agent
+- Touches: framework/tools/check.sh, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: an interrupted side-by-side run stops each step's shell and the commands under it, their children through `timeout` where it runs, by walking the process tree with `ps` and not with `pkill`, so a command the step started, such as `sleep`, doesn't run on; the lock is still freed and the run still exits 130 (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B72
+
+### T55 · The .NET build runs under the check's time limit · done · S · agent
+- Touches: framework/tools/stacks/dotnet.sh, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: the .NET stack runs `dotnet build` as a command under the tier's time limit, as it runs `dotnet test`, with a budget of its own, so a build that hangs is stopped at the limit and the check exits 3 without running a test, and a build within the limit passes as before (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B71
 
 ### T54 · The .NET fast tier tests the changed projects and the projects that reference them · done · M · agent
 - Depends on: T53

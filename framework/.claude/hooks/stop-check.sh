@@ -17,6 +17,8 @@
 # Turn it off per machine with SATT_STOP_CHECK=0 (e.g. .claude/settings.local.json › env).
 # It never runs in a prototype (bash tools/prototype.sh here), nor in a repository with no commit yet, where the fast
 # tier would run as the full tier: the first commit's pre-commit hook gates that work.
+# It asks with CHECK_WAIT=fast: when another check still runs after the fast tier's limit, the check says "check: busy:"
+# and exits 3 without starting a second one, and the turn ends (exit 0) with a note, the work unchecked.
 
 IFS= read -r -d '' _input || true
 [ "${SATT_STOP_CHECK:-1}" = "0" ] && exit 0
@@ -65,12 +67,24 @@ if [ -n "$fingerprint" ] && [ "$(cat "$state/last-reported" 2>/dev/null)" = "$fi
   exit 0
 fi
 
-output="$(bash tools/check.sh --fast --if-changed 2>&1)"
+output="$(CHECK_WAIT=fast bash tools/check.sh --fast --if-changed 2>&1)"
 status=$?
 if [ "$status" -eq 0 ]; then
   rm -f "$state/last-reported"
   [ -n "$sid" ] && rm -f "$sessions/$sid.touched" "$sessions/$sid.before"
   exit 0
+fi
+# Another check is still running past the fast tier's limit: it gates the commit, so the turn ends with the work
+# unchecked and the next turn checks again (nothing is recorded as reported).
+if [ "$status" -eq 3 ]; then
+  nl='
+'
+  case "$nl$output" in
+    *"${nl}check: busy: "*)
+      echo "SaaSAllTheThings: the end-of-turn check didn't run: $(printf '%s\n' "$output" | grep '^check: busy: ' | tail -n 1)" >&2
+      echo "This work is unchecked until a check passes on it; the commit's check runs it." >&2
+      exit 0 ;;
+  esac
 fi
 [ -n "$fingerprint" ] && printf '%s' "$fingerprint" > "$state/last-reported"
 
