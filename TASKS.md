@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T57 · B4 · R1
+**Next IDs:** T58 · B4 · R1
 
 ## Queue
+
+### T57 · The self-test's `put` helper makes a file, not a folder, from a name without a slash · done · XS · agent
+- Touches: selftest.sh, TASKS.md
+- Done when: `put notes.txt x` in a scratch folder makes a file `notes.txt` holding `x`, and `put sub/a.txt y` still makes the folder `sub` first (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B73
 
 ### T56 · An interrupted side-by-side check stops its steps' commands too, without pkill · done · S · agent
 - Touches: framework/tools/check.sh, selftest.sh, CHANGELOG.md, TASKS.md

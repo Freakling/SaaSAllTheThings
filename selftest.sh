@@ -30,7 +30,7 @@ expect_no_output() { # <what> <extended regex> <output>
   if [[ $3 =~ $2 ]]; then bad "$1 (unexpected /$2/)" "$3"; else ok "$1"; fi
 }
 # put <file> <text>: write a file (and its folder) with builtins where possible.
-put() { [ -d "${1%/*}" ] || mkdir -p "${1%/*}"; printf '%s\n' "$2" > "$1"; }
+put() { [[ $1 != */* ]] || [ -d "${1%/*}" ] || mkdir -p "${1%/*}"; printf '%s\n' "$2" > "$1"; }
 # keep <file> / restore <file>: save a file's content in memory, then put it back (or delete it).
 keep() { kept_file="$1"; kept_text=""; kept_existed=0; [ -f "$1" ] && { kept_existed=1; IFS= read -r -d '' kept_text < "$1"; }; return 0; }
 restore() { if [ "$kept_existed" -eq 1 ]; then printf '%s' "$kept_text" > "$kept_file"; else rm -f "$kept_file"; fi; }
@@ -821,6 +821,11 @@ expect_output "reports that clone as reinstalled" "reinstalled" "$out"
 expect_no_output "CRLF line endings don't count as local edits" "CONFLICT|kept your changes" "$out"
 cd "$app" || exit 1
 git checkout -q -- .satt 2>/dev/null; git add -A >/dev/null 2>&1; git_q commit -qm "after installer tests" >/dev/null 2>&1
+
+# put with a name that has no slash writes a file in the current folder (it made a folder of that name
+# before), and a name with a folder still makes the folder first.
+(cd "$work" && mkdir -p put-scratch && cd put-scratch && put notes.txt x && put sub/a.txt y && [ -f notes.txt ] && [ "$(< notes.txt)" = x ] && [ -f sub/a.txt ] && [ "$(< sub/a.txt)" = y ]) 2>/dev/null
+expect_status "put writes a name without a slash as a file, and a name with a folder under its folder" 0 $?
 
 # --- command guard (Claude Code PreToolUse hook on Bash) ----------------------------------------
 echo "command guard"
