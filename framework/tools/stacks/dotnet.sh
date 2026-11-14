@@ -307,6 +307,8 @@ dn_test() {
   echo "check: dotnet test passed"
 }
 
+# The build is a command of its own under the tier's limit, as each test command is (B71): it gets its own budget, so a
+# slow build doesn't take time from the tests, and a build that hits the limit exits 3, as dotnet test does.
 stack_check() {
   local target status
   target="$(stack_target)"
@@ -314,8 +316,9 @@ stack_check() {
     echo "check: FAIL: no .sln or .slnx at the repository root (or set tools/check.cfg › [project] target)"
     return 1
   fi
-  dotnet build "$target" -nologo -v:q -clp:NoSummary </dev/null >"$state/build.log" 2>&1
+  run_limited "$state/build.log" dotnet build "$target" -nologo -v:q -clp:NoSummary
   status=$?
+  if [ "$status" -eq 124 ]; then timed_out "dotnet build"; return 3; fi
   if [ "$status" -ne 0 ]; then
     echo "check: dotnet build failed:"
     grep -E ': (error|warning) [A-Z]+[0-9]+' "$state/build.log" | sed 's/^[[:space:]]*//' | awk '!seen[$0]++' | head -n 40 | sed 's/^/  /'

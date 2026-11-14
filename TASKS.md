@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T55 · B4 · R1
+**Next IDs:** T56 · B4 · R1
 
 ## Queue
+
+### T55 · The .NET build runs under the check's time limit · done · S · agent
+- Touches: framework/tools/stacks/dotnet.sh, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: the .NET stack runs `dotnet build` as a command under the tier's time limit, as it runs `dotnet test`, with a budget of its own, so a build that hangs is stopped at the limit and the check exits 3 without running a test, and a build within the limit passes as before (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B71
 
 ### T54 · The .NET fast tier tests the changed projects and the projects that reference them · done · M · agent
 - Depends on: T53

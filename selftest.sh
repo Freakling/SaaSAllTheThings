@@ -4697,6 +4697,38 @@ expect_no_output "without GNU timeout the budget cuts nothing: no timeout is rep
 expect_output "and every selected project runs" "dotnet test $_dn_api --no-build.*dotnet test $_dn_dom --no-build.*dotnet test $_dn_gen --no-build" "$out"
 expect_output "and the step passes" "status 0" "$out"
 unset _dn_notimeout _dn_slow _dn_limit
+# The build runs under the tier's limit as its own command, as dotnet test does (B71): a build that waits is stopped at the
+# limit and the check exits 3 without running a test; a build within the limit passes. The stand-in build waits with exec,
+# so the limit stops the sleep itself. Real run_limited (as tools/check.sh has it) and GNU timeout, so it needs GNU timeout.
+if timeout --version 2>/dev/null | grep -qi coreutils; then
+  _dnhang="$work/dn-hang"; mkdir -p "$_dnhang"
+  printf '#!/bin/sh\necho "dotnet $*" >> "$DN_CALLS"\nif [ "$1" = build ] && [ -n "${DN_BUILD_HANG:-}" ]; then exec sleep 15; fi\nexit 0\n' > "$_dnhang/dotnet"
+  chmod +x "$_dnhang/dotnet"
+  dn_make
+  _dn_real() { # _dn_real <tier> <limit> <changed path>: the stack's lines under check.sh's run_limited, then the recorded calls
+    ( cd "$_dnapp" || exit 9
+      state=.satt/state; mkdir -p "$state"; cfg_timeout="$2"; cfg_target=App.sln; tier="$1"; timeout_cmd=timeout
+      limit_name="tools/check.cfg › [tests] timeout-fast"
+      DN_CALLS="$PWD/$state/calls"; : > "$DN_CALLS"; export DN_CALLS
+      : > "$state/changed-backend"; printf '%s\n' "$3" >> "$state/changed-backend"
+      export CHECK_TIER="$1" CHECK_BACKEND_CHANGED="$PWD/$state/changed-backend"
+      PATH="$_dnhang:$PATH"
+      run_limited() { local log="$1"; shift; "$timeout_cmd" "$cfg_timeout" "$@" </dev/null >"$log" 2>&1; }
+      timed_out() { echo "check: $1 ran past the $cfg_timeout-second limit ($limit_name, the $tier tier's) and was stopped, so this isn't a pass"; }
+      . "$src/framework/tools/stacks/dotnet.sh"
+      stack_check; echo "status $?"; sed 's/^/call: /' "$DN_CALLS" ) 2>&1
+  }
+  _dn_t0=$SECONDS; export DN_BUILD_HANG=1
+  out="$(dn_flat "$(_dn_real fast 2 src/Domain/A.cs)")"
+  unset DN_BUILD_HANG
+  expect_output "a build that runs past the limit is named as a timeout" "check: dotnet build ran past the 2-second limit" "$out"
+  expect_output "and the check exits 3, as dotnet test does" "status 3" "$out"
+  expect_no_output "and no test runs after a timed-out build" "dotnet test" "$out"
+  if [ $((SECONDS - _dn_t0)) -lt 12 ]; then ok "the limit stops the build early (the stand-in would wait 15 seconds)"; else bad "the limit stops the build early (it took $((SECONDS - _dn_t0)) seconds)"; fi
+  out="$(dn_flat "$(_dn_real fast 20 src/Domain/A.cs)")"
+  expect_output "a build within the limit passes, and the tests run after it" "check: dotnet build passed.*check: dotnet test passed.*status 0" "$out"
+  unset _dn_t0
+fi
 # An explicit IsTestProject false says a project is no test project; a Condition or an Import can't be told.
 dn_make
 dn_proj tests/Helpers/Helpers.csproj '<PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup>' '<ItemGroup><ProjectReference Include="..\..\src\Domain\Domain.csproj" /></ItemGroup>'

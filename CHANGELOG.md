@@ -2,6 +2,10 @@
 
 Each entry lists what changed. An entry that requires changes to an app's own files (AGENTS.md, TASKS.md, the PRD, `tools/check.cfg`) ends with **Upgrade steps**, which onboarding carries out during an upgrade.
 
+## Unreleased
+
+- **A .NET build that hangs is stopped at the check's time limit.** The .NET stack ran `dotnet build` without the limit that `dotnet test` has, so a build that waited held the check, or its stack step when the steps run side by side, for as long as it waited. The build now runs as a command of its own under the tier's limit (`[tests] timeout-fast` or `timeout-full`), with a budget of its own, so the tests keep theirs. A build past the limit exits 3, as a test does, and the check names the build as the command it stopped.
+
 ## 0.17.0 (2026-11-14)
 
 - **The check can run its backend, Bicep and project steps side by side.** An app's full check took about 7 minutes with each step after the other. With `[tests] parallel = on` in `tools/check.cfg`, once the architecture step is done the backend stack, the Bicep compile and `tools/check.local.sh` run as background jobs, each under its own `[tests] timeout` with its own lines in `.satt/state/`, so a hung step is cut without stopping the others. Their lines are printed together in the order of a run in order (stack, infra, project steps), and the statuses combine as before: any failure exits 1, otherwise anything that couldn't run exits 3. An interrupted run stops its jobs. Every run, in order or side by side, now ends with one line giving each step's seconds and the total. The Bicep compile now runs under the time limit too. The seed `project/tools/check.cfg` and the example turn the setting on; a `tools/check.cfg` without the key runs the steps in order as before.
