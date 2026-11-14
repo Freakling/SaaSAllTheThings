@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T59 · B4 · R1
+**Next IDs:** T60 · B4 · R1
 
 ## Queue
+
+### T59 · A file whose name git quotes is counted in the check's fingerprint · done · S · agent
+- Touches: framework/tools/check.sh, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: a counted file whose name holds a DEL character, a double quote or a backslash, or starts with a double quote, is in the fingerprint, so a change to it makes `--if-changed` run instead of reusing the last pass (test) · a project without such a name keeps its fingerprint's value (check) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development B75
 
 ### T58 · A check that waited for the lock compares with the files it checks, not those from before the wait · done · S · agent
 - Touches: framework/tools/check.sh, selftest.sh, CHANGELOG.md, TASKS.md

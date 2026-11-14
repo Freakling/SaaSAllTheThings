@@ -132,15 +132,24 @@ fi
 
 # Hash of every file that can change the result (counted_path). The paths are sorted before they are hashed: git lists
 # untracked files before tracked ones, so staging a new file would otherwise change the hash though no file's content
-# changed.
+# changed. The names are read NUL-separated (-z): git quotes a name with a double quote, a backslash or a control
+# character, such as DEL, and a quoted name would fail the file test and be left out. --stdin-paths reads a line as
+# the name, unless it starts with a double quote or holds a newline: those are given in git's quoted form.
 fingerprint() {
-  local path list=()
-  while IFS= read -r path; do
+  local path list=() stdin_names=() q
+  while IFS= read -r -d '' path; do
     counted_path "$path" || continue
-    [ -f "$path" ] && list+=("$path")
-  done < <(git -c core.quotePath=false ls-files -c -o --exclude-standard 2>/dev/null | LC_ALL=C "$SORT" -u)
+    [ -f "$path" ] || continue
+    list+=("$path")
+    case "$path" in
+      '"'*|*"$nl"*)
+        q="${path//\\/\\\\}"; q="${q//\"/\\\"}"; q="${q//$nl/\\n}"
+        stdin_names+=("\"$q\"") ;;
+      *) stdin_names+=("$path") ;;
+    esac
+  done < <(git ls-files -c -o --exclude-standard -z 2>/dev/null | LC_ALL=C "$SORT" -z -u)
   [ "${#list[@]}" -gt 0 ] || return 0
-  { printf '%s\n' "${list[@]}"; printf '%s\n' "${list[@]}" | git hash-object --no-filters --stdin-paths; } \
+  { printf '%s\n' "${list[@]}"; printf '%s\n' "${stdin_names[@]}" | git hash-object --no-filters --stdin-paths; } \
     | git hash-object --stdin
 }
 

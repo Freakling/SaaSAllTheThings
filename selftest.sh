@@ -4183,6 +4183,22 @@ fp_changed="$(bash tools/check.sh --fingerprint)"
 if [ -n "$fp_changed" ] && [ "$fp_changed" != "$fp_staged" ]; then ok "changing a staged file changes the fingerprint"; else bad "changing a staged file changes the fingerprint" "staged: $fp_staged changed: $fp_changed"; fi
 git rm -q -f --cached zz-staged.txt
 rm -f zz-staged.txt
+# A counted file whose name git quotes is still counted: git prints such a name quoted unless it is read with -z, and a
+# quoted name fails the file test, so a change to the file would reuse the last pass. Each case adds the file, passes,
+# changes the file and expects --if-changed to run, then removes the file again.
+odd_name() { # odd_name <what> <file name>
+  local out
+  printf 'one\n' > "$2"
+  out="$(bash tools/check.sh 2>&1)"; expect_status "$1: passes with the file" 0 $? "$out"
+  printf 'two\n' > "$2"
+  out="$(bash tools/check.sh --if-changed 2>&1)"; expect_no_output "$1: a change to it runs the check" "nothing changed since the last passing run" "$out"
+  rm -f "$2"
+}
+odd_name "a counted file whose name holds a DEL character" "$(printf 'a\177b.txt')"
+odd_name "a counted file whose name holds a double quote" 'a"b.txt'
+odd_name "a counted file whose name starts with a double quote" '"c.txt'
+# Git Bash reads a backslash as a folder separator, so this name can't be made on Windows.
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ;; *) odd_name "a counted file whose name holds a backslash" 'd\e.txt' ;; esac
 sed 's/^stack = none$/stack = cobol/' tools/check.cfg > "$work/cfg2" && cp "$work/cfg2" tools/check.cfg
 out="$(bash tools/check.sh 2>&1)"; expect_status "fails on a stack without a profile" 1 $? "$out"
 sed 's/^stack = cobol$/stack = ..\/..\/x/' tools/check.cfg > "$work/cfg2" && cp "$work/cfg2" tools/check.cfg
