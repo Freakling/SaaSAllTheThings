@@ -29,7 +29,7 @@ AI writes backend code fast. Without structure, that speed goes wrong in familia
 
 - **The architecture erodes.** One handler reads the tenant from a header, another calls the database from a client, a third stores a connection string. With SaaSAllTheThings the reference architecture is framework-owned and machine-checked. The only way to deviate is an ADR that you accept, and the check accepts an exception only when an accepted ADR names it.
 - **The product drifts.** The AI quietly decides a business rule you never agreed to. Product calls come to you as 2-4 options with a recommendation. Only your choice is written down, and anything undecided goes on an open-questions list instead of being guessed.
-- **"Done" means "it compiled".** One check defines "works": the architecture rules hold, the build passes and the tests pass. It runs before every commit that touches code and before every push, and in Claude Code also before the AI ends its turn.
+- **"Done" means "it compiled".** One check defines "works": the architecture rules hold, the build passes and the tests pass. It runs before every commit that touches code and before every push that changes more than documentation, and in Claude Code also before the AI ends its turn.
 - **Single-tenant habits stay.** Tenant-specific `if`s, a tenant id taken from the request, a cloud bill that grows with every customer. The check fails on the first two, and cost defaults (serverless, consumption) cover the third.
 - **Context gets lost between sessions.** A few plain files hold everything: the product document, a decision log, ADRs, integration contracts, the task queue and an architecture table. Each fact has one home, so any session picks up where the last one stopped.
 
@@ -194,7 +194,7 @@ your-app/
 ├── tools/prototype.sh          a prototype's git steps: its worktree, branch and notes; list, harvest, remove
 ├── tools/ui_capture.sh, tools/ui/  screen capture, element map, layout lint, drawing reader, compare and verify (Node and Playwright)
 ├── .githooks/pre-commit        scans for secrets on every commit (a scan that can't run blocks it), and runs the check before commits that touch what it counts: the fast tier, or the full tier when it's due (not in a prototype)
-├── .githooks/pre-push          runs the check's full tier before a push (not in a prototype), and refuses to push a prototype's proto/ branch, or its commits under another name
+├── .githooks/pre-push          runs the check's full tier before a push, unless it changes only documentation (not in a prototype), and refuses to push a prototype's proto/ branch, or its commits under another name
 ├── validation/README.md        how acceptance checks and feedback reports work
 │
 │  the framework's, Claude Code adapter: updated on upgrade

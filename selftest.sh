@@ -5507,17 +5507,19 @@ git init -q --bare "$work/app-origin.git"; git remote add origin "$work/app-orig
 out="$(git push -q origin HEAD:refs/heads/main 2>&1)"; expect_status "pre-push lets a passing push through" 0 $? "$out"
 expect_output "after the full tier" "pre-push: running the project check, full tier: a push gets the full check" "$out"
 expect_output "reusing a full pass of the same files" "nothing changed since the last passing run: the full tier" "$out"
-printf '\n// not committed\n' >> $domain
+printf '\n// not pushed yet\n' >> $domain
 bash tools/check.sh --fast >/dev/null 2>&1
+git_q commit -q --no-verify -am "a source change to push"   # a push checks what its commits change: this one changes a source file
 out="$(git push -q origin HEAD:refs/heads/other 2>&1)"; expect_status "pre-push passes again" 0 $? "$out"
 expect_output "but never on a fast pass: the full tier runs" "check: running the full tier" "$out"
 printf 'public static class Bad { public static Guid G => Guid.NewGuid(); }\n' >> $domain
+git_q commit -q --no-verify -am "a source change that fails the check"
 out="$(git push -q origin HEAD:refs/heads/third 2>&1)"; expect_status "pre-push blocks a push while the full check fails" 1 $? "$out"
 expect_output "and says nothing was pushed" "pre-push: the full check fails, so nothing was pushed" "$out"
 [ -z "$(git --git-dir="$work/app-origin.git" for-each-ref refs/heads/third)" ] && ok "and the ref doesn't reach the remote" || bad "a blocked push reached the remote"
 out="$(git push -q origin :refs/heads/other 2>&1)"; expect_status "a push that only deletes goes through" 0 $? "$out"
 expect_no_output "without the check" "running the project check" "$out"
-git checkout -q -- $domain
+git reset -q --hard HEAD~1   # the commit that fails the check goes; the one before it is still unpushed
 put tools/check.local.sh 'exit 3'
 out="$(git push -q origin HEAD:refs/heads/fourth 2>&1)"; expect_status "pre-push blocks a push while the check can't run" 1 $? "$out"
 expect_output "and says nothing was pushed" "pre-push: the check couldn't run \(the reason is above\), so nothing was pushed" "$out"
@@ -5563,6 +5565,85 @@ out="$(_pp_in)"; expect_status "pre-push in a prototype lets the push through" 0
 rm -f "$_hk/tools/prototype.sh"; mv "$_hk/tools/check.sh" "$_hk/check.sh.away"
 out="$(_pp_in)"; expect_status "pre-push without tools/check.sh lets the push through" 0 $? "$out"
 [ -z "$(_hk_ran)" ] && [[ $out != *"running the project check"* ]] && ok "and runs no check" || bad "pre-push ran a check without tools/check.sh" "$out"
+
+# A push that changes only paths the check doesn't count runs no check, so a clone without the toolchain can push
+# documentation; a push whose changes the hook can't read runs it. Real pushes to a bare remote, with a check that fails
+# (check-fails) or can't run (check-cant) and the real --unignored, which reads [tests] full-when from tools/check.cfg.
+echo "pre-push: documentation only"
+_pq="$work/push-docs"; _pqo="$work/push-docs-origin.git"; new_repo "$_pq"; mkdir -p "$_pq/tools"
+cp "$src/framework/tools/check.sh" "$_pq/tools/real-check.sh"; cp "$src/framework/tools/cfg.sh" "$src/framework/tools/archcheck.awk" "$_pq/tools/"
+put "$_pq/tools/check.cfg" $'[project]\nstack = none\n[tests]\nfull-when = handbook/'
+put "$_pq/tools/check.sh" 'case "${1:-}" in
+  --unignored) [ -f unignored-fails ] && exit 3; exec bash tools/real-check.sh --unignored ;;
+esac
+echo "$*" > ran
+[ -f check-fails ] && exit 1
+[ -f check-cant ] && exit 3
+exit 0'
+put "$_pq/.git/hooks/pre-push" '#!/bin/sh'$'\n''exec bash "'"$src"'/framework/.githooks/pre-push" "$@"'; chmod +x "$_pq/.git/hooks/pre-push"
+git init -q --bare "$_pqo"; git -C "$_pq" remote add origin "$_pqo"; git -C "$_pq" branch -M main
+_pq_commit() { # _pq_commit <message> <path>...: a commit of each path, without the hooks
+  (cd "$_pq" && m="$1"; shift; for f in "$@"; do mkdir -p "$(dirname "$f")"; printf '%s\n' "$f $RANDOM" >> "$f"; git add "$f"; done; git_q commit -q --no-verify -m "$m")
+}
+_pq_push() { out="$(cd "$_pq" && git push -q origin "$@" 2>&1)"; status=$?; }   # the output and exit status of a push
+_pq_ran() { cat "$_pq/ran" 2>/dev/null; }
+_pq_runs() { # _pq_runs <what>: the last push ran the full tier and was blocked by the failing check
+  { [ "$status" -ne 0 ] && [ "$(_pq_ran)" = "--full --if-changed" ] && [[ $out == *"pre-push: the full check fails"* ]]; } \
+    && ok "pre-push runs the full tier for $1" || bad "pre-push runs the full tier for $1 (exit $status, ran: $(_pq_ran))" "$out"
+  rm -f "$_pq/ran"
+}
+_pq_quiet() { # _pq_quiet <what>: the last push went through with no check, and said why
+  { [ "$status" -eq 0 ] && [ -z "$(_pq_ran)" ] && [[ $out == *"pre-push: no check runs: the commits it sends change only paths the check doesn't count"* ]]; } \
+    && ok "pre-push runs no check for $1, and says why" || bad "pre-push runs no check for $1 (exit $status, ran: $(_pq_ran))" "$out"
+  rm -f "$_pq/ran"
+}
+: > "$_pq/check-fails"
+_pq_push main; _pq_runs "a first push, with no remote-tracking ref to compare with"
+rm -f "$_pq/check-fails" "$_pq/ran"
+_pq_push main; expect_status "a first push passes once the check does" 0 "$status" "$out"
+: > "$_pq/check-fails"; rm -f "$_pq/ran"
+_pq_commit "docs" docs/a.md
+_pq_push main; _pq_quiet "a push of one Markdown file, while the check fails"
+_pq_commit "a source file" src/A.cs
+_pq_push main; _pq_runs "a push that changes a source file"
+rm -f "$_pq/check-fails" "$_pq/ran"; _pq_push main; expect_status "and the source file goes through once the check passes" 0 "$status" "$out"
+: > "$_pq/check-fails"; rm -f "$_pq/ran"
+: > "$_pq/check-cant"; rm -f "$_pq/check-fails"
+_pq_commit "docs" docs/b.md
+_pq_push main; _pq_quiet "Markdown while the check can't run either"
+rm -f "$_pq/check-cant"; : > "$_pq/check-fails"
+git -C "$_pq" checkout -q -b notes
+_pq_commit "docs on a new branch" docs/n.md
+_pq_push notes; _pq_quiet "a new branch that carries only documentation"
+git -C "$_pq" checkout -q main
+_pq_commit "a handbook the check reads" handbook/r.md
+_pq_push main; _pq_runs "Markdown under [tests] full-when"
+git -C "$_pq" reset -q --hard HEAD~1
+_pq_commit "a decision record" adr/ADR-1-x.md
+_pq_push main; _pq_runs "Markdown in adr/"
+git -C "$_pq" reset -q --hard HEAD~1
+(cd "$_pq" && git mv src/A.cs docs/renamed.md && git_q commit -q --no-verify -m "a source file becomes a note")
+_pq_push main; _pq_runs "a rename from a source file to Markdown, counted by the old name"
+git -C "$_pq" reset -q --hard HEAD~1
+git -C "$_pq" checkout -q -b side main
+_pq_commit "a source file on another branch" src/C.cs
+git -C "$_pq" checkout -q main
+_pq_commit "docs on main" docs/c.md
+_pq_push main side; _pq_runs "two refs when one carries a source change"
+[ -z "$(git --git-dir="$_pqo" for-each-ref refs/heads/side)" ] && ok "and neither ref reaches the remote" || bad "a blocked push reached the remote"
+rm -f "$_pq/ran"; _pq_push main; _pq_quiet "the ref that carries only Markdown, pushed alone"
+# The remote's commit isn't in this clone: someone else pushed, so the hook can't tell what differs.
+_pq2="$work/push-docs-other"; git clone -q "$_pqo" "$_pq2" 2>/dev/null
+(cd "$_pq2" && printf 'x\n' > elsewhere.txt && git add elsewhere.txt && git_q commit -q -m "elsewhere" && git push -q origin HEAD:main) >/dev/null 2>&1
+_pq_commit "docs here" docs/d.md
+_pq_push main; _pq_runs "a push whose remote commit this clone doesn't have"
+git -C "$_pq" fetch -q origin; git -C "$_pq" reset -q --hard origin/main; rm -f "$_pq/ran"
+_pq_commit "docs after the fetch" docs/e.md
+_pq_push main; _pq_quiet "Markdown once the remote's commit is here"
+: > "$_pq/unignored-fails"
+_pq_commit "docs while the check can't say what counts" docs/f.md
+_pq_push main; _pq_runs "Markdown when check.sh can't answer --unignored"
+rm -f "$_pq/unignored-fails" "$_pq/check-fails" "$_pq/ran"
 
 # A nested clone in an ignored folder is listed by ls-files as a directory. It doesn't block a
 # commit, but a real upgrade file still does while the clone is there.
@@ -6690,8 +6771,8 @@ _push_refused "a prototype's commit by its hash" "$_pa" "$(git -C "$_pa" rev-par
 _push_refused "proto/quick-add~0 under another name" "$_pa" "proto/quick-add~0:refs/heads/z" "carries a prototype's commits"
 git -C "$_pa" branch from-proto proto/quick-add >/dev/null 2>&1
 _push_refused "a branch made from a prototype's commit" "$_pa" from-proto "carries a prototype's commits"
-(cd "$_pa" && printf '# app\n\nA note.\n' > README.md && git add README.md && git commit -qm "docs: a note") >/dev/null 2>&1
-# Outside a prototype a push gets the full check: this app's fails, so main waits until it passes.
+(cd "$_pa" && printf 'A note.\n' > NOTES.txt && git add NOTES.txt && git commit -q --no-verify -m "a note") >/dev/null 2>&1
+# Outside a prototype a push that changes what the check counts gets the full check: this app's fails, so main waits until it passes.
 out="$(cd "$_pa" && git push -q origin main 2>&1)"; status=$?
 { [ "$status" -ne 0 ] && printf '%s' "$out" | grep -q "pre-push: the full check fails, so nothing was pushed"; } \
   && ok "pre-push runs the full check on main, and blocks the push while it fails" || bad "pre-push blocks main while the full check fails (exit $status)" "$out"

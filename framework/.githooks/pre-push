@@ -10,8 +10,11 @@
 #
 # Then a push gets the full tier of the project check (bash tools/check.sh --full --if-changed, so a full pass of
 # these files is reused, and a fast one never is), unless every ref it sends is a deletion, the checkout is a
-# prototype or there's no tools/check.sh. A failure, or a check that can't run, blocks the push. The check reads the
-# working tree, and its stdin is /dev/null: git's ref list is this hook's, read below.
+# prototype, there's no tools/check.sh, or the commits it sends change only paths the check doesn't count (`bash
+# tools/check.sh --unignored` says which: anything but Markdown, Markdown in adr/ and Markdown under [tests]
+# full-when count), so a clone without the toolchain can push documentation. When the hook can't tell what a push
+# changes, it runs the check. A failure, or a check that can't run, blocks the push. The check reads the working
+# tree, and its stdin is /dev/null: git's ref list is this hook's, read below.
 
 # The prototypes' own commits, once per push: reachable from a proto/ branch and not from main.
 proto_only=""
@@ -19,12 +22,15 @@ if git show-ref --verify --quiet refs/heads/main; then
   proto_only="$(git rev-list --branches='proto/*' --not refs/heads/main 2>/dev/null)"
 fi
 
+remote="${1:-}"   # git gives the remote's name, or its URL when the push names one
 refused=""
 sends=0   # 1 when a ref sends commits, not only a deletion
-while read -r local_ref local_sha remote_ref _remote_sha; do
+sending=""   # one line per ref that sends commits: <local sha> <remote sha>
+while read -r local_ref local_sha remote_ref remote_sha; do
   [ -n "${local_ref:-}" ] || continue
   [ -z "${local_sha#"${local_sha%%[!0]*}"}" ] && continue   # a deletion: the local hash is all zeros
   sends=1
+  sending="$sending$local_sha ${remote_sha:-0}"$'\n'
   case "$local_ref $remote_ref" in
     refs/heads/proto/*|*" refs/heads/proto/"*) refused="$refused$local_ref -> $remote_ref (a proto/ branch)"$'\n'; continue ;;
   esac
@@ -49,6 +55,36 @@ fi
 [ -f tools/check.sh ] || exit 0
 # A prototype is tried outside the loop: the check gates nothing there. tools/prototype.sh says what one is.
 [ -f tools/prototype.sh ] && bash tools/prototype.sh here >/dev/null 2>&1 && exit 0
+
+# The paths the push changes, per ref that sends commits, into $changed. For a remote ref this clone has the commit of: the
+# paths that differ between that commit and the local one. For a new remote ref: the paths of the commits that no
+# remote-tracking ref of this remote has yet. Renamed paths count by both names. Returns 1 when it can't tell (the
+# remote's commit isn't here, no remote-tracking ref to compare with, a git command fails): then the check runs.
+changed=""
+push_paths() {
+  local l_sha r_sha out
+  while read -r l_sha r_sha; do
+    [ -n "$l_sha" ] || continue
+    if [ -z "${r_sha#"${r_sha%%[!0]*}"}" ]; then
+      [ -n "$remote" ] && [ -n "$(git for-each-ref --count=1 "refs/remotes/$remote/" 2>/dev/null)" ] || return 1
+      out="$(set -o pipefail; git -c core.quotePath=false log -m --format= --name-only --no-renames -z "$l_sha" \
+        --not --remotes="$remote" 2>/dev/null | tr '\0' '\n')" || return 1
+    else
+      out="$(set -o pipefail; git -c core.quotePath=false diff --name-only --no-renames -z "$r_sha" "$l_sha" \
+        2>/dev/null | tr '\0' '\n')" || return 1
+    fi
+    changed="$changed$out"$'\n'
+  done <<EOF
+$sending
+EOF
+}
+if push_paths; then
+  counted="$(printf '%s\n' "$changed" | bash tools/check.sh --unignored 2>/dev/null)" || counted="$changed"
+  if [[ $counted != *[![:space:]]* ]]; then
+    echo "pre-push: no check runs: the commits it sends change only paths the check doesn't count (such as Markdown)"
+    exit 0
+  fi
+fi
 
 echo "pre-push: running the project check, full tier: a push gets the full check"
 bash tools/check.sh --full --if-changed </dev/null

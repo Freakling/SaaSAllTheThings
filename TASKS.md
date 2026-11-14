@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T60 · B4 · R1
+**Next IDs:** T61 · B4 · R1
 
 ## Queue
+
+### T60 · A push that changes only documentation runs no check · done · M · agent
+- Touches: framework/.githooks/pre-push, framework/tools/setup-clone.sh, framework/.satt/rules.md, skills/saas-design-session/references/rules.md, README.md, ONBOARDING.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: the pre-push hook runs no check for a push whose commits change only paths the check doesn't count (Markdown outside `adr/` and outside `[tests] full-when`, asked of `bash tools/check.sh --unignored`), so a clone without the backend's toolchain can push documentation; every other push, and every push whose changes the hook can't read, runs the full tier as before (test) · `rules.md` › Running the check and the comment in `tools/setup-clone.sh` say so (check) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T346
 
 ### T59 · A file whose name git quotes is counted in the check's fingerprint · done · S · agent
 - Touches: framework/tools/check.sh, selftest.sh, CHANGELOG.md, TASKS.md
