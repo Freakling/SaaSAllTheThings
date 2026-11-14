@@ -4315,7 +4315,7 @@ put tools/check.cfg '[project]
 stack = none'
 put notes.txt 'first'
 bg_out="$work/lock-bg.out"
-lock_hold() { mkdir -p .satt/state; sleep 300 & lock_pid=$!; mkdir .satt/state/lock && echo "$lock_pid" > .satt/state/lock/pid; }
+lock_hold() { mkdir -p .satt/state; sleep 300 & lock_pid=$!; mkdir .satt/state/lock && echo "$lock_pid" > .satt/state/lock/pid && echo "started=09:15:00 tier=full" > .satt/state/lock/info; }
 lock_free() { rm -rf .satt/state/lock; kill "$lock_pid" 2>/dev/null; wait "$lock_pid" 2>/dev/null; }
 wait_for_text() { # wait_for_text <file> <text>: up to 20 seconds, for the text to appear in the file
   local i=0; until grep -q "$2" "$1" 2>/dev/null || [ "$i" -ge 20 ]; do sleep 1; i=$((i + 1)); done
@@ -4354,6 +4354,55 @@ expect_status "a run that waited for the lock passes on the files as they are" 0
 expect_no_output "and a change during the wait isn't taken for a change during the run" "files changed while the check ran" "$out"
 if grep -q 'tier=full' .satt/state/last-pass 2>/dev/null; then ok "and records its pass"; else bad "and records its pass" "$(ls -la .satt/state 2>&1)"; fi
 out="$(bash tools/check.sh --if-changed 2>&1)"; expect_output "a following --if-changed reuses that pass" "nothing changed since the last passing run" "$out"
+# CHECK_WAIT caps the wait for the lock: past it the run says who it waited for, exits 3 and starts no second check.
+rm -f .satt/state/last-pass* .satt/state/last-fail*
+lock_hold
+t0=$SECONDS; out="$(CHECK_WAIT=3 bash tools/check.sh 2>&1)"; status=$?; took=$((SECONDS - t0))
+expect_status "CHECK_WAIT=3 ends the wait with exit 3" 3 "$status" "$out"
+expect_output "and the busy line names the run it waited for" "check: busy: the check started 09:15:00 \(full tier, pid $lock_pid\) is still running after [0-9]+ s; no second check started" "$out"
+if [ "$took" -ge 3 ] && [ "$took" -le 30 ]; then ok "in about that many seconds"; else bad "CHECK_WAIT=3 ends the wait in about 3 seconds" "took $took s"; fi
+expect_no_output "and no check runs" "running the" "$out"
+if [ ! -e .satt/state/last-pass ] && [ ! -e .satt/state/last-fail ]; then ok "and records no result"; else bad "a busy run records no result" "$(ls .satt/state)"; fi
+if [ "$(cat .satt/state/lock/pid 2>/dev/null)" = "$lock_pid" ] && kill -0 "$lock_pid" 2>/dev/null; then ok "and leaves the holder's lock alone"; else bad "a busy run leaves the holder's lock alone" "$(ls -la .satt/state/lock 2>&1)"; fi
+out="$(CHECK_WAIT=0 bash tools/check.sh 2>&1)"; expect_status "CHECK_WAIT=0 doesn't wait" 3 $? "$out"
+expect_output "and says busy" "check: busy: " "$out"
+# fast and full take the tier's limit from tools/check.cfg, and CHECK_TIMEOUT overrides both, as for a test command.
+put tools/check.cfg '[project]
+stack = none
+[tests]
+timeout-fast = 2
+timeout-full = 12'
+t0=$SECONDS; out="$(CHECK_WAIT=fast bash tools/check.sh 2>&1)"; status=$?; took=$((SECONDS - t0))
+expect_status "CHECK_WAIT=fast ends the wait with exit 3" 3 "$status" "$out"
+if [ "$took" -ge 2 ] && [ "$took" -lt 12 ]; then ok "after the fast tier's limit (timeout-fast)"; else bad "CHECK_WAIT=fast waits for timeout-fast (2 s)" "took $took s"; fi
+t0=$SECONDS; out="$(CHECK_WAIT=full bash tools/check.sh 2>&1)"; status=$?; took=$((SECONDS - t0))
+expect_status "CHECK_WAIT=full ends the wait with exit 3" 3 "$status" "$out"
+if [ "$took" -ge 12 ] && [ "$took" -lt 40 ]; then ok "after the full tier's limit (timeout-full)"; else bad "CHECK_WAIT=full waits for timeout-full (12 s)" "took $took s"; fi
+t0=$SECONDS; out="$(CHECK_TIMEOUT=2 CHECK_WAIT=full bash tools/check.sh 2>&1)"; status=$?; took=$((SECONDS - t0))
+if [ "$status" -eq 3 ] && [ "$took" -ge 2 ] && [ "$took" -lt 12 ]; then ok "and CHECK_TIMEOUT sets both"; else bad "CHECK_TIMEOUT sets the limit CHECK_WAIT=full takes" "status $status, took $took s: $out"; fi
+put tools/check.cfg '[project]
+stack = none'
+# Anything else is noted, and the wait has no cap: the run takes the lock when it is freed.
+rm -f .satt/state/last-pass* .satt/state/last-fail*
+CHECK_WAIT=soon bash tools/check.sh > "$bg_out" 2>&1 & bg_pid=$!
+if wait_for_text "$bg_out" "waiting for another check"; then ok "CHECK_WAIT=soon waits"; else bad "CHECK_WAIT=soon waits" "$(cat "$bg_out")"; fi
+sleep 4
+expect_output "and says the value is neither seconds nor a tier" "CHECK_WAIT=soon is neither a number of seconds nor fast or full, so the wait has no cap" "$(cat "$bg_out")"
+expect_no_output "and ends no wait" "check: busy" "$(cat "$bg_out")"
+lock_free
+bg_wait
+out="$(cat "$bg_out")"
+expect_status "and takes the lock once it is freed, and passes" 0 "$bg_status" "$out"
+# A lock freed within the cap is taken, and the check runs.
+lock_hold
+CHECK_WAIT=60 bash tools/check.sh > "$bg_out" 2>&1 & bg_pid=$!
+wait_for_text "$bg_out" "waiting for another check" >/dev/null
+lock_free
+bg_wait
+out="$(cat "$bg_out")"
+expect_status "a lock freed within CHECK_WAIT is taken, and the check passes" 0 "$bg_status" "$out"
+expect_output "and the check runs" "check: running the full tier" "$out"
+expect_no_output "with no busy line" "check: busy" "$out"
 cd "$app" || exit 1
 
 # The tiers. --fast runs the architecture rules and the secrets scan over the whole project, then only the steps
@@ -4938,6 +4987,19 @@ out="$(hook)"; expect_status "blocks again once the builder is done" 2 $? "$out"
 cp "$work/passing" $domain
 out="$(hook)"; expect_status "lets the fixed state through" 0 $? "$out"
 git checkout -q -- $domain
+# Another check still running past the fast tier's limit: the hook asks with CHECK_WAIT=fast and ends the turn on the
+# busy line, with a note, and records nothing as reported.
+printf '\n// a harmless change\n' >> $domain
+rm -f .satt/state/last-reported .satt/state/last-pass* .satt/state/last-fail*
+lock_hold
+out="$(CHECK_TIMEOUT=2 hook)"; status=$?
+expect_status "ends the turn when another check outlasts the fast tier's limit" 0 "$status" "$out"
+expect_output "and says the check didn't run, naming the run" "end-of-turn check didn't run: check: busy: the check started 09:15:00 \(full tier, pid $lock_pid\)" "$out"
+if [ ! -e .satt/state/last-reported ] && [ ! -e .satt/state/last-pass ] && kill -0 "$lock_pid" 2>/dev/null; then ok "and records nothing, leaving the other check's lock"; else bad "a busy end of turn records nothing" "$(ls -a .satt/state)"; fi
+lock_free
+printf 'public static class Bad { public static DateTime T => DateTime.UtcNow; }\n' >> $domain
+out="$(hook)"; expect_status "a failing check still blocks the turn once the lock is free" 2 $? "$out"
+git checkout -q -- $domain; rm -f .satt/state/last-reported
 # Which changed paths count is the check's rule (--unignored), not the hook's: a Markdown path that runs the full tier
 # ([tests] full-when) counts, so the hook runs the check for it, which runs as the full tier and fails on the violation.
 printf '[tests]\nfull-when = handbook/\n' >> tools/check.cfg; tier_commit "stop hook: full-when handbook/"

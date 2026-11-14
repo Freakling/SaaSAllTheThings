@@ -4,9 +4,16 @@ This is SaaSAllTheThings' own work queue, for developing the framework itself. I
 
 Item format: `framework/.satt/tasks.md`. Queue order is priority; reorder by moving items.
 
-**Next IDs:** T61 · B4 · R1
+**Next IDs:** T62 · B4 · R1
 
 ## Queue
+
+### T61 · The Stop hook stops waiting for a running check at the fast tier's limit · done · M · agent
+- Touches: framework/tools/check.sh, framework/.claude/hooks/stop-check.sh, framework/.satt/rules.md, skills/saas-design-session/references/rules.md, selftest.sh, CHANGELOG.md, TASKS.md
+- Done when: a check that waits for another one stops waiting after the seconds in `CHECK_WAIT` (or the limit of the tier it names), prints a `check: busy:` line naming the run it waited for, and exits 3 without starting a second check (test) · the Stop hook asks with `CHECK_WAIT=fast` and lets the turn end on that line (test) · the selftest passes (check)
+- PRD: none
+- Stories: none
+- Source: Director-Driven-Development T347
 
 ### T60 · A push that changes only documentation runs no check · done · M · agent
 - Touches: framework/.githooks/pre-push, framework/tools/setup-clone.sh, framework/.satt/rules.md, skills/saas-design-session/references/rules.md, README.md, ONBOARDING.md, selftest.sh, CHANGELOG.md, TASKS.md

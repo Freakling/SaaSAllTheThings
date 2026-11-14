@@ -40,6 +40,8 @@
 # Each tier has its own limit for each test command: [tests] timeout-fast (default 300 seconds) and timeout-full (default
 # 600; the older [tests] timeout counts when it isn't set); CHECK_TIMEOUT overrides both. They need GNU timeout; a run
 # that hits the limit exits 3, unless a failure was already seen.
+# One check runs at a time: a run that finds the lock held waits for it, up to 30 minutes. CHECK_WAIT=<seconds> (or fast
+# or full, for that tier's limit) caps the wait: past it the run prints "check: busy: <the run it waited for>" and exits 3.
 # Steps 2 to 4 run one after the other, or side by side with tools/check.cfg › [tests] parallel = on (each
 # with its own limit and log, printed in the same order). Every run ends with each step's seconds and the total.
 #
@@ -367,9 +369,31 @@ reuse_last
 # --- one run at a time (hooks and sessions share .satt/state) --------------------------------
 lock="$state/lock"
 waited=0
+# CHECK_WAIT caps the wait: a number of seconds, or fast or full for that tier's limit (tools/check.cfg, CHECK_TIMEOUT).
+# Past the cap the run says who it waited for and exits 3 without starting a second check. Without it, 30 minutes.
+wait_cap=""
+case "${CHECK_WAIT:-}" in
+  "") ;;
+  fast) wait_cap="$cfg_timeout_fast" ;;
+  full) wait_cap="$cfg_timeout_full" ;;
+  *[!0-9]*) echo "check: note: CHECK_WAIT=$CHECK_WAIT is neither a number of seconds nor fast or full, so the wait has no cap" ;;
+  *) wait_cap="$CHECK_WAIT" ;;
+esac
 until mkdir "$lock" 2>/dev/null; do
   read_file "$lock/pid"
   if [ -n "$REPLY" ] && ! kill -0 "$REPLY" 2>/dev/null; then rm -rf "$lock"; continue; fi
+  if [ -n "$wait_cap" ] && [ "$waited" -ge "$wait_cap" ]; then
+    held_pid="$REPLY"; read_file "$lock/info"; held_info="$REPLY"
+    held_at=""; held_tier=""
+    for w in $held_info; do
+      case "$w" in started=*) held_at="${w#started=}" ;; tier=*) held_tier="${w#tier=}" ;; esac
+    done
+    held="another check"
+    [ -z "$held_at" ] || held="the check started $held_at${held_tier:+ ($held_tier tier${held_pid:+, pid $held_pid})}"
+    [ -n "$held_at" ] || [ -z "$held_pid" ] || held="the check with pid $held_pid"
+    echo "check: busy: $held is still running after $waited s; no second check started"
+    exit 3
+  fi
   if [ "$waited" -ge 1800 ]; then
     echo "check: another check has run for 30 minutes. If none is running, delete $lock."
     exit 3
@@ -378,6 +402,9 @@ until mkdir "$lock" 2>/dev/null; do
   sleep 2; waited=$((waited + 2))
 done
 echo $$ > "$lock/pid"
+# What a run that waits for this one can name: when it started and its tier (rewritten once the tier is settled).
+lock_note() { echo "started=${lock_at:=$(date +%H:%M:%S)} tier=$1" > "$lock/info"; }
+lock_at=""; lock_note "$requested"
 # Side-by-side steps are background jobs: an interrupted run stops them and what they started, then
 # frees the lock.
 job_pids=()
@@ -434,6 +461,7 @@ if [ "$mode" != "--architecture" ]; then
     fi
   fi
   echo "check: running the $tier tier"
+  [ "$tier" = "$requested" ] || lock_note "$tier"
 fi
 if [ "$tier" = fast ]; then
   cfg_timeout="$cfg_timeout_fast"; limit_name="tools/check.cfg › [tests] timeout-fast"
